@@ -5,13 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 
-import { Colors, FontFamily, Spacing } from '@/constants/theme';
+import { FontFamily, Spacing } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { KeyboardAwareScroll } from '@/components/auth/keyboard-aware-scroll';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function ForgotPasswordScreen() {
+  const Colors = useThemeColors();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,14 +35,14 @@ export default function ForgotPasswordScreen() {
         <Animated.View entering={FadeIn.duration(500)} style={styles.successContainer}>
           <LinearGradient
             colors={[Colors.success, '#3a9140']}
-            style={styles.checkCircle}
+            style={[styles.checkCircle, { shadowColor: Colors.success }]}
           >
             <Ionicons name="checkmark" size={40} color="#FFFFFF" />
           </LinearGradient>
-          <Text style={styles.successTitle}>Check your inbox</Text>
-          <Text style={styles.successBody}>
+          <Text style={[styles.successTitle, { color: Colors.onSurface }]}>Check your inbox</Text>
+          <Text style={[styles.successBody, { color: Colors.onSurfaceVariant }]}>
             {"We've sent a reset link to"}{'\n'}
-            <Text style={styles.emailHighlight}>{email}</Text>
+            <Text style={[styles.emailHighlight, { color: Colors.onSurface }]}>{email}</Text>
             {'\n'}Expires in 30 minutes.
           </Text>
           <View style={styles.backLink}>
@@ -64,7 +66,7 @@ export default function ForgotPasswordScreen() {
 
       {/* Illustration area */}
       <Animated.View entering={FadeInDown.duration(400).delay(100)} style={styles.illustrationArea}>
-        <View style={styles.illustrationCircle}>
+        <View style={[styles.illustrationCircle, { backgroundColor: Colors.primaryLight }]}>
           <Ionicons name="key-outline" size={40} color={Colors.primary} />
         </View>
       </Animated.View>
@@ -91,7 +93,7 @@ export default function ForgotPasswordScreen() {
           disabled={!email}
         />
         <View style={styles.backTextRow}>
-          <Text style={styles.backText}>Remember your password? </Text>
+          <Text style={[styles.backText, { color: Colors.onSurfaceVariant }]}>Remember your password? </Text>
           <Button
             label="Sign in"
             variant="textLink"
@@ -112,7 +114,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -134,7 +135,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.onSurfaceVariant,
   },
   // Success state
   successContainer: {
@@ -148,7 +148,6 @@ const styles = StyleSheet.create({
     borderRadius: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.success,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
@@ -158,7 +157,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 28.8,
-    color: Colors.onSurface,
     textAlign: 'center',
     marginTop: Spacing[6],
   },
@@ -166,13 +164,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.onSurfaceVariant,
     textAlign: 'center',
     marginTop: Spacing[3],
   },
   emailHighlight: {
     fontFamily: FontFamily.bodySemiBold,
-    color: Colors.onSurface,
   },
   backLink: {
     marginTop: Spacing[8],

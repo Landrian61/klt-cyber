@@ -7,7 +7,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { Colors, FontFamily, Radius, Duration, GoldGradient } from '@/constants/theme';
+import { FontFamily, Radius, Duration, GoldGradient } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export interface SegmentedControlProps {
   options: string[];
@@ -16,6 +17,7 @@ export interface SegmentedControlProps {
 }
 
 export function SegmentedControl({ options, selectedIndex, onChange }: SegmentedControlProps) {
+  const Colors = useThemeColors();
   const segmentWidth = useSharedValue(0);
   const translateX = useSharedValue(0);
 
@@ -37,7 +39,7 @@ export function SegmentedControl({ options, selectedIndex, onChange }: Segmented
   }));
 
   return (
-    <View style={styles.container} onLayout={handleLayout}>
+    <View style={[styles.container, { backgroundColor: Colors.surfaceLow }]} onLayout={handleLayout}>
       <Animated.View style={[styles.indicatorWrapper, animatedIndicatorStyle]}>
         <LinearGradient
           colors={[...GoldGradient.colors]}
@@ -57,7 +59,7 @@ export function SegmentedControl({ options, selectedIndex, onChange }: Segmented
           <Text
             style={[
               styles.label,
-              index === selectedIndex ? styles.labelActive : styles.labelInactive,
+              { color: index === selectedIndex ? Colors.onPrimary : Colors.onSurfaceVariant },
             ]}
           >
             {option}
@@ -71,7 +73,6 @@ export function SegmentedControl({ options, selectedIndex, onChange }: Segmented
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: Colors.surfaceLow,
     borderRadius: Radius.full,
     padding: 4,
     height: 40,
@@ -97,11 +98,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 14,
     lineHeight: 22.4,
-  },
-  labelActive: {
-    color: Colors.onPrimary,
-  },
-  labelInactive: {
-    color: Colors.onSurfaceVariant,
   },
 });

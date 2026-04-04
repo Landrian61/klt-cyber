@@ -3,8 +3,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
-  Colors, FontFamily, Spacing, Radius, AmbientShadow,
+  FontFamily, Spacing, Radius, AmbientShadow,
 } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -38,15 +39,16 @@ const WEEKLY_ACTIVITIES = [
 ];
 
 export default function HomeScreen() {
+  const Colors = useThemeColors();
   const router = useRouter();
 
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
       {/* Section 1: Greeting */}
       <View style={styles.greeting}>
-        <Text style={styles.salutation}>{getGreeting()}</Text>
-        <Text style={styles.name}>Welcome</Text>
-        <Text style={styles.date}>{getFormattedDate()}</Text>
+        <Text style={[styles.salutation, { color: Colors.onSurfaceVariant }]}>{getGreeting()}</Text>
+        <Text style={[styles.name, { color: Colors.onSurface }]}>Welcome</Text>
+        <Text style={[styles.date, { color: Colors.outline }]}>{getFormattedDate()}</Text>
       </View>
 
       {/* Section 2: Monthly Theme Card */}
@@ -62,7 +64,7 @@ export default function HomeScreen() {
 
       {/* Section 3: Weekly Activities */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>This week</Text>
+        <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>This week</Text>
         <Button label="See all" variant="textLink" onPress={() => {}} />
       </View>
       <ScrollView
@@ -71,10 +73,10 @@ export default function HomeScreen() {
         contentContainerStyle={styles.activitiesRow}
       >
         {WEEKLY_ACTIVITIES.map((activity) => (
-          <View key={activity.id} style={[styles.activityCard, AmbientShadow]}>
-            <Text style={styles.activityName}>{activity.name}</Text>
-            <Text style={styles.activityTime}>{activity.dayTime}</Text>
-            <View style={styles.activitySeparator} />
+          <View key={activity.id} style={[styles.activityCard, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}>
+            <Text style={[styles.activityName, { color: Colors.onSurface }]}>{activity.name}</Text>
+            <Text style={[styles.activityTime, { color: Colors.onSurfaceVariant }]}>{activity.dayTime}</Text>
+            <View style={[styles.activitySeparator, { backgroundColor: Colors.surfaceHigh }]} />
             <Button
               label="Check in"
               variant="primary"
@@ -87,36 +89,36 @@ export default function HomeScreen() {
 
       {/* Section 4: Scripture */}
       <View style={[styles.section, { marginTop: Spacing[6] }]}>
-        <Text style={styles.sectionLabel}>SCRIPTURE</Text>
+        <Text style={[styles.sectionLabel, { color: Colors.outline }]}>SCRIPTURE</Text>
         <Card variant="editorial" style={styles.scriptureCard}>
-          <Text style={styles.scriptureText}>
+          <Text style={[styles.scriptureText, { color: Colors.onSurface }]}>
             {'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."'}
           </Text>
-          <Text style={styles.scriptureRef}>Jeremiah 29:11 (NIV)</Text>
+          <Text style={[styles.scriptureRef, { color: Colors.onSurfaceVariant }]}>Jeremiah 29:11 (NIV)</Text>
         </Card>
       </View>
 
       {/* Section 5: Upcoming Events */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Upcoming events</Text>
+        <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Upcoming events</Text>
         <Button label="See all" variant="textLink" onPress={() => {}} />
       </View>
       <View style={styles.section}>
         <View style={styles.emptyState}>
           <Ionicons name="calendar-outline" size={40} color={Colors.outline} />
-          <Text style={styles.emptyTitle}>No upcoming events</Text>
-          <Text style={styles.emptySubtitle}>Check back soon for new events</Text>
+          <Text style={[styles.emptyTitle, { color: Colors.onSurfaceVariant }]}>No upcoming events</Text>
+          <Text style={[styles.emptySubtitle, { color: Colors.outline }]}>Check back soon for new events</Text>
         </View>
       </View>
 
       {/* Section 6: Join the Ministry */}
       <View style={styles.section}>
-        <View style={styles.ministryCard}>
+        <View style={[styles.ministryCard, { backgroundColor: Colors.surfaceLow }]}>
           <View style={styles.ministryRow}>
             <Ionicons name="people" size={24} color={Colors.primary} />
             <View style={styles.ministryText}>
-              <Text style={styles.ministryTitle}>Become a member</Text>
-              <Text style={styles.ministrySubtitle}>Connect, grow and serve with us.</Text>
+              <Text style={[styles.ministryTitle, { color: Colors.onSurface }]}>Become a member</Text>
+              <Text style={[styles.ministrySubtitle, { color: Colors.onSurfaceVariant }]}>Connect, grow and serve with us.</Text>
             </View>
           </View>
           <Button
@@ -131,12 +133,12 @@ export default function HomeScreen() {
       {/* Section 7: Giving Shortcut */}
       <View style={[styles.section, { marginTop: Spacing[1] }]}>
         <Pressable
-          style={[styles.givingCard, AmbientShadow]}
+          style={[styles.givingCard, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}
           onPress={() => router.push('/giving')}
           accessibilityLabel="Give to the ministry"
         >
           <Ionicons name="heart" size={22} color={Colors.primary} />
-          <Text style={styles.givingText}>Give to the ministry</Text>
+          <Text style={[styles.givingText, { color: Colors.onSurface }]}>Give to the ministry</Text>
           <Ionicons name="chevron-forward" size={20} color={Colors.outline} />
         </Pressable>
       </View>
@@ -159,20 +161,17 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurfaceVariant,
   },
   name: {
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 28.8,
-    color: Colors.onSurface,
     marginTop: 2,
   },
   date: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.outline,
     marginTop: Spacing[1],
   },
   section: {
@@ -190,17 +189,15 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurface,
   },
   sectionLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
     letterSpacing: 0.6,
     marginBottom: Spacing[3],
   },
-  // Theme card
+  // Theme card — hardcoded white text on gold gradient is intentional
   themeLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
@@ -232,7 +229,6 @@ const styles = StyleSheet.create({
   },
   activityCard: {
     width: 210,
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[4],
   },
@@ -240,18 +236,15 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurface,
   },
   activityTime: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurfaceVariant,
     marginTop: Spacing[1],
   },
   activitySeparator: {
     height: 1,
-    backgroundColor: Colors.surfaceHigh,
     marginVertical: Spacing[3],
   },
   // Scripture
@@ -262,13 +255,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 20,
     lineHeight: 28,
-    color: Colors.onSurface,
   },
   scriptureRef: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurfaceVariant,
     marginTop: Spacing[3],
   },
   // Empty state
@@ -280,19 +271,16 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurfaceVariant,
     marginTop: Spacing[3],
   },
   emptySubtitle: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.outline,
     marginTop: Spacing[1],
   },
   // Ministry
   ministryCard: {
-    backgroundColor: Colors.surfaceLow,
     borderRadius: Radius.lg,
     padding: Spacing[4],
   },
@@ -309,18 +297,15 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurface,
   },
   ministrySubtitle: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurfaceVariant,
     marginTop: Spacing[1],
   },
   // Giving
   givingCard: {
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[4],
     flexDirection: 'row',
@@ -330,7 +315,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyMedium,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurface,
     flex: 1,
     marginLeft: Spacing[3],
   },

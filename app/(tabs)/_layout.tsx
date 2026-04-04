@@ -3,28 +3,35 @@ import { View, StyleSheet } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { TopBar } from '@/components/navigation/top-bar';
-import { BottomNavBar } from '@/components/navigation/bottom-nav-bar';
-import { MoreSheet } from '@/components/navigation/more-sheet';
-
-type TabName = 'home' | 'radio' | 'members' | 'updates' | 'more';
+import { BottomNavigation } from '@/components/navigation/bottom-navigation';
+import type { TabName } from '@/components/navigation/bottom-nav-bar';
 
 const TAB_ROUTES: Record<Exclude<TabName, 'more'>, string> = {
   home: '/(tabs)',
   radio: '/(tabs)/radio',
-  members: '/(tabs)/members',
+  giving: '/(tabs)/giving',
   updates: '/(tabs)/updates',
+};
+
+const TAB_TITLES: Record<TabName, string> = {
+  home: 'Home',
+  radio: 'Radio',
+  giving: 'Giving',
+  updates: 'Updates',
+  more: 'More',
 };
 
 function pathnameToTab(pathname: string): TabName {
   if (pathname.includes('radio')) return 'radio';
-  if (pathname.includes('members')) return 'members';
+  if (pathname.includes('giving')) return 'giving';
   if (pathname.includes('updates')) return 'updates';
   return 'home';
 }
 
 export default function TabLayout() {
+  const Colors = useThemeColors();
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -34,7 +41,7 @@ export default function TabLayout() {
 
   const handleTabPress = useCallback((tab: TabName) => {
     if (tab === 'more') {
-      setMoreVisible(true);
+      setMoreVisible((prev) => !prev);
     } else {
       setMoreVisible(false);
       router.navigate(TAB_ROUTES[tab] as any);
@@ -42,11 +49,11 @@ export default function TabLayout() {
   }, [router]);
 
   const topBarHeight = insets.top + 56;
-  const bottomNavHeight = 64 + insets.bottom;
+  const bottomNavHeight = 56 + insets.bottom;
 
   return (
-    <View style={styles.container}>
-      <TopBar unreadCount={3} userInitials="A" />
+    <View style={[styles.container, { backgroundColor: Colors.surface }]}>
+      <TopBar title={TAB_TITLES[pathnameToTab(pathname)]} unreadCount={3} userInitials="A" />
 
       <Tabs
         screenOptions={{
@@ -61,12 +68,16 @@ export default function TabLayout() {
       >
         <Tabs.Screen name="index" options={{ title: 'Home' }} />
         <Tabs.Screen name="radio" options={{ title: 'Radio' }} />
-        <Tabs.Screen name="members" options={{ title: 'Members' }} />
+        <Tabs.Screen name="giving" options={{ title: 'Giving' }} />
         <Tabs.Screen name="updates" options={{ title: 'Updates' }} />
       </Tabs>
 
-      <BottomNavBar activeTab={activeTab} onTabPress={handleTabPress} />
-      <MoreSheet visible={moreVisible} onClose={() => setMoreVisible(false)} />
+      <BottomNavigation
+        activeTab={activeTab}
+        isMoreOpen={moreVisible}
+        onTabPress={handleTabPress}
+        onMoreClose={() => setMoreVisible(false)}
+      />
     </View>
   );
 }
@@ -74,6 +85,5 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
 });

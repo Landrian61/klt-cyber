@@ -2,7 +2,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, FontFamily, Spacing, Radius } from '@/constants/theme';
+import { FontFamily, Spacing, Radius } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 
 export interface AuthHeaderProps {
@@ -12,6 +13,7 @@ export interface AuthHeaderProps {
 }
 
 export function AuthHeader({ title, subtitle, showBack = true }: AuthHeaderProps) {
+  const Colors = useThemeColors();
   const router = useRouter();
 
   return (
@@ -23,7 +25,7 @@ export function AuthHeader({ title, subtitle, showBack = true }: AuthHeaderProps
             onPress={() => router.back()}
             accessibilityLabel="Go back"
             icon={
-              <View style={styles.backButton}>
+              <View style={[styles.backButton, { backgroundColor: Colors.surfaceLowest }]}>
                 <Ionicons name="arrow-back" size={20} color={Colors.onSurface} />
               </View>
             }
@@ -32,8 +34,8 @@ export function AuthHeader({ title, subtitle, showBack = true }: AuthHeaderProps
       )}
       {(title || subtitle) && (
         <View style={styles.textContainer}>
-          {title ? <Text style={styles.title}>{title}</Text> : null}
-          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          {title ? <Text style={[styles.title, { color: Colors.onSurface }]}>{title}</Text> : null}
+          {subtitle && <Text style={[styles.subtitle, { color: Colors.onSurfaceVariant }]}>{subtitle}</Text>}
         </View>
       )}
     </View>
@@ -51,7 +53,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: Radius.lg,
-    backgroundColor: Colors.surfaceLowest,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -63,13 +64,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 26,
     lineHeight: 32,
-    color: Colors.onSurface,
   },
   subtitle: {
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.onSurfaceVariant,
     marginTop: Spacing[2],
   },
 });

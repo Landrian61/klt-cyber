@@ -1,6 +1,7 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Colors, FontFamily } from '@/constants/theme';
+import { FontFamily } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
@@ -11,6 +12,8 @@ export function ThemedText({
   type = 'default',
   ...rest
 }: ThemedTextProps) {
+  const Colors = useThemeColors();
+
   return (
     <Text
       style={[
@@ -19,7 +22,7 @@ export function ThemedText({
         type === 'title' ? styles.title : undefined,
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
         type === 'subtitle' ? styles.subtitle : undefined,
-        type === 'link' ? styles.link : undefined,
+        type === 'link' ? [styles.link, { color: Colors.primary }] : undefined,
         style,
       ]}
       {...rest}
@@ -52,7 +55,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.primary,
     textDecorationLine: 'underline',
   },
 });

@@ -1,9 +1,11 @@
 import { Stack } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { RegistrationProvider } from '@/contexts/registration-context';
 
 export default function AuthLayout() {
+  const Colors = useThemeColors();
+
   return (
     <RegistrationProvider>
       <Stack

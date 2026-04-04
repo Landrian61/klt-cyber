@@ -2,22 +2,24 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import Animated, {
   FadeInDown,
   FadeInUp,
 } from 'react-native-reanimated';
 
-import { Colors, FontFamily, Spacing, GoldGradient } from '@/constants/theme';
+import { FontFamily, Spacing } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 
 const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
+  const Colors = useThemeColors();
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top', 'bottom']}>
       <View style={styles.container}>
         {/* Top decorative area */}
         <Animated.View entering={FadeInDown.duration(600).delay(100)} style={styles.topSection}>
@@ -30,20 +32,17 @@ export default function WelcomeScreen() {
           </View>
 
           {/* Logo */}
-          <LinearGradient
-            colors={[...GoldGradient.colors]}
-            start={GoldGradient.start}
-            end={GoldGradient.end}
-            style={styles.logoCircle}
-          >
-            <Ionicons name="people" size={44} color={Colors.onPrimary} />
-          </LinearGradient>
+          <Image
+            source={require('@/assets/images/faviconV2.png')}
+            style={styles.logoImage}
+            contentFit="cover"
+          />
 
           {/* Church Name */}
-          <Text style={styles.churchName}>KLT Cyber Church</Text>
+          <Text style={[styles.churchName, { color: Colors.primary }]}>KLT Cyber Church</Text>
 
           {/* Tagline */}
-          <Text style={styles.tagline}>Manifesting Kingdom Life.</Text>
+          <Text style={[styles.tagline, { color: Colors.onSurfaceVariant }]}>Manifesting Kingdom Life.</Text>
 
           {/* Decorative line */}
           <LinearGradient
@@ -54,7 +53,7 @@ export default function WelcomeScreen() {
           />
 
           {/* Welcome message */}
-          <Text style={styles.welcomeMessage}>
+          <Text style={[styles.welcomeMessage, { color: Colors.outline }]}>
             Your digital sanctuary for worship, community, and spiritual growth.
           </Text>
         </Animated.View>
@@ -78,7 +77,7 @@ export default function WelcomeScreen() {
           <View style={styles.gap24} />
 
           <View style={styles.visitorRow}>
-            <Text style={styles.visitorText}>Just browsing? </Text>
+            <Text style={[styles.visitorText, { color: Colors.onSurfaceVariant }]}>Just browsing? </Text>
             <Button
               label="Continue as visitor"
               variant="textLink"
@@ -94,7 +93,6 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
   container: {
     flex: 1,
@@ -117,12 +115,10 @@ const styles = StyleSheet.create({
     borderRadius: width * 0.4,
     opacity: 0.7,
   },
-  logoCircle: {
+  logoImage: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
     shadowColor: '#785600',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.15,
@@ -133,7 +129,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 28,
     lineHeight: 34,
-    color: Colors.primary,
     textAlign: 'center',
     marginTop: Spacing[5],
   },
@@ -141,7 +136,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyMedium,
     fontSize: 15,
     lineHeight: 22,
-    color: Colors.onSurfaceVariant,
     textAlign: 'center',
     letterSpacing: 1.5,
     marginTop: Spacing[2],
@@ -156,7 +150,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.outline,
     textAlign: 'center',
     marginTop: Spacing[5],
     maxWidth: 260,
@@ -180,6 +173,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.onSurfaceVariant,
   },
 });

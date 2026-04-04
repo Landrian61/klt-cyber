@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, FontFamily, Spacing, Radius } from '@/constants/theme';
+import { FontFamily, Spacing, Radius } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 
 type NotificationType = 'birthday' | 'activity' | 'leadership' | 'giving' | 'broadcast' | 'system';
@@ -18,15 +19,6 @@ interface Notification {
   unread: boolean;
 }
 
-const TYPE_STYLES: Record<NotificationType, { bg: string; iconColor: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  birthday: { bg: Colors.warningLight, iconColor: Colors.warning, icon: 'gift-outline' },
-  activity: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'calendar-outline' },
-  leadership: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'star-outline' },
-  giving: { bg: Colors.successLight, iconColor: Colors.success, icon: 'checkmark-circle-outline' },
-  broadcast: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'radio-outline' },
-  system: { bg: Colors.surfaceLow, iconColor: Colors.outline, icon: 'information-circle-outline' },
-};
-
 // Placeholder notifications
 const NOTIFICATIONS: Notification[] = [
   { id: '1', type: 'broadcast', sender: 'Reign Radio', message: 'Morning Glory is now live with Pastor James. Tap to listen.', timestamp: '2 min ago', unread: true },
@@ -37,15 +29,25 @@ const NOTIFICATIONS: Notification[] = [
 ];
 
 export default function NotificationsScreen() {
+  const Colors = useThemeColors();
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+  const TYPE_STYLES: Record<NotificationType, { bg: string; iconColor: string; icon: keyof typeof Ionicons.glyphMap }> = {
+    birthday: { bg: Colors.warningLight, iconColor: Colors.warning, icon: 'gift-outline' },
+    activity: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'calendar-outline' },
+    leadership: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'star-outline' },
+    giving: { bg: Colors.successLight, iconColor: Colors.success, icon: 'checkmark-circle-outline' },
+    broadcast: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'radio-outline' },
+    system: { bg: Colors.surfaceLow, iconColor: Colors.outline, icon: 'information-circle-outline' },
+  };
 
   const filtered = filter === 'unread'
     ? NOTIFICATIONS.filter((n) => n.unread)
     : NOTIFICATIONS;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <Button
@@ -55,7 +57,7 @@ export default function NotificationsScreen() {
           icon={<Ionicons name="arrow-back" size={24} color={Colors.onSurface} />}
         />
         <View style={styles.titleArea}>
-          <Text style={styles.title}>Notifications</Text>
+          <Text style={[styles.title, { color: Colors.onSurface }]}>Notifications</Text>
         </View>
       </View>
 
@@ -63,12 +65,12 @@ export default function NotificationsScreen() {
       <View style={styles.tabRow}>
         <View style={styles.tabGroup}>
           <Pressable onPress={() => setFilter('all')}>
-            <Text style={[styles.tabText, filter === 'all' && styles.tabTextActive]}>All</Text>
-            {filter === 'all' && <View style={styles.tabUnderline} />}
+            <Text style={[styles.tabText, { color: Colors.onSurfaceVariant }, filter === 'all' && styles.tabTextActiveFontOnly, filter === 'all' && { color: Colors.onSurface }]}>All</Text>
+            {filter === 'all' && <View style={[styles.tabUnderline, { backgroundColor: Colors.primary }]} />}
           </Pressable>
           <Pressable onPress={() => setFilter('unread')}>
-            <Text style={[styles.tabText, filter === 'unread' && styles.tabTextActive]}>Unread</Text>
-            {filter === 'unread' && <View style={styles.tabUnderline} />}
+            <Text style={[styles.tabText, { color: Colors.onSurfaceVariant }, filter === 'unread' && styles.tabTextActiveFontOnly, filter === 'unread' && { color: Colors.onSurface }]}>Unread</Text>
+            {filter === 'unread' && <View style={[styles.tabUnderline, { backgroundColor: Colors.primary }]} />}
           </Pressable>
         </View>
         <Button label="Mark all read" variant="textLink" onPress={() => {}} />
@@ -83,23 +85,23 @@ export default function NotificationsScreen() {
         renderItem={({ item }) => {
           const typeStyle = TYPE_STYLES[item.type];
           return (
-            <Pressable style={[styles.notifCard, item.unread && styles.notifUnread]}>
+            <Pressable style={[styles.notifCard, { backgroundColor: item.unread ? Colors.primaryFixedDim : Colors.surfaceLowest }]}>
               <View style={[styles.notifIcon, { backgroundColor: typeStyle.bg }]}>
                 <Ionicons name={typeStyle.icon} size={18} color={typeStyle.iconColor} />
               </View>
               <View style={styles.notifContent}>
-                <Text style={styles.notifSender}>{item.sender}</Text>
-                <Text style={styles.notifMessage} numberOfLines={2}>{item.message}</Text>
-                <Text style={styles.notifTimestamp}>{item.timestamp}</Text>
+                <Text style={[styles.notifSender, { color: Colors.onSurface }]}>{item.sender}</Text>
+                <Text style={[styles.notifMessage, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>{item.message}</Text>
+                <Text style={[styles.notifTimestamp, { color: Colors.outline }]}>{item.timestamp}</Text>
               </View>
-              {item.unread && <View style={styles.unreadDot} />}
+              {item.unread && <View style={[styles.unreadDot, { backgroundColor: Colors.primary }]} />}
             </Pressable>
           );
         }}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="notifications-off-outline" size={40} color={Colors.outline} />
-            <Text style={styles.emptyTitle}>No notifications yet</Text>
+            <Text style={[styles.emptyTitle, { color: Colors.onSurfaceVariant }]}>No notifications yet</Text>
           </View>
         }
       />
@@ -110,7 +112,6 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -125,7 +126,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 28.8,
-    color: Colors.onSurface,
   },
   tabRow: {
     flexDirection: 'row',
@@ -142,16 +142,13 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurfaceVariant,
     paddingBottom: Spacing[2],
   },
-  tabTextActive: {
+  tabTextActiveFontOnly: {
     fontFamily: FontFamily.bodySemiBold,
-    color: Colors.onSurface,
   },
   tabUnderline: {
     height: 2,
-    backgroundColor: Colors.primary,
     borderRadius: 1,
   },
   list: {
@@ -161,15 +158,11 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing[6],
   },
   notifCard: {
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[3],
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  notifUnread: {
-    backgroundColor: Colors.primaryFixedDim,
   },
   notifIcon: {
     width: 36,
@@ -186,27 +179,23 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurface,
   },
   notifMessage: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurfaceVariant,
     marginTop: 1,
   },
   notifTimestamp: {
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
     marginTop: Spacing[1],
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
     marginLeft: Spacing[2],
   },
   emptyState: {
@@ -217,7 +206,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurfaceVariant,
     marginTop: Spacing[3],
   },
 });

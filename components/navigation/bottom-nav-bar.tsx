@@ -1,12 +1,19 @@
+import { useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
 
-import { Colors, FontFamily, Glass, AmbientShadowUp } from '@/constants/theme';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  interpolate,
+} from 'react-native-reanimated';
 
-type TabName = 'home' | 'radio' | 'members' | 'updates' | 'more';
+import { FontFamily } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
+export type TabName = 'home' | 'radio' | 'giving' | 'updates' | 'more';
 
 interface TabItem {
   key: TabName;
@@ -18,72 +25,110 @@ interface TabItem {
 const TABS: TabItem[] = [
   { key: 'home', label: 'Home', icon: 'home-outline', iconActive: 'home' },
   { key: 'radio', label: 'Radio', icon: 'radio-outline', iconActive: 'radio' },
-  { key: 'members', label: 'Members', icon: 'people-outline', iconActive: 'people' },
+  { key: 'giving', label: 'Giving', icon: 'heart-outline', iconActive: 'heart' },
   { key: 'updates', label: 'Updates', icon: 'megaphone-outline', iconActive: 'megaphone' },
-  { key: 'more', label: 'More', icon: 'grid-outline', iconActive: 'grid' },
+  { key: 'more', label: 'More', icon: 'grid-outline', iconActive: 'grid-outline' },
 ];
 
 export interface BottomNavBarProps {
   activeTab: TabName;
+  isMoreOpen: boolean;
   onTabPress: (tab: TabName) => void;
 }
 
-export function BottomNavBar({ activeTab, onTabPress }: BottomNavBarProps) {
-  const insets = useSafeAreaInsets();
+function TabButton({
+  tab,
+  isActive,
+  isMoreOpen,
+  onPress,
+}: {
+  tab: TabItem;
+  isActive: boolean;
+  isMoreOpen: boolean;
+  onPress: () => void;
+}) {
+  const Colors = useThemeColors();
+  const dotScale = useSharedValue(isActive && tab.key !== 'more' ? 1 : 0);
+  const moreRotation = useSharedValue(0);
 
-  const handlePress = (tab: TabName) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onTabPress(tab);
+  useEffect(() => {
+    if (tab.key === 'more') {
+      moreRotation.value = withTiming(isMoreOpen ? 1 : 0, { duration: 200 });
+    } else {
+      dotScale.value = withSpring(isActive ? 1 : 0, { damping: 12 });
+    }
+  }, [isActive, isMoreOpen, tab.key, dotScale, moreRotation]);
+
+  const iconStyle = useAnimatedStyle(() => {
+    if (tab.key !== 'more') return {};
+    return {
+      transform: [{ rotate: `${interpolate(moreRotation.value, [0, 1], [0, 45])}deg` }],
+    };
+  });
+
+  const dotStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: dotScale.value }],
+    opacity: dotScale.value,
+  }));
+
+  const handlePress = () => {
+    onPress();
   };
 
-  return (
-    <BlurView
-      intensity={Glass.blurIntensity}
-      tint={Glass.blurTint}
-      style={[styles.container, AmbientShadowUp, { paddingBottom: insets.bottom }]}
-    >
-      <View style={styles.bar}>
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => handlePress(tab.key)}
-              style={styles.tabItem}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              accessibilityLabel={tab.label}
-            >
-              {/* Gold top ribbon for active */}
-              {isActive && <View style={styles.activeRibbon} />}
+  const isHighlighted = tab.key === 'more' ? isMoreOpen : isActive;
 
-              <Ionicons
-                name={isActive ? tab.iconActive : tab.icon}
-                size={24}
-                color={isActive ? Colors.primary : Colors.outline}
-              />
-              <Text style={[styles.label, isActive ? styles.labelActive : styles.labelInactive]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </BlurView>
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={styles.tabItem}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isHighlighted }}
+      accessibilityLabel={tab.label}
+    >
+      <Animated.View style={iconStyle}>
+        <Ionicons
+          name={isHighlighted ? tab.iconActive : tab.icon}
+          size={22}
+          color={isHighlighted ? Colors.primary : Colors.outline}
+        />
+      </Animated.View>
+
+      <Text style={[
+        styles.label,
+        { color: isHighlighted ? Colors.primary : Colors.outline },
+      ]}>
+        {tab.label}
+      </Text>
+
+      {/* Active dot indicator */}
+      {tab.key !== 'more' && (
+        <Animated.View style={[styles.activeDot, { backgroundColor: Colors.primary }, dotStyle]} />
+      )}
+    </Pressable>
+  );
+}
+
+export function BottomNavBar({ activeTab, isMoreOpen, onTabPress }: BottomNavBarProps) {
+  const Colors = useThemeColors();
+
+  return (
+    <View style={[styles.bar, { backgroundColor: Colors.surfaceLowest }]}>
+      {TABS.map((tab) => (
+        <TabButton
+          key={tab.key}
+          tab={tab}
+          isActive={activeTab === tab.key}
+          isMoreOpen={isMoreOpen}
+          onPress={() => onTabPress(tab.key)}
+        />
+      ))}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    backgroundColor: Glass.background,
-  },
   bar: {
-    height: 64,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -92,25 +137,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-    position: 'relative',
-  },
-  activeRibbon: {
-    position: 'absolute',
-    top: 0,
-    width: 24,
-    height: 2,
-    backgroundColor: Colors.primary,
-    borderRadius: 1,
+    gap: 2,
   },
   label: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 11,
-    marginTop: 4,
+    fontSize: 10,
+    lineHeight: 14,
+    fontFamily: FontFamily.bodySemiBold,
   },
-  labelActive: {
-    color: Colors.primary,
-  },
-  labelInactive: {
-    color: Colors.outline,
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 1,
   },
 });

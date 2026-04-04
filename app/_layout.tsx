@@ -4,15 +4,39 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
 import { View } from 'react-native';
+import * as SystemUI from 'expo-system-ui';
 import 'react-native-reanimated';
 
-import { Colors } from '@/constants/theme';
+import { ThemeProvider, useTheme } from '@/contexts/theme-context';
+import { LightColors } from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
   initialRouteName: '(auth)',
 };
+
+function RootLayoutInner() {
+  const { colors, isDark } = useTheme();
+
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.surfaceLowest);
+  }, [colors.surfaceLowest]);
+
+  return (
+    <>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="giving" />
+        <Stack.Screen name="members" />
+      </Stack>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+    </>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -32,19 +56,12 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: Colors.surface }} />;
+    return <View style={{ flex: 1, backgroundColor: LightColors.surface }} />;
   }
 
   return (
-    <>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.surface } }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="notifications" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="giving" />
-      </Stack>
-      <StatusBar style="dark" />
-    </>
+    <ThemeProvider>
+      <RootLayoutInner />
+    </ThemeProvider>
   );
 }

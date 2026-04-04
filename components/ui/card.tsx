@@ -1,7 +1,8 @@
 import { View, StyleSheet, ViewProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { Colors, Radius, Spacing, AmbientShadow, GoldGradient } from '@/constants/theme';
+import { Radius, Spacing, AmbientShadow, GoldGradient } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export type CardVariant = 'editorial' | 'hero' | 'sunken' | 'priority';
 
@@ -11,6 +12,8 @@ export interface CardProps extends ViewProps {
 }
 
 export function Card({ variant = 'editorial', children, style, ...rest }: CardProps) {
+  const Colors = useThemeColors();
+
   if (variant === 'hero') {
     return (
       <LinearGradient
@@ -27,10 +30,10 @@ export function Card({ variant = 'editorial', children, style, ...rest }: CardPr
 
   const variantStyle =
     variant === 'sunken'
-      ? styles.sunken
+      ? [styles.sunken, { backgroundColor: Colors.primaryFixedDim }]
       : variant === 'priority'
-        ? styles.priority
-        : styles.editorial;
+        ? [styles.priority, { backgroundColor: Colors.surfaceLowest, borderLeftColor: Colors.primaryBrand }]
+        : [styles.editorial, { backgroundColor: Colors.surfaceLowest }];
 
   return (
     <View style={[variantStyle, style]} {...rest}>
@@ -41,7 +44,6 @@ export function Card({ variant = 'editorial', children, style, ...rest }: CardPr
 
 const styles = StyleSheet.create({
   editorial: {
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[4],
   },
@@ -50,14 +52,11 @@ const styles = StyleSheet.create({
     padding: Spacing[5],
   },
   sunken: {
-    backgroundColor: Colors.primaryFixedDim,
     borderRadius: Radius.lg,
     padding: Spacing[4],
   },
   priority: {
-    backgroundColor: Colors.surfaceLowest,
     borderLeftWidth: 3,
-    borderLeftColor: Colors.primaryBrand,
     borderTopRightRadius: Radius.lg,
     borderBottomRightRadius: Radius.lg,
     padding: Spacing[4],

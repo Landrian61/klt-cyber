@@ -1,15 +1,17 @@
 import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Colors } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 interface KeyboardAwareScrollProps {
   children: React.ReactNode;
 }
 
 export function KeyboardAwareScroll({ children }: KeyboardAwareScrollProps) {
+  const Colors = useThemeColors();
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -30,7 +32,6 @@ export function KeyboardAwareScroll({ children }: KeyboardAwareScrollProps) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
   flex: {
     flex: 1,

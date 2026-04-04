@@ -7,7 +7,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Colors, FontFamily, Radius, Duration, GoldGradient } from '@/constants/theme';
+import { FontFamily, Radius, Duration, GoldGradient } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export type ButtonVariant = 'primary' | 'ghost' | 'destructive' | 'textLink' | 'icon';
 
@@ -34,6 +35,7 @@ export function Button({
   icon,
   accessibilityLabel,
 }: ButtonProps) {
+  const Colors = useThemeColors();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -76,7 +78,7 @@ export function Button({
         accessibilityLabel={accessibilityLabel || label}
         accessibilityRole="link"
       >
-        <Text style={[styles.textLinkLabel, disabled && styles.disabledTextLink]}>
+        <Text style={[styles.textLinkLabel, { color: Colors.primary }, disabled && { color: Colors.outline }]}>
           {label}
         </Text>
       </Pressable>
@@ -103,7 +105,7 @@ export function Button({
           {loading ? (
             <ActivityIndicator size="small" color={Colors.onPrimary} />
           ) : (
-            <Text style={[styles.primaryLabel, disabled && styles.disabledLabel]}>
+            <Text style={[styles.primaryLabel, { color: Colors.onPrimary }, disabled && { color: Colors.outline }]}>
               {label}
             </Text>
           )}
@@ -124,7 +126,9 @@ export function Button({
       style={[
         animatedStyle,
         styles.base,
-        isDestructive ? styles.destructive : styles.ghost,
+        isDestructive
+          ? [styles.destructive, { backgroundColor: Colors.secondaryLight }]
+          : styles.ghost,
         fullWidth && styles.fullWidth,
       ]}
       accessibilityLabel={accessibilityLabel || label}
@@ -139,8 +143,9 @@ export function Button({
         <Text
           style={[
             styles.ghostLabel,
-            isDestructive && styles.destructiveLabel,
-            disabled && styles.disabledLabel,
+            { color: Colors.primary },
+            isDestructive && { color: Colors.secondary },
+            disabled && { color: Colors.outline },
           ]}
         >
           {label}
@@ -162,7 +167,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   primaryLabel: {
-    color: Colors.onPrimary,
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
@@ -173,31 +177,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(120, 86, 0, 0.20)',
   },
   ghostLabel: {
-    color: Colors.primary,
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
   },
   destructive: {
-    backgroundColor: Colors.secondaryLight,
     borderWidth: 1,
     borderColor: 'rgba(171, 51, 50, 0.20)',
   },
-  destructiveLabel: {
-    color: Colors.secondary,
-  },
   textLinkLabel: {
-    color: Colors.primary,
     fontFamily: FontFamily.bodyMedium,
     fontSize: 14,
     lineHeight: 22.4,
     textDecorationLine: 'underline',
-  },
-  disabledLabel: {
-    color: Colors.outline,
-  },
-  disabledTextLink: {
-    color: Colors.outline,
   },
   iconButton: {
     width: 44,

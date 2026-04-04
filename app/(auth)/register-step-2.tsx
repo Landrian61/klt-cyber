@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { Colors, FontFamily, Spacing, Radius } from '@/constants/theme';
+import { FontFamily, Spacing, Radius } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { KeyboardAwareScroll } from '@/components/auth/keyboard-aware-scroll';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ const MENTORSHIP_OPTIONS = [
 ];
 
 export default function RegisterStep2Screen() {
+  const Colors = useThemeColors();
   const router = useRouter();
   const { data, updateData } = useRegistration();
 
@@ -42,12 +44,12 @@ export default function RegisterStep2Screen() {
 
       <View style={styles.progressArea}>
         <ProgressBar totalSteps={3} currentStep={2} />
-        <Text style={styles.stepLabel}>Step 2 of 3</Text>
+        <Text style={[styles.stepLabel, { color: Colors.primary }]}>Step 2 of 3</Text>
       </View>
 
       <View style={styles.headingArea}>
-        <Text style={styles.heading}>Church involvement</Text>
-        <Text style={styles.subheading}>
+        <Text style={[styles.heading, { color: Colors.onSurface }]}>Church involvement</Text>
+        <Text style={[styles.subheading, { color: Colors.onSurfaceVariant }]}>
           Connect yourself to the community. All fields are optional.
         </Text>
       </View>
@@ -76,7 +78,7 @@ export default function RegisterStep2Screen() {
         <View style={styles.gapLarge} />
 
         {/* Mentorship Status */}
-        <Text style={styles.fieldLabel}>Mentorship status</Text>
+        <Text style={[styles.fieldLabel, { color: Colors.onSurface }]}>Mentorship status</Text>
         <View style={styles.radioGroup}>
           {MENTORSHIP_OPTIONS.map((option) => {
             const isSelected = data.mentorshipStatus === option.key;
@@ -84,16 +86,38 @@ export default function RegisterStep2Screen() {
               <Pressable
                 key={option.key}
                 onPress={() => updateData({ mentorshipStatus: option.key })}
-                style={[styles.radioCard, isSelected && styles.radioCardSelected]}
+                style={[
+                  styles.radioCard,
+                  { backgroundColor: Colors.surfaceLowest },
+                  isSelected && { backgroundColor: Colors.primaryFixedDim },
+                ]}
               >
-                <View style={[styles.radioIcon, isSelected && styles.radioIconSelected]}>
+                <View
+                  style={[
+                    styles.radioIcon,
+                    { backgroundColor: Colors.surfaceLow },
+                    isSelected && { backgroundColor: Colors.primaryLight },
+                  ]}
+                >
                   <Ionicons name={option.icon} size={18} color={isSelected ? Colors.primary : Colors.outline} />
                 </View>
-                <Text style={[styles.radioLabel, isSelected && styles.radioLabelSelected]}>
+                <Text
+                  style={[
+                    styles.radioLabel,
+                    { color: Colors.onSurface },
+                    isSelected && { fontFamily: FontFamily.bodyMedium, color: Colors.primary },
+                  ]}
+                >
                   {option.label}
                 </Text>
-                <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                  {isSelected && <View style={styles.radioCircleInner} />}
+                <View
+                  style={[
+                    styles.radioCircle,
+                    { borderColor: Colors.surfaceHigh },
+                    isSelected && { borderColor: Colors.primary },
+                  ]}
+                >
+                  {isSelected && <View style={[styles.radioCircleInner, { backgroundColor: Colors.primary }]} />}
                 </View>
               </Pressable>
             );
@@ -103,10 +127,10 @@ export default function RegisterStep2Screen() {
         <View style={styles.gapLarge} />
 
         {/* Children Toggle */}
-        <View style={styles.toggleCard}>
+        <View style={[styles.toggleCard, { backgroundColor: Colors.surfaceLowest }]}>
           <View style={styles.toggleContent}>
             <Ionicons name="people-outline" size={20} color={Colors.primary} />
-            <Text style={styles.toggleLabel}>I have children</Text>
+            <Text style={[styles.toggleLabel, { color: Colors.onSurface }]}>I have children</Text>
           </View>
           <Switch
             value={data.hasChildren}
@@ -172,54 +196,47 @@ export default function RegisterStep2Screen() {
 
 const styles = StyleSheet.create({
   progressArea: { paddingHorizontal: Spacing[6], marginTop: Spacing[3] },
-  stepLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 12, color: Colors.primary, marginTop: Spacing[2] },
+  stepLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 12, marginTop: Spacing[2] },
   headingArea: { paddingHorizontal: Spacing[6], marginTop: Spacing[5] },
-  heading: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 28.8, color: Colors.onSurface },
-  subheading: { fontFamily: FontFamily.body, fontSize: 14, lineHeight: 22, color: Colors.onSurfaceVariant, marginTop: Spacing[2] },
+  heading: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 28.8 },
+  subheading: { fontFamily: FontFamily.body, fontSize: 14, lineHeight: 22, marginTop: Spacing[2] },
   form: { paddingHorizontal: Spacing[6], marginTop: Spacing[6] },
   gap: { height: Spacing[5] },
   gapLarge: { height: Spacing[6] },
-  fieldLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 13, color: Colors.onSurface, marginBottom: Spacing[3] },
+  fieldLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 13, marginBottom: Spacing[3] },
   // Radio cards
   radioGroup: { gap: Spacing[3] },
   radioCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[4],
     gap: Spacing[3],
   },
-  radioCardSelected: { backgroundColor: Colors.primaryFixedDim },
   radioIcon: {
     width: 36,
     height: 36,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surfaceLow,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioIconSelected: { backgroundColor: Colors.primaryLight },
-  radioLabel: { fontFamily: FontFamily.body, fontSize: 14, lineHeight: 22, color: Colors.onSurface, flex: 1 },
-  radioLabelSelected: { fontFamily: FontFamily.bodyMedium, color: Colors.primary },
+  radioLabel: { fontFamily: FontFamily.body, fontSize: 14, lineHeight: 22, flex: 1 },
   radioCircle: {
     width: 20, height: 20, borderRadius: 10,
-    borderWidth: 2, borderColor: Colors.surfaceHigh,
+    borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  radioCircleSelected: { borderColor: Colors.primary },
-  radioCircleInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  radioCircleInner: { width: 10, height: 10, borderRadius: 5 },
   // Toggle card
   toggleCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[4],
   },
   toggleContent: { flexDirection: 'row', alignItems: 'center', gap: Spacing[3] },
-  toggleLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 14, color: Colors.onSurface },
+  toggleLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 14 },
   // Children
   childrenArea: { marginTop: Spacing[4], gap: Spacing[3] },
   childRow: { flexDirection: 'row', alignItems: 'center' },

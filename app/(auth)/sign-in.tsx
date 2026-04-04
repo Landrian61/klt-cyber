@@ -5,13 +5,15 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Image } from 'expo-image';
 
-import { Colors, FontFamily, Spacing, Radius } from '@/constants/theme';
+import { FontFamily, Spacing, Radius } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { KeyboardAwareScroll } from '@/components/auth/keyboard-aware-scroll';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function SignInScreen() {
+  const Colors = useThemeColors();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -69,7 +71,7 @@ export default function SignInScreen() {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.duration(400).delay(300)} style={styles.actions}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={[styles.error, { color: Colors.error }]}>{error}</Text> : null}
 
         <Button
           label="Sign in"
@@ -81,9 +83,9 @@ export default function SignInScreen() {
 
         {/* Divider */}
         <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
+          <View style={[styles.dividerLine, { backgroundColor: Colors.surfaceHigh }]} />
+          <Text style={[styles.dividerText, { color: Colors.outline }]}>or</Text>
+          <View style={[styles.dividerLine, { backgroundColor: Colors.surfaceHigh }]} />
         </View>
 
         {/* Google sign in */}
@@ -93,11 +95,11 @@ export default function SignInScreen() {
             style={styles.googleIcon}
             contentFit="contain"
           />
-          <Text style={styles.googleLabel}>Continue with Google</Text>
+          <Text style={[styles.googleLabel, { color: Colors.onSurface }]}>Continue with Google</Text>
         </Pressable>
 
         <View style={styles.createRow}>
-          <Text style={styles.createText}>{"Don't have an account? "}</Text>
+          <Text style={[styles.createText, { color: Colors.onSurfaceVariant }]}>{"Don't have an account? "}</Text>
           <Button
             label="Sign up"
             variant="textLink"
@@ -129,7 +131,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.error,
     textAlign: 'center',
     marginBottom: Spacing[3],
   },
@@ -141,12 +142,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.surfaceHigh,
   },
   dividerText: {
     fontFamily: FontFamily.body,
     fontSize: 13,
-    color: Colors.outline,
     marginHorizontal: Spacing[4],
   },
   googleButton: {
@@ -167,7 +166,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurface,
   },
   createRow: {
     flexDirection: 'row',
@@ -180,6 +178,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.onSurfaceVariant,
   },
 });

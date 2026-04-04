@@ -9,7 +9,8 @@ import Animated, {
   FadeInDown,
 } from 'react-native-reanimated';
 
-import { Colors, FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { KeyboardAwareScroll } from '@/components/auth/keyboard-aware-scroll';
 import { Input } from '@/components/ui/input';
@@ -28,10 +29,12 @@ function CollapsibleSection({
   title,
   icon,
   children,
+  colors,
 }: {
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
   children: React.ReactNode;
+  colors: ReturnType<typeof import('@/hooks/use-theme-colors').useThemeColors>;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const rotation = useSharedValue(0);
@@ -46,16 +49,16 @@ function CollapsibleSection({
   }));
 
   return (
-    <View style={collStyles.container}>
+    <View style={[collStyles.container, { backgroundColor: colors.surfaceLowest }]}>
       <Pressable onPress={toggleOpen} style={collStyles.header}>
         <View style={collStyles.headerLeft}>
-          <View style={collStyles.iconBox}>
-            <Ionicons name={icon} size={18} color={Colors.primary} />
+          <View style={[collStyles.iconBox, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name={icon} size={18} color={colors.primary} />
           </View>
-          <Text style={collStyles.headerText}>{title}</Text>
+          <Text style={[collStyles.headerText, { color: colors.onSurface }]}>{title}</Text>
         </View>
         <Animated.View style={chevronStyle}>
-          <Ionicons name="chevron-down" size={18} color={Colors.outline} />
+          <Ionicons name="chevron-down" size={18} color={colors.outline} />
         </Animated.View>
       </Pressable>
       {isOpen && (
@@ -69,7 +72,6 @@ function CollapsibleSection({
 
 const collStyles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     marginBottom: Spacing[4],
@@ -89,7 +91,6 @@ const collStyles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: Radius.md,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -97,7 +98,6 @@ const collStyles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 15,
     lineHeight: 22,
-    color: Colors.onSurface,
   },
   content: {
     paddingHorizontal: Spacing[4],
@@ -107,6 +107,7 @@ const collStyles = StyleSheet.create({
 });
 
 export default function RegisterStep3Screen() {
+  const Colors = useThemeColors();
   const router = useRouter();
   const { data, updateData } = useRegistration();
   const [loading, setLoading] = useState(false);
@@ -125,19 +126,19 @@ export default function RegisterStep3Screen() {
 
       <View style={styles.progressArea}>
         <ProgressBar totalSteps={3} currentStep={3} />
-        <Text style={styles.stepLabel}>Step 3 of 3</Text>
+        <Text style={[styles.stepLabel, { color: Colors.primary }]}>Step 3 of 3</Text>
       </View>
 
       <View style={styles.headingArea}>
-        <Text style={styles.heading}>Optional details</Text>
-        <Text style={styles.subheading}>
+        <Text style={[styles.heading, { color: Colors.onSurface }]}>Optional details</Text>
+        <Text style={[styles.subheading, { color: Colors.onSurfaceVariant }]}>
           All optional — you can complete this from your profile anytime.
         </Text>
       </View>
 
       <Animated.View entering={FadeInDown.duration(400).delay(100)} style={styles.form}>
         {/* Professional Information */}
-        <CollapsibleSection title="Professional information" icon="briefcase-outline">
+        <CollapsibleSection title="Professional information" icon="briefcase-outline" colors={Colors}>
           <Input
             label="Profession / field of work"
             value={data.profession}
@@ -156,8 +157,8 @@ export default function RegisterStep3Screen() {
             onChangeText={(v) => updateData({ workplace: v })}
             placeholder="e.g. Acme Inc."
           />
-          <View style={styles.toggleCard}>
-            <Text style={styles.toggleLabel}>Show on public profile</Text>
+          <View style={[styles.toggleCard, { backgroundColor: Colors.surfaceLow }]}>
+            <Text style={[styles.toggleLabel, { color: Colors.onSurfaceVariant }]}>Show on public profile</Text>
             <Switch
               value={data.showProfessionalOnProfile}
               onValueChange={(v) => updateData({ showProfessionalOnProfile: v })}
@@ -168,8 +169,8 @@ export default function RegisterStep3Screen() {
         </CollapsibleSection>
 
         {/* Leadership Institute */}
-        <CollapsibleSection title="Leadership Institute" icon="school-outline">
-          <Text style={styles.helperNote}>
+        <CollapsibleSection title="Leadership Institute" icon="school-outline" colors={Colors}>
+          <Text style={[styles.helperNote, { color: Colors.onSurfaceVariant }]}>
             Verified by the Leadership Institute department.
           </Text>
           <View style={styles.radioGroup}>
@@ -179,14 +180,30 @@ export default function RegisterStep3Screen() {
                 <Pressable
                   key={option.key}
                   onPress={() => updateData({ leadershipInstituteLevel: option.key })}
-                  style={[styles.radioCard, isSelected && styles.radioCardSelected]}
+                  style={[
+                    styles.radioCard,
+                    { backgroundColor: Colors.surfaceLow },
+                    isSelected && { backgroundColor: Colors.primaryFixedDim },
+                  ]}
                 >
                   <Ionicons name={option.icon} size={18} color={isSelected ? Colors.primary : Colors.outline} />
-                  <Text style={[styles.radioLabel, isSelected && styles.radioLabelSelected]}>
+                  <Text
+                    style={[
+                      styles.radioLabel,
+                      { color: Colors.onSurface },
+                      isSelected && { fontFamily: FontFamily.bodyMedium, color: Colors.primary },
+                    ]}
+                  >
                     {option.label}
                   </Text>
-                  <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                    {isSelected && <View style={styles.radioCircleInner} />}
+                  <View
+                    style={[
+                      styles.radioCircle,
+                      { borderColor: Colors.surfaceHigh },
+                      isSelected && { borderColor: Colors.primary },
+                    ]}
+                  >
+                    {isSelected && <View style={[styles.radioCircleInner, { backgroundColor: Colors.primary }]} />}
                   </View>
                 </Pressable>
               );
@@ -203,10 +220,10 @@ export default function RegisterStep3Screen() {
           onPress={handleCreateAccount}
           loading={loading}
         />
-        <Text style={styles.legal}>
+        <Text style={[styles.legal, { color: Colors.outline }]}>
           By creating an account you agree to our{' '}
-          <Text style={styles.legalLink}>Terms of Service</Text> and{' '}
-          <Text style={styles.legalLink}>Privacy Policy</Text>.
+          <Text style={{ color: Colors.primary, textDecorationLine: 'underline' }}>Terms of Service</Text> and{' '}
+          <Text style={{ color: Colors.primary, textDecorationLine: 'underline' }}>Privacy Policy</Text>.
         </Text>
       </View>
     </KeyboardAwareScroll>
@@ -215,40 +232,36 @@ export default function RegisterStep3Screen() {
 
 const styles = StyleSheet.create({
   progressArea: { paddingHorizontal: Spacing[6], marginTop: Spacing[3] },
-  stepLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 12, color: Colors.primary, marginTop: Spacing[2] },
+  stepLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 12, marginTop: Spacing[2] },
   headingArea: { paddingHorizontal: Spacing[6], marginTop: Spacing[5] },
-  heading: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 28.8, color: Colors.onSurface },
-  subheading: { fontFamily: FontFamily.body, fontSize: 14, lineHeight: 22, color: Colors.onSurfaceVariant, marginTop: Spacing[2] },
+  heading: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 28.8 },
+  subheading: { fontFamily: FontFamily.body, fontSize: 14, lineHeight: 22, marginTop: Spacing[2] },
   form: { paddingHorizontal: Spacing[6], marginTop: Spacing[6] },
-  helperNote: { fontFamily: FontFamily.body, fontSize: 12, lineHeight: 18, color: Colors.onSurfaceVariant },
+  helperNote: { fontFamily: FontFamily.body, fontSize: 12, lineHeight: 18 },
   // Radio cards
   radioGroup: { gap: Spacing[2] },
   radioCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surfaceLow, borderRadius: Radius.md,
+    borderRadius: Radius.md,
     paddingVertical: Spacing[3], paddingHorizontal: Spacing[4], gap: Spacing[3],
   },
-  radioCardSelected: { backgroundColor: Colors.primaryFixedDim },
-  radioLabel: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.onSurface, flex: 1 },
-  radioLabelSelected: { fontFamily: FontFamily.bodyMedium, color: Colors.primary },
+  radioLabel: { fontFamily: FontFamily.body, fontSize: 14, flex: 1 },
   radioCircle: {
     width: 20, height: 20, borderRadius: 10,
-    borderWidth: 2, borderColor: Colors.surfaceHigh,
+    borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  radioCircleSelected: { borderColor: Colors.primary },
-  radioCircleInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  radioCircleInner: { width: 10, height: 10, borderRadius: 5 },
   // Toggle
   toggleCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceLow, borderRadius: Radius.md, padding: Spacing[3], paddingHorizontal: Spacing[4],
+    borderRadius: Radius.md, padding: Spacing[3], paddingHorizontal: Spacing[4],
   },
-  toggleLabel: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.onSurfaceVariant },
+  toggleLabel: { fontFamily: FontFamily.body, fontSize: 14 },
   // Footer
   footer: { paddingHorizontal: Spacing[6], marginTop: Spacing[8], marginBottom: Spacing[8] },
   legal: {
     fontFamily: FontFamily.body, fontSize: 12, lineHeight: 18,
-    color: Colors.outline, textAlign: 'center', marginTop: Spacing[4],
+    textAlign: 'center', marginTop: Spacing[4],
   },
-  legalLink: { color: Colors.primary, textDecorationLine: 'underline' },
 });

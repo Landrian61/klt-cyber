@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { ScrollView, View, Text, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, FontFamily, Spacing, Radius } from '@/constants/theme';
+import { FontFamily, Spacing, Radius } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 // Placeholder schedule data
 const SCHEDULE = [
@@ -12,6 +13,7 @@ const SCHEDULE = [
 ];
 
 export default function RadioScreen() {
+  const Colors = useThemeColors();
   const [notes, setNotes] = useState('');
   const [saved, setSaved] = useState(false);
 
@@ -27,10 +29,10 @@ export default function RadioScreen() {
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
       {/* Title */}
       <View style={styles.titleArea}>
-        <Text style={styles.title}>Reign Radio</Text>
+        <Text style={[styles.title, { color: Colors.onSurface }]}>Reign Radio</Text>
       </View>
 
-      {/* Idle player card */}
+      {/* Idle player card — hardcoded #2C1F0E is intentional */}
       <View style={styles.section}>
         <View style={styles.idleCard}>
           <Ionicons name="radio" size={56} color="rgba(255,255,255,0.3)" />
@@ -43,13 +45,13 @@ export default function RadioScreen() {
 
       {/* Broadcast Schedule */}
       <View style={[styles.section, { marginTop: Spacing[6] }]}>
-        <Text style={styles.sectionLabel}>PROGRAM SCHEDULE</Text>
+        <Text style={[styles.sectionLabel, { color: Colors.outline }]}>PROGRAM SCHEDULE</Text>
         {SCHEDULE.map((item, index) => (
           <View key={index} style={styles.scheduleItem}>
-            <Text style={styles.scheduleDay}>{item.day}</Text>
-            <Text style={styles.scheduleTitle}>{item.title}</Text>
-            <Text style={styles.scheduleHost}>{item.host}</Text>
-            <Text style={styles.scheduleTime}>{item.time}</Text>
+            <Text style={[styles.scheduleDay, { color: Colors.outline }]}>{item.day}</Text>
+            <Text style={[styles.scheduleTitle, { color: Colors.onSurface }]}>{item.title}</Text>
+            <Text style={[styles.scheduleHost, { color: Colors.onSurfaceVariant }]}>{item.host}</Text>
+            <Text style={[styles.scheduleTime, { color: Colors.primary }]}>{item.time}</Text>
           </View>
         ))}
       </View>
@@ -57,11 +59,11 @@ export default function RadioScreen() {
       {/* My Notes */}
       <View style={[styles.section, { marginTop: Spacing[6] }]}>
         <View style={styles.notesHeader}>
-          <Text style={styles.notesLabel}>My notes</Text>
-          {saved && <Text style={styles.savedIndicator}>Saved ✓</Text>}
+          <Text style={[styles.notesLabel, { color: Colors.onSurface }]}>My notes</Text>
+          {saved && <Text style={[styles.savedIndicator, { color: Colors.success }]}>Saved ✓</Text>}
         </View>
         <TextInput
-          style={styles.notesInput}
+          style={[styles.notesInput, { backgroundColor: Colors.surfaceLow, color: Colors.onSurface }]}
           value={notes}
           onChangeText={handleNotesChange}
           placeholder="Write your notes — saved automatically."
@@ -89,13 +91,12 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 28.8,
-    color: Colors.onSurface,
   },
   section: {
     paddingHorizontal: Spacing[5],
     marginTop: Spacing[5],
   },
-  // Idle card
+  // Idle card — hardcoded dark background is intentional
   idleCard: {
     backgroundColor: '#2C1F0E',
     borderRadius: Radius.xl,
@@ -123,7 +124,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
     letterSpacing: 0.6,
     marginBottom: Spacing[4],
   },
@@ -134,28 +134,24 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyMedium,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
     letterSpacing: 0.4,
   },
   scheduleTitle: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurface,
     marginTop: 2,
   },
   scheduleHost: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurfaceVariant,
     marginTop: 3,
   },
   scheduleTime: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.primary,
     marginTop: 3,
   },
   // Notes
@@ -169,22 +165,18 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurface,
   },
   savedIndicator: {
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.success,
   },
   notesInput: {
-    backgroundColor: Colors.surfaceLow,
     borderRadius: Radius.md,
     padding: Spacing[3],
     height: 120,
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurface,
   },
 });

@@ -5,8 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
-  Colors, FontFamily, Spacing, Radius,
+  FontFamily, Spacing, Radius,
 } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,7 @@ const RECENT_TRANSACTIONS = [
 ];
 
 export default function GivingScreen() {
+  const Colors = useThemeColors();
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
@@ -37,7 +39,7 @@ export default function GivingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <Button
@@ -47,7 +49,7 @@ export default function GivingScreen() {
           icon={<Ionicons name="arrow-back" size={24} color={Colors.onSurface} />}
         />
         <View style={styles.titleArea}>
-          <Text style={styles.title}>Giving</Text>
+          <Text style={[styles.title, { color: Colors.onSurface }]}>Giving</Text>
         </View>
       </View>
 
@@ -63,7 +65,7 @@ export default function GivingScreen() {
 
         {/* Give Now Grid */}
         <View style={[styles.section, { marginTop: Spacing[6] }]}>
-          <Text style={styles.sectionTitle}>Give now</Text>
+          <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Give now</Text>
           <View style={styles.categoryGrid}>
             {CATEGORIES.map((cat) => {
               const isSelected = selectedCategories.includes(cat.key);
@@ -71,17 +73,20 @@ export default function GivingScreen() {
                 <Pressable
                   key={cat.key}
                   onPress={() => toggleCategory(cat.key)}
-                  style={[styles.categoryCard, isSelected && styles.categoryCardSelected]}
+                  style={[
+                    styles.categoryCard,
+                    { backgroundColor: isSelected ? Colors.primaryFixedDim : Colors.surfaceLowest },
+                  ]}
                 >
                   <Ionicons
                     name={cat.icon}
                     size={28}
                     color={isSelected ? Colors.primary : Colors.primary}
                   />
-                  <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]}>
+                  <Text style={[styles.categoryLabel, { color: isSelected ? Colors.primary : Colors.onSurface }]}>
                     {cat.label}
                   </Text>
-                  {isSelected && <View style={styles.categoryAccent} />}
+                  {isSelected && <View style={[styles.categoryAccent, { backgroundColor: Colors.primary }]} />}
                 </Pressable>
               );
             })}
@@ -100,15 +105,15 @@ export default function GivingScreen() {
 
         {/* Recent Transactions */}
         <View style={[styles.section, { marginTop: Spacing[6] }]}>
-          <Text style={styles.sectionTitle}>Recent transactions</Text>
+          <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Recent transactions</Text>
           {RECENT_TRANSACTIONS.map((tx) => (
-            <View key={tx.id} style={styles.txCard}>
+            <View key={tx.id} style={[styles.txCard, { backgroundColor: Colors.surfaceLowest }]}>
               <View style={styles.txInfo}>
-                <Text style={styles.txCategory}>{tx.category}</Text>
-                <Text style={styles.txDate}>{tx.date}</Text>
+                <Text style={[styles.txCategory, { color: Colors.onSurface }]}>{tx.category}</Text>
+                <Text style={[styles.txDate, { color: Colors.outline }]}>{tx.date}</Text>
               </View>
               <View style={styles.txRight}>
-                <Text style={styles.txAmount}>{tx.amount}</Text>
+                <Text style={[styles.txAmount, { color: Colors.primary }]}>{tx.amount}</Text>
                 <Badge label="Confirmed" variant="confirmed" />
               </View>
             </View>
@@ -122,7 +127,7 @@ export default function GivingScreen() {
         <View style={[styles.section, { marginTop: Spacing[4] }]}>
           <View style={styles.anonNote}>
             <Ionicons name="information-circle-outline" size={14} color={Colors.outline} />
-            <Text style={styles.anonText}>
+            <Text style={[styles.anonText, { color: Colors.outline }]}>
               You can give anonymously. Choose the option during payment.
             </Text>
           </View>
@@ -137,7 +142,6 @@ export default function GivingScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -152,7 +156,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 28.8,
-    color: Colors.onSurface,
   },
   section: {
     paddingHorizontal: Spacing[5],
@@ -162,10 +165,9 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurface,
     marginBottom: Spacing[3],
   },
-  // Hero
+  // Hero — hardcoded white text on gold gradient is intentional
   heroLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
@@ -190,25 +192,17 @@ const styles = StyleSheet.create({
   categoryCard: {
     width: '30%',
     flexGrow: 1,
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[4],
     alignItems: 'center',
     overflow: 'hidden',
   },
-  categoryCardSelected: {
-    backgroundColor: Colors.primaryFixedDim,
-  },
   categoryLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurface,
     textAlign: 'center',
     marginTop: Spacing[2],
-  },
-  categoryLabelSelected: {
-    color: Colors.primary,
   },
   categoryAccent: {
     position: 'absolute',
@@ -216,12 +210,10 @@ const styles = StyleSheet.create({
     left: '20%',
     right: '20%',
     height: 2,
-    backgroundColor: Colors.primary,
     borderRadius: 1,
   },
   // Transactions
   txCard: {
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[3],
     paddingHorizontal: Spacing[4],
@@ -237,13 +229,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyMedium,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurface,
   },
   txDate: {
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
     marginTop: 2,
   },
   txRight: {
@@ -254,7 +244,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.monoBold,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.primary,
   },
   historyLink: {
     alignItems: 'center',
@@ -271,6 +260,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
   },
 });

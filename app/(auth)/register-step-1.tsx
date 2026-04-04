@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { Colors, FontFamily, Spacing, Radius } from '@/constants/theme';
+import { FontFamily, Spacing, Radius } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { KeyboardAwareScroll } from '@/components/auth/keyboard-aware-scroll';
 import { Input } from '@/components/ui/input';
@@ -32,9 +33,9 @@ function formatDate(date: Date): string {
 }
 
 const STRENGTH_LABELS = ['Weak', 'Fair', 'Strong'];
-const STRENGTH_COLORS = [Colors.error, Colors.warning, Colors.success];
 
 export default function RegisterStep1Screen() {
+  const Colors = useThemeColors();
   const router = useRouter();
   const { data, updateData } = useRegistration();
 
@@ -45,6 +46,8 @@ export default function RegisterStep1Screen() {
 
   const passwordStrength = useMemo(() => getPasswordStrength(data.password), [data.password]);
   const sexIndex = data.sex === 'Male' ? 0 : data.sex === 'Female' ? 1 : -1;
+
+  const STRENGTH_COLORS = [Colors.error, Colors.warning, Colors.success];
 
   const handleDateChange = (_event: DateTimePickerEvent, date?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
@@ -88,12 +91,12 @@ export default function RegisterStep1Screen() {
       {/* Progress */}
       <View style={styles.progressArea}>
         <ProgressBar totalSteps={3} currentStep={1} />
-        <Text style={styles.stepLabel}>Step 1 of 3</Text>
+        <Text style={[styles.stepLabel, { color: Colors.primary }]}>Step 1 of 3</Text>
       </View>
 
       <View style={styles.headingArea}>
-        <Text style={styles.heading}>Personal information</Text>
-        <Text style={styles.subheading}>
+        <Text style={[styles.heading, { color: Colors.onSurface }]}>Personal information</Text>
+        <Text style={[styles.subheading, { color: Colors.onSurfaceVariant }]}>
           Tell us about yourself. This builds your church profile.
         </Text>
       </View>
@@ -212,7 +215,7 @@ export default function RegisterStep1Screen() {
         <View style={styles.gap} />
 
         {/* Sex */}
-        <Text style={styles.fieldLabel}>Sex</Text>
+        <Text style={[styles.fieldLabel, { color: Colors.onSurface }]}>Sex</Text>
         <SegmentedControl
           options={['Male', 'Female']}
           selectedIndex={sexIndex}
@@ -222,7 +225,7 @@ export default function RegisterStep1Screen() {
         <View style={styles.gapLarge} />
 
         {/* Marital Status */}
-        <Text style={styles.fieldLabel}>Marital status</Text>
+        <Text style={[styles.fieldLabel, { color: Colors.onSurface }]}>Marital status</Text>
         <View style={styles.pillGrid}>
           {MARITAL_OPTIONS.map((option) => {
             const isSelected = data.maritalStatus === option;
@@ -230,9 +233,26 @@ export default function RegisterStep1Screen() {
               <Pressable
                 key={option}
                 onPress={() => updateData({ maritalStatus: option })}
-                style={[styles.pillCard, isSelected && styles.pillCardSelected]}
+                style={[
+                  styles.pillCard,
+                  { backgroundColor: Colors.surfaceLowest },
+                  isSelected && {
+                    backgroundColor: Colors.primaryFixedDim,
+                    shadowColor: Colors.primary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  },
+                ]}
               >
-                <Text style={[styles.pillLabel, isSelected && styles.pillLabelSelected]}>
+                <Text
+                  style={[
+                    styles.pillLabel,
+                    { color: Colors.onSurfaceVariant },
+                    isSelected && { fontFamily: FontFamily.bodySemiBold, color: Colors.primary },
+                  ]}
+                >
                   {option}
                 </Text>
               </Pressable>
@@ -263,7 +283,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyMedium,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.primary,
     marginTop: Spacing[2],
   },
   headingArea: {
@@ -274,13 +293,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 28.8,
-    color: Colors.onSurface,
   },
   subheading: {
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.onSurfaceVariant,
     marginTop: Spacing[2],
   },
   form: {
@@ -304,7 +321,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyMedium,
     fontSize: 13,
     lineHeight: 18,
-    color: Colors.onSurface,
     marginBottom: Spacing[2],
   },
   // Password strength
@@ -339,28 +355,14 @@ const styles = StyleSheet.create({
     width: '47%',
     flexGrow: 1,
     height: 50,
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  pillCardSelected: {
-    backgroundColor: Colors.primaryFixedDim,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
   },
   pillLabel: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: 14,
     lineHeight: 22,
-    color: Colors.onSurfaceVariant,
-  },
-  pillLabelSelected: {
-    fontFamily: FontFamily.bodySemiBold,
-    color: Colors.primary,
   },
   footer: {
     paddingHorizontal: Spacing[6],

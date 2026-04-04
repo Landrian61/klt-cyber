@@ -2,13 +2,17 @@ import { useState, useMemo } from 'react';
 import {
   ScrollView, View, Text, TextInput, Pressable, FlatList, StyleSheet,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import {
-  Colors, FontFamily, Spacing, Radius, GoldGradient,
+  FontFamily, Spacing, Radius, GoldGradient,
 } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 const FILTERS = ['All', 'Elders', 'HODs', 'Ministers', 'Mentorship Complete', 'Youth', 'Men', 'Women', 'Visitors'];
 
@@ -26,6 +30,8 @@ function getInitials(name: string): string {
 }
 
 export default function MembersScreen() {
+  const Colors = useThemeColors();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
 
@@ -37,18 +43,26 @@ export default function MembersScreen() {
   }, [search]);
 
   return (
-    <View style={styles.container}>
-      {/* Title */}
-      <View style={styles.titleArea}>
-        <Text style={styles.title}>Members</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Button
+          variant="icon"
+          onPress={() => router.back()}
+          accessibilityLabel="Go back"
+          icon={<Ionicons name="arrow-back" size={24} color={Colors.onSurface} />}
+        />
+        <View style={styles.headerTitle}>
+          <Text style={[styles.title, { color: Colors.onSurface }]}>Members</Text>
+        </View>
       </View>
 
       {/* Search bar */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
+        <View style={[styles.searchBar, { backgroundColor: Colors.surfaceLow }]}>
           <Ionicons name="search" size={18} color={Colors.outline} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: Colors.onSurface }]}
             value={search}
             onChangeText={setSearch}
             placeholder="Search by name, clan or department..."
@@ -56,7 +70,7 @@ export default function MembersScreen() {
           />
           {search.length > 0 && (
             <Pressable onPress={() => setSearch('')}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={[styles.cancelText, { color: Colors.primary }]}>Cancel</Text>
             </Pressable>
           )}
         </View>
@@ -88,9 +102,9 @@ export default function MembersScreen() {
             <Pressable
               key={filter}
               onPress={() => setActiveFilter(filter)}
-              style={styles.filterPillInactive}
+              style={[styles.filterPillInactive, { backgroundColor: Colors.surfaceLow }]}
             >
-              <Text style={styles.filterTextInactive}>{filter}</Text>
+              <Text style={[styles.filterTextInactive, { color: Colors.onSurfaceVariant }]}>{filter}</Text>
             </Pressable>
           );
         })}
@@ -98,7 +112,7 @@ export default function MembersScreen() {
 
       {/* Results count */}
       <View style={styles.resultsCount}>
-        <Text style={styles.resultsText}>{filteredMembers.length} members</Text>
+        <Text style={[styles.resultsText, { color: Colors.outline }]}>{filteredMembers.length} members</Text>
       </View>
 
       {/* Member list */}
@@ -108,7 +122,7 @@ export default function MembersScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <Pressable style={styles.memberCard} accessibilityLabel={item.name}>
+          <Pressable style={[styles.memberCard, { backgroundColor: Colors.surfaceLowest }]} accessibilityLabel={item.name}>
             <LinearGradient
               colors={[...GoldGradient.colors]}
               start={GoldGradient.start}
@@ -118,9 +132,9 @@ export default function MembersScreen() {
               <Text style={styles.memberInitials}>{getInitials(item.name)}</Text>
             </LinearGradient>
             <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{item.name}</Text>
-              <Text style={styles.memberClan}>{item.clan}</Text>
-              <Text style={styles.memberDepts}>{item.departments.join(' · ')}</Text>
+              <Text style={[styles.memberName, { color: Colors.onSurface }]}>{item.name}</Text>
+              <Text style={[styles.memberClan, { color: Colors.onSurfaceVariant }]}>{item.clan}</Text>
+              <Text style={[styles.memberDepts, { color: Colors.outline }]}>{item.departments.join(' · ')}</Text>
             </View>
             <View style={styles.memberBadges}>
               {item.badges.map((b) => (
@@ -132,29 +146,31 @@ export default function MembersScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="search" size={40} color={Colors.outline} />
-            <Text style={styles.emptyTitle}>No members found</Text>
-            <Text style={styles.emptySubtitle}>Adjust your search or filter.</Text>
+            <Text style={[styles.emptyTitle, { color: Colors.onSurfaceVariant }]}>No members found</Text>
+            <Text style={[styles.emptySubtitle, { color: Colors.outline }]}>Adjust your search or filter.</Text>
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
   },
-  titleArea: {
-    paddingTop: Spacing[5],
-    paddingLeft: Spacing[8],
-    paddingRight: Spacing[12],
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing[2],
+  },
+  headerTitle: {
+    paddingLeft: Spacing[4],
   },
   title: {
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 28.8,
-    color: Colors.onSurface,
   },
   searchContainer: {
     paddingHorizontal: Spacing[5],
@@ -162,7 +178,6 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     height: 46,
-    backgroundColor: Colors.surfaceLow,
     borderRadius: Radius.full,
     flexDirection: 'row',
     alignItems: 'center',
@@ -173,12 +188,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: FontFamily.body,
     fontSize: 14,
-    color: Colors.onSurface,
   },
   cancelText: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: 14,
-    color: Colors.primary,
   },
   filterRow: {
     paddingLeft: Spacing[5],
@@ -199,7 +212,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[4],
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceLow,
   },
   filterTextActive: {
     fontFamily: FontFamily.bodyMedium,
@@ -209,7 +221,6 @@ const styles = StyleSheet.create({
   filterTextInactive: {
     fontFamily: FontFamily.body,
     fontSize: 12,
-    color: Colors.onSurfaceVariant,
   },
   resultsCount: {
     paddingHorizontal: Spacing[5],
@@ -219,7 +230,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
   },
   list: {
     paddingHorizontal: Spacing[5],
@@ -228,7 +238,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing[4],
   },
   memberCard: {
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     padding: Spacing[3],
     paddingHorizontal: Spacing[4],
@@ -255,20 +264,17 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurface,
   },
   memberClan: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurfaceVariant,
     marginTop: 3,
   },
   memberDepts: {
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
     marginTop: 2,
   },
   memberBadges: {
@@ -282,14 +288,12 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.onSurfaceVariant,
     marginTop: Spacing[3],
   },
   emptySubtitle: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.outline,
     marginTop: Spacing[1],
   },
 });

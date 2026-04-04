@@ -1,56 +1,13 @@
 /**
  * KLT Cyber Church — Sacred Curator Design System
  *
- * All design tokens derived from INTERFACE_SPEC.md.
- * Import these constants in every component — never hardcode values.
+ * Colors are now in constants/colors.ts (light + dark palettes).
+ * Use `useThemeColors()` hook in components for reactive dark mode support.
+ * This file exports LightColors as `Colors` for backward compatibility in non-component code.
  */
 
-// ─── Color Tokens ──────────────────────────────────────────────
-
-export const Colors = {
-  // Primary (Gold)
-  primary: '#785600',
-  primaryBrand: '#B8860B',
-  primaryContainer: '#986d00',
-  primaryFixedDim: '#F5E6C8',
-  primaryLight: '#FBF3E0',
-  onPrimary: '#FFFFFF',
-
-  // Secondary (Crimson)
-  secondary: '#AB3332',
-  secondaryLight: '#F9E5E5',
-  onSecondary: '#FFFFFF',
-
-  // Tertiary (Royal Blue)
-  tertiary: '#145DA3',
-  tertiaryLight: '#E3EEF9',
-  onTertiary: '#FFFFFF',
-
-  // Surface (Parchment — warm, never cold white)
-  surface: '#FCF9F2',
-  surfaceLow: '#F5F1E8',
-  surfaceContainer: '#EDE9DF',
-  surfaceLowest: '#FFFFFF',
-  surfaceHigh: '#E3DFD4',
-  surfaceVariant: '#EAE5DB',
-  surfaceBright: '#FDFAF5',
-
-  // Text
-  onSurface: '#1C1C18',
-  onSurfaceVariant: '#5C5947',
-  outline: '#8C8470',
-  outlineVariant: 'rgba(140, 132, 112, 0.15)',
-
-  // Semantic
-  success: '#2E7D32',
-  successLight: '#E8F5E9',
-  warning: '#B8860B',
-  warningLight: '#FBF3E0',
-  error: '#AB3332',
-  errorLight: '#F9E5E5',
-  live: '#AB3332',
-  unread: '#785600',
-} as const;
+export { LightColors as Colors, LightColors, DarkColors } from '@/constants/colors';
+export type { ColorPalette } from '@/constants/colors';
 
 // ─── Typography ────────────────────────────────────────────────
 
@@ -113,7 +70,7 @@ export const AmbientShadow = {
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.04,
   shadowRadius: 32,
-  elevation: 4, // Android
+  elevation: 4,
 } as const;
 
 /** Upward ambient shadow for bottom nav / sheets */

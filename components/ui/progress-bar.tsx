@@ -1,7 +1,8 @@
 import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { Colors, Radius, GoldGradientHorizontal } from '@/constants/theme';
+import { Radius, GoldGradientHorizontal } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export interface ProgressBarProps {
   totalSteps: number;
@@ -9,6 +10,8 @@ export interface ProgressBarProps {
 }
 
 export function ProgressBar({ totalSteps, currentStep }: ProgressBarProps) {
+  const Colors = useThemeColors();
+
   return (
     <View style={styles.container}>
       {Array.from({ length: totalSteps }, (_, i) => {
@@ -23,7 +26,7 @@ export function ProgressBar({ totalSteps, currentStep }: ProgressBarProps) {
                 style={styles.segment}
               />
             ) : (
-              <View style={[styles.segment, styles.incomplete]} />
+              <View style={[styles.segment, { backgroundColor: Colors.surfaceHigh }]} />
             )}
           </View>
         );
@@ -44,8 +47,5 @@ const styles = StyleSheet.create({
   segment: {
     height: 3,
     borderRadius: Radius.full,
-  },
-  incomplete: {
-    backgroundColor: Colors.surfaceHigh,
   },
 });

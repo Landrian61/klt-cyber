@@ -3,26 +3,37 @@ import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors, FontFamily, Spacing, Glass, GoldGradient } from '@/constants/theme';
+import { FontFamily, Spacing, GoldGradient } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 
 export interface TopBarProps {
+  title?: string;
   unreadCount?: number;
   userInitials?: string;
   userPhoto?: string;
 }
 
-export function TopBar({ unreadCount = 0, userInitials = 'U' }: TopBarProps) {
+export function TopBar({ title, unreadCount = 0, userInitials = 'U' }: TopBarProps) {
+  const Colors = useThemeColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   return (
-    <BlurView intensity={Glass.blurIntensity} tint={Glass.blurTint} style={[styles.container, { paddingTop: insets.top }]}>
+    <BlurView intensity={20} tint={Colors.glassTint} style={[styles.container, { paddingTop: insets.top, backgroundColor: Colors.glassBackground }]}>
       <View style={styles.bar}>
-        {/* Left — wordmark */}
-        <Text style={styles.wordmark}>KLT Cyber Church</Text>
+        {/* Left — logo + page title */}
+        <View style={styles.leftGroup}>
+          <Image
+            source={require('@/assets/images/faviconV2.png')}
+            style={styles.logoImage}
+            contentFit="cover"
+          />
+          {title && <Text style={[styles.pageTitle, { color: Colors.onSurface }]}>{title}</Text>}
+        </View>
 
         {/* Right — bell + avatar */}
         <View style={styles.rightGroup}>
@@ -35,7 +46,7 @@ export function TopBar({ unreadCount = 0, userInitials = 'U' }: TopBarProps) {
               <View>
                 <Ionicons name="notifications-outline" size={22} color={Colors.onSurfaceVariant} />
                 {unreadCount > 0 && (
-                  <View style={styles.badge}>
+                  <View style={[styles.badge, { backgroundColor: Colors.secondary }]}>
                     <Text style={styles.badgeText}>
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </Text>
@@ -55,7 +66,7 @@ export function TopBar({ unreadCount = 0, userInitials = 'U' }: TopBarProps) {
                 colors={[...GoldGradient.colors]}
                 start={GoldGradient.start}
                 end={GoldGradient.end}
-                style={styles.avatar}
+                style={[styles.avatar, { borderColor: Colors.primary }]}
               >
                 <Text style={styles.avatarText}>{userInitials}</Text>
               </LinearGradient>
@@ -74,7 +85,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-    backgroundColor: Glass.background,
   },
   bar: {
     height: 56,
@@ -83,11 +93,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing[5],
   },
-  wordmark: {
+  leftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+  },
+  logoImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  pageTitle: {
     fontFamily: FontFamily.display,
-    fontSize: 16,
+    fontSize: 18,
     lineHeight: 24,
-    color: Colors.primary,
   },
   rightGroup: {
     flexDirection: 'row',
@@ -101,7 +120,6 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: Colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -117,7 +135,6 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

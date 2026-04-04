@@ -14,7 +14,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export interface InputProps extends Omit<TextInputProps, 'style'> {
   label: string;
@@ -34,6 +35,7 @@ export function Input({
   icon,
   ...rest
 }: InputProps) {
+  const Colors = useThemeColors();
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -57,12 +59,12 @@ export function Input({
   return (
     <View style={styles.container}>
       {/* Label above input */}
-      <Text style={[styles.label, error && styles.labelError]}>
+      <Text style={[styles.label, { color: Colors.onSurface }, error && { color: Colors.error }]}>
         {label}
       </Text>
 
       {/* Input container with subtle background */}
-      <Animated.View style={[styles.inputContainer, focusBorderStyle, error && styles.inputContainerError]}>
+      <Animated.View style={[styles.inputContainer, { backgroundColor: Colors.surfaceLowest }, focusBorderStyle, error && { borderColor: Colors.error }]}>
         <Pressable onPress={() => inputRef.current?.focus()} style={styles.inputRow}>
           {icon && (
             <Ionicons
@@ -79,7 +81,7 @@ export function Input({
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             secureTextEntry={secureTextEntryProp && !isPasswordVisible}
-            style={[styles.input, icon && styles.inputWithIcon]}
+            style={[styles.input, { color: Colors.onSurface }, icon && styles.inputWithIcon]}
             placeholderTextColor={Colors.outline}
             selectionColor={Colors.primary}
             placeholder={rest.placeholder || label}
@@ -103,7 +105,7 @@ export function Input({
 
       {/* Helper / error text */}
       {(error || helperText) && (
-        <Text style={[styles.helper, error && styles.helperError]}>
+        <Text style={[styles.helper, { color: Colors.onSurfaceVariant }, error && { color: Colors.error }]}>
           {error || helperText}
         </Text>
       )}
@@ -119,21 +121,13 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyMedium,
     fontSize: 13,
     lineHeight: 18,
-    color: Colors.onSurface,
     marginBottom: Spacing[2],
   },
-  labelError: {
-    color: Colors.error,
-  },
   inputContainer: {
-    backgroundColor: Colors.surfaceLowest,
     borderRadius: Radius.lg,
     borderWidth: 1.5,
     borderColor: 'transparent',
     overflow: 'hidden',
-  },
-  inputContainerError: {
-    borderColor: Colors.error,
   },
   inputRow: {
     flexDirection: 'row',
@@ -149,7 +143,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 15,
     lineHeight: 22,
-    color: Colors.onSurface,
     paddingVertical: 14,
   },
   inputWithIcon: {
@@ -166,11 +159,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 16,
-    color: Colors.onSurfaceVariant,
     marginTop: 6,
     paddingLeft: 2,
-  },
-  helperError: {
-    color: Colors.error,
   },
 });

@@ -5,8 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
-  Colors, FontFamily, Spacing, Radius, GoldGradient, AmbientShadow,
+  FontFamily, Spacing, Radius, GoldGradient, AmbientShadow,
 } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -29,10 +30,11 @@ const PROFILE = {
 };
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const Colors = useThemeColors();
   return (
     <View style={detailStyles.row}>
-      <Text style={detailStyles.label}>{label.toUpperCase()}</Text>
-      <Text style={detailStyles.value}>{value}</Text>
+      <Text style={[detailStyles.label, { color: Colors.outline }]}>{label.toUpperCase()}</Text>
+      <Text style={[detailStyles.value, { color: Colors.onSurface }]}>{value}</Text>
     </View>
   );
 }
@@ -43,23 +45,22 @@ const detailStyles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
     letterSpacing: 0.5,
   },
   value: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurface,
     marginTop: 2,
   },
 });
 
 export default function ProfileScreen() {
+  const Colors = useThemeColors();
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top']}>
       {/* Header bar */}
       <View style={styles.headerBar}>
         <Button
@@ -90,8 +91,8 @@ export default function ProfileScreen() {
           >
             <Text style={styles.avatarText}>{PROFILE.initials}</Text>
           </LinearGradient>
-          <Text style={styles.heroName}>{PROFILE.name}</Text>
-          <Text style={styles.heroClan}>{PROFILE.clan}</Text>
+          <Text style={[styles.heroName, { color: Colors.onSurface }]}>{PROFILE.name}</Text>
+          <Text style={[styles.heroClan, { color: Colors.onSurfaceVariant }]}>{PROFILE.clan}</Text>
         </LinearGradient>
 
         {/* Badges */}
@@ -105,7 +106,7 @@ export default function ProfileScreen() {
         <View style={styles.cardSection}>
           <Card variant="editorial">
             <View style={styles.cardHeader}>
-              <Text style={styles.cardLabel}>PERSONAL DETAILS</Text>
+              <Text style={[styles.cardLabel, { color: Colors.outline }]}>PERSONAL DETAILS</Text>
             </View>
             <DetailRow label="Date of birth" value={PROFILE.dob} />
             <DetailRow label="Sex" value={PROFILE.sex} />
@@ -117,15 +118,15 @@ export default function ProfileScreen() {
         <View style={styles.cardSection}>
           <Card variant="editorial">
             <View style={styles.cardHeader}>
-              <Text style={styles.cardLabel}>CHURCH INVOLVEMENT</Text>
+              <Text style={[styles.cardLabel, { color: Colors.outline }]}>CHURCH INVOLVEMENT</Text>
             </View>
             <DetailRow label="Clan" value={PROFILE.clan} />
             <View>
-              <Text style={detailStyles.label}>DEPARTMENTS</Text>
+              <Text style={[detailStyles.label, { color: Colors.outline }]}>DEPARTMENTS</Text>
               <View style={styles.deptRow}>
                 {PROFILE.departments.map((d) => (
-                  <View key={d} style={styles.deptPill}>
-                    <Text style={styles.deptPillText}>{d}</Text>
+                  <View key={d} style={[styles.deptPill, { backgroundColor: Colors.primaryLight }]}>
+                    <Text style={[styles.deptPillText, { color: Colors.primary }]}>{d}</Text>
                   </View>
                 ))}
               </View>
@@ -137,14 +138,14 @@ export default function ProfileScreen() {
         <View style={styles.cardSection}>
           <Card variant="editorial">
             <View style={styles.cardHeader}>
-              <Text style={styles.cardLabel}>MENTORSHIP PROGRESS</Text>
+              <Text style={[styles.cardLabel, { color: Colors.outline }]}>MENTORSHIP PROGRESS</Text>
             </View>
             <View style={styles.mentorshipTracker}>
               {(['Classes', 'Baptism', 'Ushering'] as const).map((step, i) => {
                 const completed = i === 0 ? PROFILE.mentorship.classes : i === 1 ? PROFILE.mentorship.baptism : PROFILE.mentorship.ushering;
                 return (
                   <View key={step} style={styles.mentorshipStep}>
-                    <View style={[styles.mentorshipDot, completed ? styles.mentorshipDotComplete : styles.mentorshipDotPending]}>
+                    <View style={[styles.mentorshipDot, { backgroundColor: completed ? Colors.primary : Colors.warning }]}>
                       {completed ? (
                         <Ionicons name="checkmark" size={12} color="#FFFFFF" />
                       ) : (
@@ -161,7 +162,7 @@ export default function ProfileScreen() {
                 );
               })}
             </View>
-            <Text style={styles.mentorshipSummary}>2 of 3 milestones complete</Text>
+            <Text style={[styles.mentorshipSummary, { color: Colors.onSurfaceVariant }]}>2 of 3 milestones complete</Text>
           </Card>
         </View>
 
@@ -169,7 +170,7 @@ export default function ProfileScreen() {
         <View style={styles.cardSection}>
           <Card variant="editorial">
             <View style={styles.cardHeader}>
-              <Text style={styles.cardLabel}>LEADERSHIP INSTITUTE</Text>
+              <Text style={[styles.cardLabel, { color: Colors.outline }]}>LEADERSHIP INSTITUTE</Text>
             </View>
             <DetailRow label="Current level" value={PROFILE.leadershipLevel} />
           </Card>
@@ -179,10 +180,10 @@ export default function ProfileScreen() {
         <View style={styles.cardSection}>
           <Card variant="editorial">
             <View style={styles.cardHeader}>
-              <Text style={styles.cardLabel}>PROFESSIONAL INFORMATION</Text>
+              <Text style={[styles.cardLabel, { color: Colors.outline }]}>PROFESSIONAL INFORMATION</Text>
               <Button label="Add info" variant="textLink" onPress={() => {}} />
             </View>
-            <Text style={styles.emptyCardText}>No professional info added yet.</Text>
+            <Text style={[styles.emptyCardText, { color: Colors.outline }]}>No professional info added yet.</Text>
           </Card>
         </View>
 
@@ -190,15 +191,15 @@ export default function ProfileScreen() {
         <View style={styles.cardSection}>
           <Card variant="editorial">
             <View style={styles.cardHeader}>
-              <Text style={styles.cardLabel}>MY GIVING SUMMARY</Text>
+              <Text style={[styles.cardLabel, { color: Colors.outline }]}>MY GIVING SUMMARY</Text>
             </View>
             <View style={detailStyles.row}>
-              <Text style={detailStyles.label}>THIS MONTH</Text>
-              <Text style={styles.givingAmount}>{PROFILE.givingThisMonth}</Text>
+              <Text style={[detailStyles.label, { color: Colors.outline }]}>THIS MONTH</Text>
+              <Text style={[styles.givingAmount, { color: Colors.primary }]}>{PROFILE.givingThisMonth}</Text>
             </View>
             <View style={detailStyles.row}>
-              <Text style={detailStyles.label}>THIS YEAR</Text>
-              <Text style={[detailStyles.value]}>{PROFILE.givingThisYear}</Text>
+              <Text style={[detailStyles.label, { color: Colors.outline }]}>THIS YEAR</Text>
+              <Text style={[detailStyles.value, { color: Colors.onSurface }]}>{PROFILE.givingThisYear}</Text>
             </View>
             <View style={styles.givingLink}>
               <Button label="View full giving history →" variant="textLink" onPress={() => router.push('/giving')} />
@@ -215,7 +216,7 @@ export default function ProfileScreen() {
             onPress={() => router.replace('/(auth)/welcome')}
           />
           <View style={styles.deleteLink}>
-            <Text style={styles.deleteText}>Delete my account</Text>
+            <Text style={[styles.deleteText, { color: Colors.secondary }]}>Delete my account</Text>
           </View>
         </View>
 
@@ -228,7 +229,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
   headerBar: {
     flexDirection: 'row',
@@ -259,7 +259,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 28.8,
-    color: Colors.onSurface,
     textAlign: 'center',
     marginTop: Spacing[3],
   },
@@ -267,7 +266,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
-    color: Colors.onSurfaceVariant,
     textAlign: 'center',
     marginTop: Spacing[1],
   },
@@ -292,7 +290,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
     lineHeight: 15.4,
-    color: Colors.outline,
     letterSpacing: 0.5,
   },
   deptRow: {
@@ -303,7 +300,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing[3],
   },
   deptPill: {
-    backgroundColor: Colors.primaryLight,
     borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -311,7 +307,6 @@ const styles = StyleSheet.create({
   deptPillText: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: 12,
-    color: Colors.primary,
   },
   // Mentorship
   mentorshipTracker: {
@@ -329,12 +324,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mentorshipDotComplete: {
-    backgroundColor: Colors.primary,
-  },
-  mentorshipDotPending: {
-    backgroundColor: Colors.warning,
-  },
   mentorshipLabel: {
     fontFamily: FontFamily.body,
     fontSize: 11,
@@ -349,7 +338,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.onSurfaceVariant,
     textAlign: 'center',
   },
   // Giving
@@ -357,18 +345,22 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.monoBold,
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.primary,
     marginTop: 2,
   },
   givingLink: {
     alignItems: 'flex-end',
+  },
+  value: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: 14,
+    lineHeight: 22.4,
+    marginTop: 2,
   },
   // Empty
   emptyCardText: {
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.outline,
   },
   // Account actions
   accountActions: {
@@ -383,6 +375,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.secondary,
   },
 });
