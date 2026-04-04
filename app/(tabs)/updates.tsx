@@ -1,95 +1,144 @@
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, Pressable, ImageBackground, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  FadeInUp, useSharedValue, useAnimatedStyle, withTiming,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
-import { FontFamily, Spacing } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import {
+  getPinnedAnnouncements,
+  getRegularAnnouncements,
+  type Announcement,
+} from '@/data/announcements';
 
-// Placeholder announcements
-const PRIORITY_ANNOUNCEMENTS = [
-  {
-    id: 'p1',
-    title: 'Easter Convention 2026',
-    body: 'The annual Easter Convention will be held from April 17-19. All members are encouraged to register early and invite friends and family.',
-    date: '2 April 2026',
-  },
-];
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const ALL_ANNOUNCEMENTS = [
-  {
-    id: 'a1',
-    title: 'Sunday service time change',
-    body: 'Please note that Sunday service will start at 9:30 AM beginning next week.',
-    date: '1 Apr',
-    category: 'General',
-  },
-  {
-    id: 'a2',
-    title: 'Youth conference registration',
-    body: 'Registration for the annual youth conference is now open. Limited spots available.',
-    date: '30 Mar',
-    category: 'Youth',
-  },
-  {
-    id: 'a3',
-    title: 'Building fund update',
-    body: 'We are pleased to report that we have reached 75% of our building fund target. Thank you for your generosity.',
-    date: '28 Mar',
-    category: 'Finance',
-  },
-];
+const CATEGORY_BADGE: Record<string, { label: string; variant: 'member' | 'priority' | 'pastoral' | 'hod' | 'visitor' }> = {
+  general: { label: 'General', variant: 'member' },
+  program: { label: 'Program', variant: 'pastoral' },
+  event: { label: 'Event', variant: 'hod' },
+  admin: { label: 'Admin', variant: 'visitor' },
+  youth: { label: 'Youth', variant: 'member' },
+};
+
+function AnnouncementCard({
+  item,
+  index,
+  onPress,
+}: {
+  item: Announcement;
+  index: number;
+  onPress: () => void;
+}) {
+  const Colors = useThemeColors();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  const badge = CATEGORY_BADGE[item.category];
+  const hasLink = !!item.linkedProgramId || !!item.linkedEventId;
+
+  return (
+    <AnimatedPressable
+      entering={FadeInUp.duration(300).delay(400 + index * 50)}
+      onPressIn={() => { scale.value = withTiming(0.98, { duration: Duration.fast }); }}
+      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      style={[styles.announcementCard, animatedStyle, { backgroundColor: Colors.surfaceLowest }]}
+      accessibilityRole="button"
+      accessibilityLabel={item.title}
+    >
+      <View style={styles.announcementHeader}>
+        <Text style={[styles.announcementTitle, { color: Colors.onSurface }]} numberOfLines={2}>
+          {item.title}
+        </Text>
+        {badge && <Badge label={badge.label} variant={badge.variant} />}
+      </View>
+      <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
+        {item.body}
+      </Text>
+      <View style={styles.announcementFooter}>
+        <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
+        {hasLink && (
+          <Ionicons name="chevron-forward" size={16} color={Colors.outline} />
+        )}
+      </View>
+    </AnimatedPressable>
+  );
+}
 
 export default function UpdatesScreen() {
   const Colors = useThemeColors();
+  const router = useRouter();
+  const pinned = getPinnedAnnouncements();
+  const regular = getRegularAnnouncements();
 
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Title */}
-      <View style={styles.titleArea}>
-        <Text style={[styles.title, { color: Colors.onSurface }]}>Updates</Text>
-      </View>
+      {/* Hero Banner */}
+      <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.heroSection}>
+        <ImageBackground
+          source={require('@/assets/images/updates.jpg')}
+          resizeMode="cover"
+          style={styles.heroImage}
+          imageStyle={{ borderRadius: Radius.xl }}
+        >
+          <View style={styles.heroScrim}>
+            <Text style={styles.heroLabel}>WEEKLY</Text>
+            <Text style={styles.heroTitle}>KLT Announcements</Text>
+            <Text style={styles.heroDate}>Week of 29 March 2026</Text>
+          </View>
+        </ImageBackground>
+      </Animated.View>
 
-      {/* Priority announcements */}
-      {PRIORITY_ANNOUNCEMENTS.length > 0 && (
-        <View style={styles.section}>
+      {/* Pinned Announcements */}
+      {pinned.length > 0 && (
+        <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.section}>
           <Text style={[styles.sectionLabel, { color: Colors.outline }]}>PINNED</Text>
-          {PRIORITY_ANNOUNCEMENTS.map((item) => (
-            <Card key={item.id} variant="priority" style={styles.priorityCard}>
-              <View style={styles.priorityHeader}>
-                <Text style={[styles.priorityTitle, { color: Colors.onSurface }]}>{item.title}</Text>
-                <Badge label="Priority" variant="priority" />
-              </View>
-              <Text style={[styles.priorityBody, { color: Colors.onSurfaceVariant }]} numberOfLines={3}>
-                {item.body}
-              </Text>
-              <View style={styles.priorityFooter}>
+          {pinned.map((item) => (
+            <Pressable
+              key={item.id}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push(`/announcement-detail?id=${item.id}`);
+              }}
+            >
+              <Card variant="priority" style={styles.pinnedCard}>
+                <View style={styles.pinnedHeader}>
+                  <Text style={[styles.pinnedTitle, { color: Colors.onSurface }]}>{item.title}</Text>
+                  <Badge label="Priority" variant="priority" />
+                </View>
+                <Text style={[styles.pinnedBody, { color: Colors.onSurfaceVariant }]} numberOfLines={4}>
+                  {item.body}
+                </Text>
                 <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
-                <Button label="Read more" variant="textLink" onPress={() => {}} />
-              </View>
-            </Card>
+              </Card>
+            </Pressable>
           ))}
-        </View>
+        </Animated.View>
       )}
 
-      {/* All announcements */}
-      <View style={[styles.section, { marginTop: Spacing[6] }]}>
+      {/* All Announcements */}
+      <Animated.View entering={FadeInUp.duration(400).delay(320)} style={[styles.section, { marginTop: Spacing[6] }]}>
         <Text style={[styles.sectionLabel, { color: Colors.outline }]}>ALL ANNOUNCEMENTS</Text>
-        {ALL_ANNOUNCEMENTS.map((item) => (
-          <Card key={item.id} variant="editorial" style={styles.announcementCard}>
-            <View style={styles.announcementHeader}>
-              <Text style={[styles.announcementTitle, { color: Colors.onSurface }]}>{item.title}</Text>
-              {item.category && (
-                <Badge label={item.category} variant="member" />
-              )}
-            </View>
-            <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
-              {item.body}
-            </Text>
-            <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
-          </Card>
-        ))}
-      </View>
+      </Animated.View>
+      {regular.map((item, index) => (
+        <View key={item.id} style={styles.announcementPad}>
+          <AnnouncementCard
+            item={item}
+            index={index}
+            onPress={() => router.push(`/announcement-detail?id=${item.id}`)}
+          />
+        </View>
+      ))}
 
       <View style={{ height: Spacing[6] }} />
     </ScrollView>
@@ -99,16 +148,6 @@ export default function UpdatesScreen() {
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
-  },
-  titleArea: {
-    paddingTop: Spacing[5],
-    paddingLeft: Spacing[8],
-    paddingRight: Spacing[12],
-  },
-  title: {
-    fontFamily: FontFamily.display,
-    fontSize: 24,
-    lineHeight: 28.8,
   },
   section: {
     paddingHorizontal: Spacing[5],
@@ -121,36 +160,73 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: Spacing[3],
   },
-  // Priority card
-  priorityCard: {
+  // Hero banner
+  heroSection: {
+    paddingHorizontal: Spacing[5],
+    marginTop: Spacing[3],
+  },
+  heroImage: {
+    width: '100%',
+    minHeight: 170,
+    justifyContent: 'flex-end',
+  },
+  heroScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(28, 28, 24, 0.50)',
+    borderRadius: Radius.xl,
+    padding: Spacing[5],
+    justifyContent: 'flex-end',
+  },
+  heroLabel: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 11,
+    lineHeight: 15.4,
+    color: 'rgba(255,255,255,0.60)',
+    letterSpacing: 0.8,
+  },
+  heroTitle: {
+    fontFamily: FontFamily.display,
+    fontSize: 24,
+    lineHeight: 30,
+    color: '#FFFFFF',
+    marginTop: 4,
+  },
+  heroDate: {
+    fontFamily: FontFamily.body,
+    fontSize: 12,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.60)',
+    marginTop: Spacing[1],
+  },
+  // Pinned
+  pinnedCard: {
     marginBottom: Spacing[3],
   },
-  priorityHeader: {
+  pinnedHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  priorityTitle: {
+  pinnedTitle: {
     fontFamily: FontFamily.bodyBold,
     fontSize: 16,
     lineHeight: 24,
     flex: 1,
     marginRight: Spacing[2],
   },
-  priorityBody: {
+  pinnedBody: {
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
     marginTop: Spacing[2],
   },
-  priorityFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing[3],
+  // Announcements
+  announcementPad: {
+    paddingHorizontal: Spacing[5],
   },
-  // Announcement card
   announcementCard: {
+    borderRadius: Radius.lg,
+    padding: Spacing[4],
     marginBottom: Spacing[3],
   },
   announcementHeader: {
@@ -169,6 +245,12 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
+    marginTop: Spacing[2],
+  },
+  announcementFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: Spacing[2],
   },
   dateText: {

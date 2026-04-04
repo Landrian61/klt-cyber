@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, Pressable, ImageBackground, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  FadeInUp, useSharedValue, useAnimatedStyle, withTiming,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 import {
-  FontFamily, Spacing, Radius,
+  FontFamily, Spacing, Radius, Duration,
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORIES = [
@@ -20,13 +24,63 @@ const CATEGORIES = [
 ];
 
 const RECENT_TRANSACTIONS = [
-  { id: '1', category: 'Tithe', amount: 'UGX 100,000', date: '1 Apr 2026', status: 'confirmed' },
-  { id: '2', category: 'Offering', amount: 'UGX 50,000', date: '28 Mar 2026', status: 'confirmed' },
-  { id: '3', category: 'Building Project', amount: 'UGX 100,000', date: '15 Mar 2026', status: 'confirmed' },
+  { id: '1', category: 'Tithe', amount: 'UGX 100,000', date: '1 Apr 2026', status: 'confirmed' as const },
+  { id: '2', category: 'Offering', amount: 'UGX 50,000', date: '28 Mar 2026', status: 'confirmed' as const },
+  { id: '3', category: 'Building Project', amount: 'UGX 100,000', date: '15 Mar 2026', status: 'confirmed' as const },
 ];
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function CategoryCard({
+  cat,
+  isSelected,
+  index,
+  onPress,
+}: {
+  cat: typeof CATEGORIES[number];
+  isSelected: boolean;
+  index: number;
+  onPress: () => void;
+}) {
+  const Colors = useThemeColors();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      entering={FadeInUp.duration(300).delay(200 + index * 50)}
+      onPressIn={() => { scale.value = withTiming(0.95, { duration: Duration.fast }); }}
+      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      style={[
+        styles.categoryCard,
+        animatedStyle,
+        {
+          backgroundColor: isSelected ? Colors.primaryFixedDim : Colors.surfaceLowest,
+          borderWidth: isSelected ? 1.5 : 0,
+          borderColor: isSelected ? Colors.primary : 'transparent',
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isSelected }}
+      accessibilityLabel={cat.label}
+    >
+      <Ionicons name={cat.icon} size={28} color={Colors.primary} />
+      <Text style={[styles.categoryLabel, { color: isSelected ? Colors.primary : Colors.onSurface }]}>
+        {cat.label}
+      </Text>
+    </AnimatedPressable>
+  );
+}
 
 export default function GivingTabScreen() {
   const Colors = useThemeColors();
+  const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const toggleCategory = (key: string) => {
@@ -35,67 +89,68 @@ export default function GivingTabScreen() {
     );
   };
 
+  const handleContribute = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push({
+      pathname: '/give/amount',
+      params: { categories: selectedCategories.join(',') },
+    });
+  };
+
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Title */}
-      <View style={styles.titleArea}>
-        <Text style={[styles.title, { color: Colors.onSurface }]}>Giving</Text>
-      </View>
-
       {/* Summary Hero Card */}
-      <View style={styles.section}>
-        <Card variant="hero">
-          <Text style={styles.heroLabel}>YOUR GIVING THIS MONTH</Text>
-          <Text style={styles.heroAmount}>UGX 250,000</Text>
-          <Button label="View history →" variant="textLink" onPress={() => {}} />
-        </Card>
-      </View>
+      <Animated.View entering={FadeInUp.duration(400).delay(100)} style={[styles.section, { marginTop: Spacing[3] }]}>
+        <View style={styles.heroContainer}>
+          <ImageBackground
+            source={require('@/assets/images/tithe-and-offering.png')}
+            resizeMode="cover"
+            style={styles.heroImage}
+            imageStyle={{ borderRadius: Radius.xl }}
+          >
+            <View style={styles.heroScrim}>
+              <Text style={styles.heroLabel}>YOUR GIVING THIS MONTH</Text>
+              <Text style={styles.heroAmount}>UGX 250,000</Text>
+            </View>
+          </ImageBackground>
+        </View>
+      </Animated.View>
 
       {/* Give Now Grid */}
-      <View style={[styles.section, { marginTop: Spacing[6] }]}>
+      <Animated.View entering={FadeInUp.duration(400).delay(240)} style={[styles.section, { marginTop: Spacing[6] }]}>
         <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Give now</Text>
         <View style={styles.categoryGrid}>
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategories.includes(cat.key);
-            return (
-              <Pressable
-                key={cat.key}
-                onPress={() => toggleCategory(cat.key)}
-                style={[
-                  styles.categoryCard,
-                  { backgroundColor: isSelected ? Colors.primaryFixedDim : Colors.surfaceLowest },
-                ]}
-              >
-                <Ionicons
-                  name={cat.icon}
-                  size={28}
-                  color={Colors.primary}
-                />
-                <Text style={[styles.categoryLabel, { color: isSelected ? Colors.primary : Colors.onSurface }]}>
-                  {cat.label}
-                </Text>
-                {isSelected && <View style={[styles.categoryAccent, { backgroundColor: Colors.primary }]} />}
-              </Pressable>
-            );
-          })}
+          {CATEGORIES.map((cat, index) => (
+            <CategoryCard
+              key={cat.key}
+              cat={cat}
+              isSelected={selectedCategories.includes(cat.key)}
+              index={index}
+              onPress={() => toggleCategory(cat.key)}
+            />
+          ))}
         </View>
-      </View>
+      </Animated.View>
 
       {/* Contribute Button */}
-      <View style={[styles.section, { marginTop: Spacing[5] }]}>
+      <Animated.View entering={FadeInUp.duration(400).delay(500)} style={[styles.section, { marginTop: Spacing[5] }]}>
         <Button
           label="Make a contribution"
           variant="primary"
           disabled={selectedCategories.length === 0}
-          onPress={() => {}}
+          onPress={handleContribute}
         />
-      </View>
+      </Animated.View>
 
       {/* Recent Transactions */}
-      <View style={[styles.section, { marginTop: Spacing[6] }]}>
+      <Animated.View entering={FadeInUp.duration(400).delay(580)} style={[styles.section, { marginTop: Spacing[6] }]}>
         <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Recent transactions</Text>
-        {RECENT_TRANSACTIONS.map((tx) => (
-          <View key={tx.id} style={[styles.txCard, { backgroundColor: Colors.surfaceLowest }]}>
+        {RECENT_TRANSACTIONS.map((tx, index) => (
+          <Animated.View
+            key={tx.id}
+            entering={FadeInUp.duration(300).delay(620 + index * 50)}
+            style={[styles.txCard, { backgroundColor: Colors.surfaceLowest }]}
+          >
             <View style={styles.txInfo}>
               <Text style={[styles.txCategory, { color: Colors.onSurface }]}>{tx.category}</Text>
               <Text style={[styles.txDate, { color: Colors.outline }]}>{tx.date}</Text>
@@ -104,22 +159,22 @@ export default function GivingTabScreen() {
               <Text style={[styles.txAmount, { color: Colors.primary }]}>{tx.amount}</Text>
               <Badge label="Confirmed" variant="confirmed" />
             </View>
-          </View>
+          </Animated.View>
         ))}
         <View style={styles.historyLink}>
           <Button label="View full history →" variant="textLink" onPress={() => {}} />
         </View>
-      </View>
+      </Animated.View>
 
       {/* Anonymous note */}
-      <View style={[styles.section, { marginTop: Spacing[4] }]}>
+      <Animated.View entering={FadeInUp.duration(400).delay(780)} style={[styles.section, { marginTop: Spacing[4] }]}>
         <View style={styles.anonNote}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.outline} />
           <Text style={[styles.anonText, { color: Colors.outline }]}>
             You can give anonymously. Choose the option during payment.
           </Text>
         </View>
-      </View>
+      </Animated.View>
 
       <View style={{ height: Spacing[6] }} />
     </ScrollView>
@@ -129,16 +184,6 @@ export default function GivingTabScreen() {
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
-  },
-  titleArea: {
-    paddingTop: Spacing[5],
-    paddingLeft: Spacing[8],
-    paddingRight: Spacing[12],
-  },
-  title: {
-    fontFamily: FontFamily.display,
-    fontSize: 24,
-    lineHeight: 28.8,
   },
   section: {
     paddingHorizontal: Spacing[5],
@@ -150,7 +195,23 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: Spacing[3],
   },
-  // Hero — hardcoded white text on gold gradient is intentional
+  // Hero
+  heroContainer: {
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    minHeight: 160,
+    justifyContent: 'flex-end',
+  },
+  heroScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(28, 28, 24, 0.50)',
+    borderRadius: Radius.xl,
+    padding: Spacing[5],
+    justifyContent: 'flex-end',
+  },
   heroLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
@@ -164,7 +225,6 @@ const styles = StyleSheet.create({
     lineHeight: 35.2,
     color: '#FFFFFF',
     marginTop: Spacing[2],
-    marginBottom: Spacing[2],
   },
   categoryGrid: {
     flexDirection: 'row',
@@ -185,14 +245,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     marginTop: Spacing[2],
-  },
-  categoryAccent: {
-    position: 'absolute',
-    bottom: 0,
-    left: '20%',
-    right: '20%',
-    height: 2,
-    borderRadius: 1,
   },
   txCard: {
     borderRadius: Radius.lg,

@@ -32,6 +32,12 @@ function RootLayoutInner() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="giving" />
         <Stack.Screen name="members" />
+        <Stack.Screen name="programs" />
+        <Stack.Screen name="program-detail" />
+        <Stack.Screen name="events" />
+        <Stack.Screen name="event-detail" />
+        <Stack.Screen name="announcement-detail" />
+        <Stack.Screen name="give" />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </>
