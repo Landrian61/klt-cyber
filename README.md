@@ -1,50 +1,166 @@
-# Welcome to your Expo app 👋
+# KLT Cyber Church
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A premium mobile application for **Kingdom Life Tabernacle (KLT) Cyber Church**, built with React Native and Expo. The app serves as a digital sanctuary for the church community, offering live radio streaming, giving, announcements, program schedules, and member engagement.
 
-## Get started
+## Tech Stack
 
-1. Install dependencies
+| Layer | Technology |
+|-------|-----------|
+| Framework | [Expo SDK 54](https://expo.dev) (managed workflow) |
+| UI | React Native 0.81 + React 19 |
+| Language | TypeScript 5.9 (strict mode) |
+| Navigation | [Expo Router 6](https://docs.expo.dev/router/introduction/) (file-based routing) |
+| Animations | [React Native Reanimated 4](https://docs.swmansion.com/react-native-reanimated/) |
+| Gestures | [React Native Gesture Handler](https://docs.swmansion.com/react-native-gesture-handler/) |
+| Styling | React Native StyleSheet (no external CSS-in-JS) |
 
-   ```bash
-   npm install
-   ```
+## Features
 
-2. Start the app
+### Home
+- Personalised greeting with date
+- Church theme card for the year (image-backed)
+- Weekly program cards (horizontal scroll, image-backed with scrim overlays)
+- Scripture of the day with rotating brand-colour gradients
+- Upcoming events carousel
+- Quick links to giving and membership
 
-   ```bash
-   npx expo start
-   ```
+### Reign Radio
+- Live radio player with playback controls and volume
+- Dynamic hero background (current program image or church theme fallback)
+- Listener count display
+- Live comments with real-time input
+- Program schedule (online/hybrid programs)
+- Personal sermon notes with auto-save
 
-In the output, you'll find options to open the app in a
+### Giving
+- Monthly giving summary (image-backed hero card)
+- 6 giving categories with multi-select (Tithe, Offering, Seed, Building Project, Missions, Special Gift)
+- Multi-step contribution flow:
+  - **Step 1** -- Amount entry with quick-select presets (10K--1M UGX)
+  - **Step 2** -- Payment method (Mobile Money, Card, Bank Transfer) with contextual sub-forms
+  - **Step 3** -- Review with anonymous and recurring toggles
+  - **Step 4** -- Success confirmation with animated gold checkmark
+- Recent transaction history
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Updates
+- Weekly announcements with hero banner
+- Pinned priority announcements
+- Categorised announcement cards (General, Program, Event, Admin, Youth)
+- Announcement detail with cross-links to related programs and events
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Programs & Events
+- Full program directory with 11 church programs
+- Upcoming events list (MWAT series, special services, baptisms)
+- Program detail screens with hero images and clock-in functionality
+- Event detail screens with date, time, and location
 
-## Get a fresh project
+### Authentication
+- Welcome screen with onboarding
+- Sign in / forgot password
+- 3-step registration flow with context-based state management
 
-When you're ready, run:
+### Additional Screens
+- Member directory with search and filters
+- User profile management
+- Notification centre
 
-```bash
-npm run reset-project
+## Design System -- "Sacred Curator"
+
+The app follows a bespoke design language inspired by cathedral interiors and premium editorial aesthetics.
+
+### Colour Palette
+
+| Role | Light | Dark |
+|------|-------|------|
+| Primary (Gold) | `#785600` | `#C49A2C` |
+| Brand Gold | `#B8860B` | -- |
+| Secondary (Crimson) | `#AB3332` | `#E05A59` |
+| Tertiary (Royal Blue) | `#145DA3` | `#4A8FD4` |
+| Surface (Parchment) | `#FCF9F2` | `#141413` |
+| On Surface | `#1C1C18` | `#E8E4DA` |
+
+### Typography
+
+| Family | Usage | Font |
+|--------|-------|------|
+| Display | Screen titles, scripture, headings (18px+) | Merriweather Bold |
+| Body | All UI text, labels, forms, navigation | Inter (Regular/Medium/SemiBold/Bold) |
+| Mono | Amounts, timers, reference numbers | JetBrains Mono |
+
+### Design Rules
+
+- **Warm Parchment** -- `#FCF9F2` base, never cold white
+- **No-Line Rule** -- No 1px borders; depth through tonal background shifts
+- **Glass & Gold** -- Floating elements use blur + translucent parchment; primary CTAs use gold gradients
+- **8-Point Grid** -- All spacing uses multiples of 4px
+- **Haptic Feedback** -- Every interactive element provides tactile response
+- **Spring Physics** -- Interactive animations use spring dynamics via Reanimated
+
+## Project Structure
+
+```
+app/                    Screens & layouts (file-based routing)
+  (auth)/               Authentication flow (8 screens)
+  (tabs)/               Bottom tab navigator (Home, Radio, Giving, Updates)
+  give/                 Multi-step giving flow (4 screens)
+  *.tsx                 Detail & utility screens
+components/
+  ui/                   Reusable primitives (Button, Card, Badge, Input, etc.)
+  navigation/           Navigation components (TopBar, BottomNav, MorePanel)
+  auth/                 Auth-specific components
+contexts/               React Context providers (Theme, Registration, Giving)
+constants/              Design tokens (colours, typography, spacing, shadows)
+data/                   Data models & mock data (programs, events, announcements)
+hooks/                  Custom hooks (useThemeColors, useColorScheme)
+assets/
+  fonts/                Merriweather, Inter, JetBrains Mono
+  images/               Program images, icons, church theme
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Getting Started
 
-## Learn more
+### Prerequisites
 
-To learn more about developing your project with Expo, look at the following resources:
+- [Node.js](https://nodejs.org/) 18+
+- [Expo CLI](https://docs.expo.dev/get-started/installation/)
+- iOS Simulator (macOS) or Android Emulator, or a physical device with [Expo Go](https://expo.dev/go)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Installation
 
-## Join the community
+```bash
+# Clone the repository
+git clone <repository-url>
+cd klt-cyber
 
-Join our community of developers creating universal apps.
+# Install dependencies
+npm install
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Development
+
+```bash
+# Start the Expo dev server
+npm start
+
+# Platform-specific
+npm run android
+npm run ios
+npm run web
+```
+
+### Linting
+
+```bash
+npm run lint
+```
+
+## Key References
+
+| Document | Purpose |
+|----------|---------|
+| `INTERFACE_SPEC.md` | Authoritative design and interface specification |
+| `CLAUDE.md` | AI assistant project context and conventions |
+
+## License
+
+Private -- Kingdom Life Tabernacle. All rights reserved.
