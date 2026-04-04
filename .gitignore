@@ -41,3 +41,23 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Claude Code
+.claude/plans/
+.claude/settings.json
+
+# Editor
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
