@@ -1,0 +1,18 @@
+{
+  "name": "klt-cyber",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "mobile": "pnpm --filter mobile start",
+    "mobile:android": "pnpm --filter mobile run android",
+    "mobile:ios": "pnpm --filter mobile run ios",
+    "admin": "pnpm --filter admin dev",
+    "convex": "pnpm exec convex dev",
+    "lint": "pnpm -r run lint"
+  },
+  "packageManager": "pnpm@11.3.0",
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "convex": "latest"
+  }
+}
