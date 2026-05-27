@@ -4,15 +4,19 @@ A premium mobile application for **Kingdom Life Tabernacle (KLT) Cyber Church**,
 
 ## Tech Stack
 
+This repository is a **pnpm workspace monorepo** containing the mobile app, a web admin dashboard, and a shared Convex backend.
+
 | Layer | Technology |
 |-------|-----------|
-| Framework | [Expo SDK 54](https://expo.dev) (managed workflow) |
-| UI | React Native 0.81 + React 19 |
+| Monorepo | [pnpm workspaces](https://pnpm.io/workspaces) |
+| Mobile | [Expo SDK 54](https://expo.dev) (managed workflow) · React Native 0.81 · React 19 |
+| Web Admin | [Next.js 16](https://nextjs.org) (App Router) · React 19 · [Tailwind CSS 4](https://tailwindcss.com) |
+| Backend | [Convex](https://convex.dev) (real-time database & serverless functions) |
 | Language | TypeScript 5.9 (strict mode) |
-| Navigation | [Expo Router 6](https://docs.expo.dev/router/introduction/) (file-based routing) |
-| Animations | [React Native Reanimated 4](https://docs.swmansion.com/react-native-reanimated/) |
-| Gestures | [React Native Gesture Handler](https://docs.swmansion.com/react-native-gesture-handler/) |
-| Styling | React Native StyleSheet (no external CSS-in-JS) |
+| Navigation (mobile) | [Expo Router 6](https://docs.expo.dev/router/introduction/) (file-based routing) |
+| Animations (mobile) | [React Native Reanimated 4](https://docs.swmansion.com/react-native-reanimated/) |
+| Gestures (mobile) | [React Native Gesture Handler](https://docs.swmansion.com/react-native-gesture-handler/) |
+| Styling (mobile) | React Native StyleSheet (no external CSS-in-JS) |
 
 ## Features
 
@@ -98,6 +102,22 @@ The app follows a bespoke design language inspired by cathedral interiors and pr
 
 ## Project Structure
 
+A pnpm workspace monorepo:
+
+```
+klt-cyber/
+├── apps/
+│   ├── mobile/            Expo / React Native app   (workspace package: "mobile")
+│   └── admin/             Next.js web admin dashboard (workspace package: "admin")
+├── convex/                Convex backend — schema, functions, generated types
+├── docs/                  INTERFACE_SPEC.md and project documentation
+├── package.json           Root workspace scripts
+├── pnpm-workspace.yaml    Workspace package globs (apps/*, packages/*)
+└── .npmrc                 pnpm config (hoisted node-linker)
+```
+
+### Mobile app — `apps/mobile`
+
 ```
 app/                    Screens & layouts (file-based routing)
   (auth)/               Authentication flow (8 screens)
@@ -115,15 +135,32 @@ hooks/                  Custom hooks (useThemeColors, useColorScheme)
 assets/
   fonts/                Merriweather, Inter, JetBrains Mono
   images/               Program images, icons, church theme
+metro.config.js         Monorepo-aware Metro bundler config
+```
+
+### Web admin — `apps/admin`
+
+```
+app/                    Next.js App Router pages & layouts
+public/                 Static assets
+next.config.ts          Next.js config (Turbopack workspace root pinned)
+```
+
+### Backend — `convex/`
+
+```
+schema.ts               Database schema (define your tables here)
+_generated/             Auto-generated API & type bindings (do not edit)
+*.ts                    Query / mutation / action functions
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 18+
-- [Expo CLI](https://docs.expo.dev/get-started/installation/)
-- iOS Simulator (macOS) or Android Emulator, or a physical device with [Expo Go](https://expo.dev/go)
+- [Node.js](https://nodejs.org/) 20+
+- [pnpm](https://pnpm.io/installation) 11+ (package manager for the workspace)
+- iOS Simulator (macOS) or Android Emulator, or a physical device with [Expo Go](https://expo.dev/go) — for the mobile app
 
 ### Installation
 
@@ -132,33 +169,41 @@ assets/
 git clone <repository-url>
 cd klt-cyber
 
-# Install dependencies
-npm install
+# Install all workspace dependencies (mobile + admin + backend) from the root
+pnpm install
 ```
 
 ### Development
 
-```bash
-# Start the Expo dev server
-npm start
+All apps are launched from the repository root via workspace scripts:
 
-# Platform-specific
-npm run android
-npm run ios
-npm run web
+```bash
+# Mobile (Expo dev server)
+pnpm mobile
+pnpm mobile:android
+pnpm mobile:ios
+
+# Web admin (Next.js dev server → http://localhost:3000)
+pnpm admin
+
+# Backend (Convex dev — watches & pushes functions)
+pnpm convex
 ```
+
+> The Convex backend stores its deployment URL and keys in `.env.local` (git-ignored), generated on first `pnpm convex` / `convex dev`.
 
 ### Linting
 
 ```bash
-npm run lint
+# Lint every workspace package
+pnpm lint
 ```
 
 ## Key References
 
 | Document | Purpose |
 |----------|---------|
-| `INTERFACE_SPEC.md` | Authoritative design and interface specification |
+| `docs/INTERFACE_SPEC.md` | Authoritative design and interface specification |
 | `CLAUDE.md` | AI assistant project context and conventions |
 
 ## License
