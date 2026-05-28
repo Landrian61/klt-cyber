@@ -1,6 +1,10 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+# Expo/Metro/React Native require a hoisted (npm-style) node_modules layout.
+# In pnpm v10+/v11 these settings are read from here, NOT from .npmrc.
+nodeLinker: hoisted
+autoInstallPeers: true
 allowBuilds:
   esbuild: true
   sharp: true
