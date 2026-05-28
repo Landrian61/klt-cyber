@@ -14,6 +14,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@klt-cyber/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       next:
         specifier: 16.2.6
         version: 16.2.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -48,6 +51,9 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.0.3
         version: 15.1.1(expo-font@14.0.11(expo@54.0.34)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      '@klt-cyber/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@react-native-community/datetimepicker':
         specifier: 8.4.4
         version: 8.4.4(expo@54.0.34)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -142,6 +148,18 @@ importers:
       typescript:
         specifier: ~5.9.2
         version: 5.9.3
+
+  packages/config: {}
+
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: latest
+        version: 4.4.3
+    devDependencies:
+      '@klt-cyber/config':
+        specifier: workspace:*
+        version: link:../config
 
 packages:
 
@@ -4898,6 +4916,9 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -10394,3 +10415,5 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@0.1.0: {}
+
+  zod@4.4.3: {}
