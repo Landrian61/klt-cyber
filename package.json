@@ -11,8 +11,14 @@
     "lint": "pnpm -r run lint"
   },
   "packageManager": "pnpm@11.3.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "convex": "latest"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.12.2",
+    "better-auth": "~1.6.11"
   }
 }
