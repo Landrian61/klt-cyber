@@ -11,6 +11,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { authClient } from '@/lib/auth';
 
 // Placeholder profile data
 const PROFILE = {
@@ -213,7 +214,11 @@ export default function ProfileScreen() {
             label="Sign out"
             variant="destructive"
             fullWidth
-            onPress={() => router.replace('/(auth)/welcome')}
+            onPress={async () => {
+              // Clears the secure-store session; the root auth gate then
+              // redirects back to the (auth) flow automatically.
+              await authClient.signOut();
+            }}
           />
           <View style={styles.deleteLink}>
             <Text style={[styles.deleteText, { color: Colors.secondary }]}>Delete my account</Text>

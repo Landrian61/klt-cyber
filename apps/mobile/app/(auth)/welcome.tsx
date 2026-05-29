@@ -71,19 +71,8 @@ export default function WelcomeScreen() {
           <Button
             label="Create account"
             variant="ghost"
-            onPress={() => router.push('/(auth)/register-step-1')}
+            onPress={() => router.push('/(auth)/sign-up')}
           />
-
-          <View style={styles.gap24} />
-
-          <View style={styles.visitorRow}>
-            <Text style={[styles.visitorText, { color: Colors.onSurfaceVariant }]}>Just browsing? </Text>
-            <Button
-              label="Continue as visitor"
-              variant="textLink"
-              onPress={() => router.replace('/(tabs)')}
-            />
-          </View>
         </Animated.View>
       </View>
     </SafeAreaView>
@@ -160,18 +149,5 @@ const styles = StyleSheet.create({
   },
   gap14: {
     height: 14,
-  },
-  gap24: {
-    height: Spacing[6],
-  },
-  visitorRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  visitorText: {
-    fontFamily: FontFamily.body,
-    fontSize: 14,
-    lineHeight: 22,
   },
 });

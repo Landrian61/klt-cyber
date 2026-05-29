@@ -47,7 +47,8 @@ export default function SignInPage() {
     setLoading(false);
 
     if (error) {
-      setFormError("Incorrect email or password.");
+      // Single, non-leaky message — never disclose whether the email exists.
+      setFormError("Invalid email or password.");
       return;
     }
     router.push("/");
@@ -107,7 +108,7 @@ export default function SignInPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             error={!!fieldErrors.password}
-            placeholder="Your password"
+            placeholder="Enter your password"
           />
           {fieldErrors.password && (
             <p className="font-body text-xs text-error">

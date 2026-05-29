@@ -11,13 +11,17 @@
     "lint": "expo lint"
   },
   "dependencies": {
-    "@klt-cyber/shared": "workspace:*",
+    "@better-auth/expo": "1.6.11",
+    "@convex-dev/better-auth": "0.12.2",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.3",
+    "@klt-cyber/shared": "workspace:*",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
+    "better-auth": "1.6.11",
+    "convex": "1.39.1",
     "expo": "~54.0.33",
     "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.13",
@@ -26,7 +30,9 @@
     "expo-image": "~3.0.11",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
+    "expo-network": "~8.0.8",
     "expo-router": "~6.0.23",
+    "expo-secure-store": "~15.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-symbols": "~1.0.8",
@@ -44,9 +50,9 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "typescript": "~5.9.2",
     "eslint": "^9.25.0",
-    "eslint-config-expo": "~10.0.0"
+    "eslint-config-expo": "~10.0.0",
+    "typescript": "~5.9.2"
   },
   "private": true
 }

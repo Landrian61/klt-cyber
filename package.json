@@ -8,7 +8,8 @@
     "mobile:ios": "pnpm --filter mobile run ios",
     "admin": "pnpm --filter admin dev",
     "convex": "pnpm exec convex dev",
-    "lint": "pnpm -r run lint"
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test"
   },
   "packageManager": "pnpm@11.3.0",
   "engines": {
