@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-
 import { Image } from 'expo-image';
-import { signInInputSchema } from '@klt-cyber/shared';
+import { signUpInputSchema } from '@klt-cyber/shared';
 
 import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
@@ -14,44 +13,48 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { authClient } from '@/lib/auth';
 
-export default function SignInScreen() {
+export default function SignUpScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleSignIn = async () => {
+  const handleSignUp = async () => {
     setError('');
     setEmailError('');
     setPasswordError('');
 
-    const parsed = signInInputSchema.safeParse({ email, password });
+    // Minimal sign-up (docs/DATA_MODEL.md, Increment 1): email + password only.
+    const parsed = signUpInputSchema.safeParse({ email, password });
     if (!parsed.success) {
       const fields = parsed.error.flatten().fieldErrors;
       if (fields.email) setEmailError('Please enter a valid email address.');
-      if (fields.password) setPasswordError('Please enter your password.');
+      if (fields.password) setPasswordError('Password must be at least 8 characters.');
       return;
     }
 
     setLoading(true);
-    const { error: signInError } = await authClient.signIn.email({
+    // Better Auth requires a `name`; we send an empty string so NO profile
+    // fields are collected. A fresh account is a visitor; the Convex onCreate
+    // trigger leaves first/last name unset.
+    const { error: signUpError } = await authClient.signUp.email({
       email: parsed.data.email,
       password: parsed.data.password,
+      name: '',
     });
     setLoading(false);
 
-    if (signInError) {
-      // Single, non-leaky message — never disclose whether the email exists.
-      setError('Invalid email or password.');
+    if (signUpError) {
+      setError(signUpError.message ?? 'Could not create your account. Please try again.');
       return;
     }
-    // No manual navigation: the root auth gate (Stack.Protected in
-    // app/_layout.tsx) redirects to (tabs) once the session is established.
+    // No manual navigation: once the session is established, the root auth
+    // gate (Stack.Protected in app/_layout.tsx) swaps (auth) → (tabs).
   };
 
   const handleGoogle = async () => {
@@ -67,8 +70,8 @@ export default function SignInScreen() {
   return (
     <KeyboardAwareScroll>
       <AuthHeader
-        title="Welcome back"
-        subtitle="Sign in to your account to continue"
+        title="Create your account"
+        subtitle="Sign up with your email to get started"
       />
 
       <Animated.View entering={FadeInDown.duration(400).delay(150)} style={styles.form}>
@@ -91,21 +94,21 @@ export default function SignInScreen() {
           value={password}
           onChangeText={(v) => { setPassword(v); setPasswordError(''); }}
           secureTextEntry
-          autoComplete="current-password"
+          autoComplete="new-password"
           error={passwordError}
+          helperText="Minimum 8 characters"
           icon="lock-closed-outline"
-          placeholder="Enter your password"
+          placeholder="Create a strong password"
         />
-        {/* Forgot-password is deferred (DATA_MODEL.md) — link hidden for now. */}
       </Animated.View>
 
       <Animated.View entering={FadeInDown.duration(400).delay(300)} style={styles.actions}>
         {error ? <Text style={[styles.error, { color: Colors.error }]}>{error}</Text> : null}
 
         <Button
-          label="Sign in"
+          label="Create account"
           variant="primary"
-          onPress={handleSignIn}
+          onPress={handleSignUp}
           loading={loading}
         />
 
@@ -129,11 +132,11 @@ export default function SignInScreen() {
         </Pressable>
 
         <View style={styles.createRow}>
-          <Text style={[styles.createText, { color: Colors.onSurfaceVariant }]}>{"Don't have an account? "}</Text>
+          <Text style={[styles.createText, { color: Colors.onSurfaceVariant }]}>Already have an account? </Text>
           <Button
-            label="Sign up"
+            label="Sign in"
             variant="textLink"
-            onPress={() => router.push('/(auth)/sign-up')}
+            onPress={() => router.replace('/(auth)/sign-in')}
           />
         </View>
       </Animated.View>

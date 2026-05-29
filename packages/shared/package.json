@@ -1,0 +1,16 @@
+{
+  "name": "@klt-cyber/shared",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@klt-cyber/config": "workspace:*"
+  }
+}
