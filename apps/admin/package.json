@@ -8,7 +8,10 @@
     "start": "next start"
   },
   "dependencies": {
+    "@convex-dev/better-auth": "0.12.2",
     "@klt-cyber/shared": "workspace:*",
+    "better-auth": "1.6.11",
+    "convex": "1.39.1",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"
