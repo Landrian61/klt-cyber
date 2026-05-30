@@ -10,6 +10,7 @@ import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { MemberGate } from '@/components/member-gate';
 import {
   getPinnedAnnouncements,
   getRegularAnnouncements,
@@ -44,38 +45,40 @@ function AnnouncementCard({
   const hasLink = !!item.linkedProgramId || !!item.linkedEventId;
 
   return (
-    <AnimatedPressable
-      entering={FadeInUp.duration(300).delay(400 + index * 50)}
-      onPressIn={() => { scale.value = withTiming(0.98, { duration: Duration.fast }); }}
-      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
-      style={[styles.announcementCard, animatedStyle, { backgroundColor: Colors.surfaceLowest }]}
-      accessibilityRole="button"
-      accessibilityLabel={item.title}
-    >
-      <View style={styles.announcementHeader}>
-        <Text style={[styles.announcementTitle, { color: Colors.onSurface }]} numberOfLines={2}>
-          {item.title}
+    // Wrapper carries the entering animation; press-scale stays on the pressable.
+    <Animated.View entering={FadeInUp.duration(300).delay(400 + index * 50)}>
+      <AnimatedPressable
+        onPressIn={() => { scale.value = withTiming(0.98, { duration: Duration.fast }); }}
+        onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        style={[styles.announcementCard, animatedStyle, { backgroundColor: Colors.surfaceLowest }]}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+      >
+        <View style={styles.announcementHeader}>
+          <Text style={[styles.announcementTitle, { color: Colors.onSurface }]} numberOfLines={2}>
+            {item.title}
+          </Text>
+          {badge && <Badge label={badge.label} variant={badge.variant} />}
+        </View>
+        <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
+          {item.body}
         </Text>
-        {badge && <Badge label={badge.label} variant={badge.variant} />}
-      </View>
-      <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
-        {item.body}
-      </Text>
-      <View style={styles.announcementFooter}>
-        <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
-        {hasLink && (
-          <Ionicons name="chevron-forward" size={16} color={Colors.outline} />
-        )}
-      </View>
-    </AnimatedPressable>
+        <View style={styles.announcementFooter}>
+          <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
+          {hasLink && (
+            <Ionicons name="chevron-forward" size={16} color={Colors.outline} />
+          )}
+        </View>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 
-export default function UpdatesScreen() {
+function UpdatesScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
   const pinned = getPinnedAnnouncements();
@@ -142,6 +145,15 @@ export default function UpdatesScreen() {
 
       <View style={{ height: Spacing[6] }} />
     </ScrollView>
+  );
+}
+
+// Member-only: visitors see the "Complete your profile" nudge instead of the feed.
+export default function UpdatesTab() {
+  return (
+    <MemberGate featureLabel="the weekly announcements">
+      <UpdatesScreen />
+    </MemberGate>
   );
 }
 

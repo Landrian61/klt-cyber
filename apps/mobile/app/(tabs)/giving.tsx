@@ -49,32 +49,38 @@ function CategoryCard({
   }));
 
   return (
-    <AnimatedPressable
+    // Grid sizing + entering animation on the wrapper; press-scale on the inner
+    // pressable so the layout animation doesn't overwrite the transform.
+    <Animated.View
       entering={FadeInUp.duration(300).delay(200 + index * 50)}
-      onPressIn={() => { scale.value = withTiming(0.95, { duration: Duration.fast }); }}
-      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
-      style={[
-        styles.categoryCard,
-        animatedStyle,
-        {
-          backgroundColor: isSelected ? Colors.primaryFixedDim : Colors.surfaceLowest,
-          borderWidth: isSelected ? 1.5 : 0,
-          borderColor: isSelected ? Colors.primary : 'transparent',
-        },
-      ]}
-      accessibilityRole="button"
-      accessibilityState={{ selected: isSelected }}
-      accessibilityLabel={cat.label}
+      style={styles.categoryCardWrap}
     >
-      <Ionicons name={cat.icon} size={28} color={Colors.primary} />
-      <Text style={[styles.categoryLabel, { color: isSelected ? Colors.primary : Colors.onSurface }]}>
-        {cat.label}
-      </Text>
-    </AnimatedPressable>
+      <AnimatedPressable
+        onPressIn={() => { scale.value = withTiming(0.95, { duration: Duration.fast }); }}
+        onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        style={[
+          styles.categoryCard,
+          animatedStyle,
+          {
+            backgroundColor: isSelected ? Colors.primaryFixedDim : Colors.surfaceLowest,
+            borderWidth: isSelected ? 1.5 : 0,
+            borderColor: isSelected ? Colors.primary : 'transparent',
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isSelected }}
+        accessibilityLabel={cat.label}
+      >
+        <Ionicons name={cat.icon} size={28} color={Colors.primary} />
+        <Text style={[styles.categoryLabel, { color: isSelected ? Colors.primary : Colors.onSurface }]}>
+          {cat.label}
+        </Text>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 
@@ -231,9 +237,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing[3],
   },
-  categoryCard: {
+  categoryCardWrap: {
     width: '30%',
     flexGrow: 1,
+  },
+  categoryCard: {
+    width: '100%',
     borderRadius: Radius.lg,
     padding: Spacing[4],
     alignItems: 'center',

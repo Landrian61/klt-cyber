@@ -6,7 +6,7 @@
  * This file exports LightColors as `Colors` for backward compatibility in non-component code.
  */
 
-export { LightColors as Colors, LightColors, DarkColors } from '@/constants/colors';
+export { LightColors as Colors, LightColors } from '@/constants/colors';
 export type { ColorPalette } from '@/constants/colors';
 
 // ─── Typography ────────────────────────────────────────────────

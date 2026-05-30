@@ -8,8 +8,14 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as children from "../children.js";
+import type * as clans from "../clans.js";
 import type * as http from "../http.js";
+import type * as lib_authz from "../lib/authz.js";
+import type * as profile from "../profile.js";
+import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
 
 import type {
@@ -19,8 +25,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   auth: typeof auth;
+  children: typeof children;
+  clans: typeof clans;
   http: typeof http;
+  "lib/authz": typeof lib_authz;
+  profile: typeof profile;
+  roles: typeof roles;
   seed: typeof seed;
 }>;
 

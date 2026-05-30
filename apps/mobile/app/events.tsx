@@ -23,42 +23,44 @@ function EventRow({ event, index, onPress }: { event: UpcomingEvent; index: numb
   }));
 
   return (
-    <AnimatedPressable
-      entering={FadeInUp.duration(300).delay(index * 60)}
-      onPressIn={() => { scale.value = withTiming(0.98, { duration: Duration.fast }); }}
-      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
-      style={[styles.row, animatedStyle, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}
-      accessibilityRole="button"
-      accessibilityLabel={`${event.name}, ${event.dateRange}`}
-    >
-      <ImageBackground
-        source={event.image}
-        resizeMode="cover"
-        style={styles.rowImage}
-        imageStyle={{ borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg }}
-      />
-      <View style={styles.rowContent}>
-        <Text style={[styles.rowName, { color: Colors.onSurface }]} numberOfLines={2}>
-          {event.name}
-        </Text>
-        <Text style={[styles.rowDate, { color: Colors.onSurfaceVariant }]} numberOfLines={1}>
-          {event.dateRange}
-        </Text>
-        <View style={styles.rowLocationRow}>
-          <Ionicons name="location-outline" size={13} color={Colors.outline} />
-          <Text style={[styles.rowLocation, { color: Colors.outline }]} numberOfLines={1}>
-            {event.location}
+    // Entering animation on the wrapper; press-scale stays on the inner pressable.
+    <Animated.View entering={FadeInUp.duration(300).delay(index * 60)}>
+      <AnimatedPressable
+        onPressIn={() => { scale.value = withTiming(0.98, { duration: Duration.fast }); }}
+        onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        style={[styles.row, animatedStyle, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}
+        accessibilityRole="button"
+        accessibilityLabel={`${event.name}, ${event.dateRange}`}
+      >
+        <ImageBackground
+          source={event.image}
+          resizeMode="cover"
+          style={styles.rowImage}
+          imageStyle={{ borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg }}
+        />
+        <View style={styles.rowContent}>
+          <Text style={[styles.rowName, { color: Colors.onSurface }]} numberOfLines={2}>
+            {event.name}
           </Text>
+          <Text style={[styles.rowDate, { color: Colors.onSurfaceVariant }]} numberOfLines={1}>
+            {event.dateRange}
+          </Text>
+          <View style={styles.rowLocationRow}>
+            <Ionicons name="location-outline" size={13} color={Colors.outline} />
+            <Text style={[styles.rowLocation, { color: Colors.outline }]} numberOfLines={1}>
+              {event.location}
+            </Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.rowChevron}>
-        <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
-      </View>
-    </AnimatedPressable>
+        <View style={styles.rowChevron}>
+          <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
+        </View>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 

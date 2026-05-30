@@ -8,10 +8,12 @@ import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withTiming } from
 import * as Haptics from 'expo-haptics';
 
 import {
-  FontFamily, Spacing, Radius, AmbientShadow, Duration,
+  FontFamily, Spacing, Radius, Duration,
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
+import { useMyAccount } from '@/hooks/use-my-account';
+import { getGreetingName } from '@/lib/user-display';
 import { CHURCH_THEME, getThisWeekPrograms, UPCOMING_EVENTS, type Program } from '@/data/programs';
 
 const SCRIPTURE_GRADIENTS: { colors: [string, string]; start: { x: number; y: number }; end: { x: number; y: number } }[] = [
@@ -47,45 +49,52 @@ function ProgramCard({ program, index, onPress }: { program: Program; index: num
   }));
 
   return (
-    <AnimatedPressable
-      entering={FadeInUp.duration(300).delay(200 + index * 60)}
-      onPressIn={() => { scale.value = withTiming(0.97, { duration: Duration.fast }); }}
-      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
-      style={[styles.programCard, animatedStyle]}
-      accessibilityRole="button"
-      accessibilityLabel={`${program.name}, ${program.day} ${program.time}`}
-    >
-      <ImageBackground
-        source={program.image}
-        resizeMode="cover"
-        style={styles.programCardImage}
-        imageStyle={{ borderRadius: Radius.lg }}
+    // Layout animation lives on the wrapper; the press-scale transform stays on
+    // the inner pressable so the two don't fight (Reanimated warning).
+    <Animated.View entering={FadeInUp.duration(300).delay(200 + index * 60)}>
+      <AnimatedPressable
+        onPressIn={() => { scale.value = withTiming(0.97, { duration: Duration.fast }); }}
+        onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        style={[styles.programCard, animatedStyle]}
+        accessibilityRole="button"
+        accessibilityLabel={`${program.name}, ${program.day} ${program.time}`}
       >
-        <View style={styles.programCardScrim}>
-          <Text style={styles.programCardName} numberOfLines={1}>{program.name}</Text>
-          <Text style={styles.programCardTime} numberOfLines={1}>
-            {program.day}{program.time ? `, ${program.time}` : ''}
-          </Text>
-        </View>
-      </ImageBackground>
-    </AnimatedPressable>
+        <ImageBackground
+          source={program.image}
+          resizeMode="cover"
+          style={styles.programCardImage}
+          imageStyle={{ borderRadius: Radius.lg }}
+        >
+          <View style={styles.programCardScrim}>
+            <Text style={styles.programCardName} numberOfLines={1}>{program.name}</Text>
+            <Text style={styles.programCardTime} numberOfLines={1}>
+              {program.day}{program.time ? `, ${program.time}` : ''}
+            </Text>
+          </View>
+        </ImageBackground>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 
 export default function HomeScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
+  const { user, isVisitor } = useMyAccount();
+  const greetingName = getGreetingName(user);
   const thisWeekPrograms = getThisWeekPrograms(3);
 
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
       {/* Section 1: Greeting */}
       <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.greeting}>
-        <Text style={[styles.name, { color: Colors.onSurface }]}>Shalom Andrew</Text>
+        <Text style={[styles.name, { color: Colors.onSurface }]}>
+          {greetingName ? `Shalom ${greetingName}` : 'Shalom'}
+        </Text>
         <Text style={[styles.date, { color: Colors.outline }]}>{getFormattedDate()}</Text>
       </Animated.View>
 
@@ -188,37 +197,27 @@ export default function HomeScreen() {
         ))}
       </ScrollView>
 
-      {/* Section 6: Join the Ministry */}
-      <Animated.View entering={FadeInUp.duration(400).delay(480)} style={styles.section}>
-        <View style={[styles.ministryCard, { backgroundColor: Colors.surfaceLow }]}>
-          <View style={styles.ministryRow}>
-            <Ionicons name="people" size={24} color={Colors.primary} />
-            <View style={styles.ministryText}>
-              <Text style={[styles.ministryTitle, { color: Colors.onSurface }]}>Become a member</Text>
-              <Text style={[styles.ministrySubtitle, { color: Colors.onSurfaceVariant }]}>Connect, grow and serve with us.</Text>
+      {/* Section 6: Join the Ministry — shown only to visitors, routes into the
+          profile-completion flow. Members are already in, so it's hidden. */}
+      {isVisitor && (
+        <Animated.View entering={FadeInUp.duration(400).delay(480)} style={styles.section}>
+          <View style={[styles.ministryCard, { backgroundColor: Colors.surfaceLow }]}>
+            <View style={styles.ministryRow}>
+              <Ionicons name="people" size={24} color={Colors.primary} />
+              <View style={styles.ministryText}>
+                <Text style={[styles.ministryTitle, { color: Colors.onSurface }]}>Become a member</Text>
+                <Text style={[styles.ministrySubtitle, { color: Colors.onSurfaceVariant }]}>Connect, grow and serve with us.</Text>
+              </View>
             </View>
+            <Button
+              label="Complete your profile"
+              variant="ghost"
+              fullWidth
+              onPress={() => router.push('/profile-completion/bio' as any)}
+            />
           </View>
-          <Button
-            label="Express interest"
-            variant="ghost"
-            fullWidth
-            onPress={() => {}}
-          />
-        </View>
-      </Animated.View>
-
-      {/* Section 7: Giving Shortcut */}
-      <View style={[styles.section, { marginTop: Spacing[1] }]}>
-        <Pressable
-          style={[styles.givingCard, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}
-          onPress={() => router.push('/giving')}
-          accessibilityLabel="Give to the ministry"
-        >
-          <Ionicons name="heart" size={22} color={Colors.primary} />
-          <Text style={[styles.givingText, { color: Colors.onSurface }]}>Give to the ministry</Text>
-          <Ionicons name="chevron-forward" size={20} color={Colors.outline} />
-        </Pressable>
-      </View>
+        </Animated.View>
+      )}
 
       <View style={{ height: Spacing[6] }} />
     </ScrollView>
@@ -429,19 +428,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginTop: Spacing[1],
-  },
-  // Giving
-  givingCard: {
-    borderRadius: Radius.lg,
-    padding: Spacing[4],
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  givingText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 14,
-    lineHeight: 22.4,
-    flex: 1,
-    marginLeft: Spacing[3],
   },
 });
