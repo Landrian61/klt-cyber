@@ -9,6 +9,10 @@ name: Deploy (staging)
 # deploys it via its own native Git integration on push to main.
 #
 # The two jobs are independent and run in parallel.
+#
+# pnpm version is read from the root package.json `packageManager` field
+# (pnpm@11.x); do NOT also pass `version:` to pnpm/action-setup or it errors
+# with "Multiple versions of pnpm specified".
 
 on:
   push:
@@ -27,8 +31,6 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v6
         with:
@@ -49,10 +51,9 @@ jobs:
   mobile-update:
     name: EAS Update (staging channel)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/mobile
     steps:
+      # Runs at the workspace root (exists before checkout); fails fast if the
+      # token is missing before doing any real work.
       - name: Check for EXPO_TOKEN
         run: |
           if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
@@ -63,8 +64,6 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v6
         with:
@@ -89,6 +88,7 @@ jobs:
       # values, stored as repository VARIABLES, and must equal the eas.json
       # `preview` profile env (binary builds) to avoid drift.
       - name: Publish EAS Update (staging)
+        working-directory: apps/mobile
         run: eas update --branch staging --message "${{ github.event.head_commit.message }}" --non-interactive
         env:
           EXPO_PUBLIC_CONVEX_URL: ${{ vars.EXPO_PUBLIC_CONVEX_URL_STAGING }}
