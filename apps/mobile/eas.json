@@ -14,16 +14,26 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "staging",
       "node": "22.13.0",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://polite-lemming-570.convex.cloud",
+        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://polite-lemming-570.convex.site"
       }
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true,
       "node": "22.13.0",
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://REPLACE_WITH_PRODUCTION.convex.cloud",
+        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://REPLACE_WITH_PRODUCTION.convex.site"
       }
     }
   },
