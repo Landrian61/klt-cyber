@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.kltcyber.church",
       "adaptiveIcon": {
         "backgroundColor": "#FCF9F2",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,6 +44,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6f0edc13-211f-441d-a389-8f8996676df4"
+      }
+    },
+    "owner": "landrian12"
   }
 }
