@@ -112,7 +112,7 @@ The minimal record created the instant someone signs up. A freshly signed-up use
 |---|---|---|---|
 | `authId` | `string` | yes | Better Auth user id — the link between systems |
 | `email` | `string` | yes | from the auth identity |
-| `firstName` | `string` | no | populated from Google if available; otherwise set at profile completion |
+| `firstName` | `string` | no | captured at sign-up — both email/password (form fields) and Google (from profile). DB field stays optional to tolerate a provider mononym |
 | `lastName` | `string` | no | same |
 | `profilePictureUrl` | `string` | no | from Google avatar if available |
 | `role` | `"visitor" \| "member" \| "system_admin"` | yes | **base** role; defaults to `visitor` at sign-up |
@@ -132,8 +132,10 @@ System fields `_id` and `_creationTime` are automatic (Convex).
 
 **Sync pattern**
 - On auth-identity creation, Better Auth's `onCreateUser` internal mutation creates the
-  matching `users` row, copying `email` (and name/avatar when the provider supplies them,
-  e.g. Google). `role` is set to `visitor`, `profileCompleted` to `false`.
+  matching `users` row, copying `email` and splitting Better Auth's single `name` into
+  `firstName`/`lastName`. The `name` is supplied at sign-up on **both** paths — the
+  email/password form collects first + last name; Google provides it from the profile
+  (which also yields the avatar). `role` is set to `visitor`, `profileCompleted` to `false`.
 
 ---
 
@@ -164,7 +166,7 @@ Single source of truth, imported by mobile, admin, and Convex.
 - `UserStatus`: `active | suspended`
 
 **Zod schemas**
-- `signUpInputSchema` — email, password (email/password path only; Google path needs none of this)
+- `signUpInputSchema` — first name, last name, email, password (the email/password path; Google supplies name + email itself)
 - `signInInputSchema` — email, password
 - `accountSchema` — the shape of a `users` document, for client typing
 

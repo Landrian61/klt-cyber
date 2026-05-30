@@ -26,7 +26,8 @@ Prerequisites / conventions:
 - Shared validators live in `@klt-cyber/shared` (`signUpInputSchema`,
   `signInInputSchema`). Run `pnpm test` to confirm they pass before manual QA.
 - A fresh sign-up must create a **visitor**: `users` row with `role="visitor"`,
-  `profileCompleted=false`, and an `activityLogs` row with `action="user.signup"`.
+  `profileCompleted=false`, `firstName`/`lastName` populated from the form, and an
+  `activityLogs` row with `action="user.signup"`.
 - Sign-in failure copy is the same, non-leaky string on both platforms:
   **"Invalid email or password."**
 - Use a fresh, unique email per sign-up (e.g. `qa+<timestamp>@example.com`).
@@ -45,14 +46,14 @@ Legend: `- [ ]` open · `- [x]` pass · `- [F]` fail (see Notes) · `- [S]` skip
 ## Scenarios
 
 ### A. Mobile sign-up creates a visitor
-**Steps:** Mobile → Welcome → Create account → enter a fresh email + password (≥8) → Create account.
-**Expected:** Lands in the main tabs. Convex **Data → users**: new row with `role="visitor"`, `profileCompleted=false`. **activityLogs**: new row `action="user.signup"` with `actorUserId` = that user's `_id`.
+**Steps:** Mobile → Welcome → Create account → enter first name, last name, a fresh email + password (≥8) → Create account.
+**Expected:** Lands in the main tabs. Convex **Data → users**: new row with `role="visitor"`, `profileCompleted=false`, and `firstName`/`lastName` matching what was typed. **activityLogs**: new row `action="user.signup"` with `actorUserId` = that user's `_id`.
 **Result:** - [ ] Pass &nbsp; - [ ] Fail
 **Notes:**
 
 ### B. Web sign-up creates a visitor
-**Steps:** Web → `/sign-up` → enter a fresh email + password (≥8) → Create account.
-**Expected:** Redirects to `/` (admin home) showing the email + "Visitor" badge. Convex shows the same `users` (visitor, `profileCompleted=false`) + `activityLogs` `user.signup` rows as in A.
+**Steps:** Web → `/sign-up` → enter first name, last name, a fresh email + password (≥8) → Create account.
+**Expected:** Redirects to `/` (admin home) showing the email + "Visitor" badge. Convex shows the same `users` (visitor, `profileCompleted=false`, `firstName`/`lastName` populated) + `activityLogs` `user.signup` rows as in A.
 **Result:** - [ ] Pass &nbsp; - [ ] Fail
 **Notes:**
 
@@ -93,8 +94,9 @@ Legend: `- [ ]` open · `- [x]` pass · `- [F]` fail (see Notes) · `- [S]` skip
 **Notes:**
 
 ### I. Validation parity (web + mobile, side by side)
-**Steps:** On each platform's sign-up (and sign-in) try: (1) empty email, (2) invalid format `foo@`, (3) empty password, (4) password `short` (<8, sign-up), (5) duplicate email (an address that already exists, sign-up).
+**Steps:** On each platform's sign-up (and sign-in) try: (1) empty email, (2) invalid format `foo@`, (3) empty password, (4) password `short` (<8, sign-up), (5) duplicate email (an address that already exists, sign-up), (6) empty first name and/or last name (sign-up).
 **Expected (identical on both):**
+- Empty first name (sign-up) → inline: "Please enter your first name." Empty last name → "Please enter your last name."
 - Empty / invalid email → inline error near the email field: "Please enter a valid email address."
 - Empty password (sign-in) → inline: "Please enter your password."
 - Password < 8 (sign-up) → inline: "Password must be at least 8 characters."
@@ -111,7 +113,7 @@ Legend: `- [ ]` open · `- [x]` pass · `- [F]` fail (see Notes) · `- [S]` skip
 
 ### K. Fresh-account default state
 **Steps:** Inspect a just-created (email/password) account in Convex **Data → users**.
-**Expected:** `role="visitor"`, `profileCompleted=false`, `status="active"`; `firstName`, `lastName`, `profilePictureUrl` are **absent** (only populated when Google supplies them).
+**Expected:** `role="visitor"`, `profileCompleted=false`, `status="active"`; `firstName` / `lastName` are **present** (from the sign-up form); `profilePictureUrl` is **absent** (only populated when Google supplies it).
 **Result:** - [ ] Pass &nbsp; - [ ] Fail
 **Notes:**
 
