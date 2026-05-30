@@ -3,27 +3,58 @@ import { signUpInputSchema, signInInputSchema } from '../auth';
 
 // Unit tests for the shared auth validators (the single source of truth both
 // the web admin and the mobile app import). DATA_MODEL.md, Increment 1:
-// sign-up is email + password (min 8); sign-in is email + password (non-empty).
+// sign-up is first name + last name + email + password (min 8); sign-in is
+// email + password (non-empty).
+
+const validSignUp = {
+  firstName: 'Grace',
+  lastName: 'Nakato',
+  email: 'visitor@example.com',
+  password: 'password123',
+};
 
 describe('signUpInputSchema', () => {
-  it('accepts a valid email + password', () => {
-    const result = signUpInputSchema.safeParse({
-      email: 'visitor@example.com',
-      password: 'password123',
-    });
+  it('accepts valid first/last name + email + password', () => {
+    const result = signUpInputSchema.safeParse(validSignUp);
     expect(result.success).toBe(true);
   });
 
   it('accepts a password of exactly 8 characters (boundary)', () => {
-    const result = signUpInputSchema.safeParse({
-      email: 'visitor@example.com',
-      password: '12345678',
-    });
+    const result = signUpInputSchema.safeParse({ ...validSignUp, password: '12345678' });
     expect(result.success).toBe(true);
   });
 
+  it('trims surrounding whitespace from names', () => {
+    const result = signUpInputSchema.safeParse({
+      ...validSignUp,
+      firstName: '  Grace  ',
+      lastName: '  Nakato  ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.firstName).toBe('Grace');
+      expect(result.data.lastName).toBe('Nakato');
+    }
+  });
+
+  it('rejects an empty first name', () => {
+    const result = signUpInputSchema.safeParse({ ...validSignUp, firstName: '' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.firstName).toBeDefined();
+    }
+  });
+
+  it('rejects a whitespace-only last name', () => {
+    const result = signUpInputSchema.safeParse({ ...validSignUp, lastName: '   ' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.lastName).toBeDefined();
+    }
+  });
+
   it('rejects an empty email', () => {
-    const result = signUpInputSchema.safeParse({ email: '', password: 'password123' });
+    const result = signUpInputSchema.safeParse({ ...validSignUp, email: '' });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.email).toBeDefined();
@@ -31,7 +62,7 @@ describe('signUpInputSchema', () => {
   });
 
   it('rejects an invalid email format', () => {
-    const result = signUpInputSchema.safeParse({ email: 'not-an-email', password: 'password123' });
+    const result = signUpInputSchema.safeParse({ ...validSignUp, email: 'not-an-email' });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.email).toBeDefined();
@@ -39,7 +70,7 @@ describe('signUpInputSchema', () => {
   });
 
   it('rejects an empty password', () => {
-    const result = signUpInputSchema.safeParse({ email: 'visitor@example.com', password: '' });
+    const result = signUpInputSchema.safeParse({ ...validSignUp, password: '' });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.password).toBeDefined();
@@ -47,7 +78,7 @@ describe('signUpInputSchema', () => {
   });
 
   it('rejects a password shorter than 8 characters', () => {
-    const result = signUpInputSchema.safeParse({ email: 'visitor@example.com', password: 'short' });
+    const result = signUpInputSchema.safeParse({ ...validSignUp, password: 'short' });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.password).toBeDefined();

@@ -16,8 +16,12 @@ import { authClient } from '@/lib/auth';
 export default function SignUpScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstNameError, setFirstNameError] = useState('');
+  const [lastNameError, setLastNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [error, setError] = useState('');
@@ -26,26 +30,30 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     setError('');
+    setFirstNameError('');
+    setLastNameError('');
     setEmailError('');
     setPasswordError('');
 
-    // Minimal sign-up (docs/DATA_MODEL.md, Increment 1): email + password only.
-    const parsed = signUpInputSchema.safeParse({ email, password });
+    // Sign-up (docs/DATA_MODEL.md, Increment 1): first/last name + email + password.
+    const parsed = signUpInputSchema.safeParse({ firstName, lastName, email, password });
     if (!parsed.success) {
       const fields = parsed.error.flatten().fieldErrors;
+      if (fields.firstName) setFirstNameError('Please enter your first name.');
+      if (fields.lastName) setLastNameError('Please enter your last name.');
       if (fields.email) setEmailError('Please enter a valid email address.');
       if (fields.password) setPasswordError('Password must be at least 8 characters.');
       return;
     }
 
     setLoading(true);
-    // Better Auth requires a `name`; we send an empty string so NO profile
-    // fields are collected. A fresh account is a visitor; the Convex onCreate
-    // trigger leaves first/last name unset.
+    // Better Auth stores a single `name`; the Convex onCreate trigger splits it
+    // into first/last — the same path Google sign-in uses. A fresh account is
+    // still a visitor (no church profile yet).
     const { error: signUpError } = await authClient.signUp.email({
       email: parsed.data.email,
       password: parsed.data.password,
-      name: '',
+      name: `${parsed.data.firstName} ${parsed.data.lastName}`,
     });
     setLoading(false);
 
@@ -71,10 +79,36 @@ export default function SignUpScreen() {
     <KeyboardAwareScroll>
       <AuthHeader
         title="Create your account"
-        subtitle="Sign up with your email to get started"
+        subtitle="Tell us your name and sign up with your email"
       />
 
       <Animated.View entering={FadeInDown.duration(400).delay(150)} style={styles.form}>
+        <Input
+          label="First name"
+          value={firstName}
+          onChangeText={(v) => { setFirstName(v); setFirstNameError(''); }}
+          autoCapitalize="words"
+          autoComplete="given-name"
+          error={firstNameError}
+          icon="person-outline"
+          placeholder="Grace"
+        />
+
+        <View style={styles.fieldGap} />
+
+        <Input
+          label="Last name"
+          value={lastName}
+          onChangeText={(v) => { setLastName(v); setLastNameError(''); }}
+          autoCapitalize="words"
+          autoComplete="family-name"
+          error={lastNameError}
+          icon="person-outline"
+          placeholder="Nakato"
+        />
+
+        <View style={styles.fieldGap} />
+
         <Input
           label="Email address"
           value={email}

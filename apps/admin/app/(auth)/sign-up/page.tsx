@@ -14,9 +14,13 @@ import { GoogleButton } from "@/components/ui/GoogleButton";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
+    firstName?: string;
+    lastName?: string;
     email?: string;
     password?: string;
   }>({});
@@ -29,10 +33,17 @@ export default function SignUpPage() {
     setFormError(null);
     setFieldErrors({});
 
-    const parsed = signUpInputSchema.safeParse({ email, password });
+    const parsed = signUpInputSchema.safeParse({
+      firstName,
+      lastName,
+      email,
+      password,
+    });
     if (!parsed.success) {
       const flat = parsed.error.flatten().fieldErrors;
       setFieldErrors({
+        firstName: flat.firstName?.[0],
+        lastName: flat.lastName?.[0],
         email: flat.email?.[0],
         password: flat.password?.[0],
       });
@@ -40,14 +51,14 @@ export default function SignUpPage() {
     }
 
     setLoading(true);
-    // Minimal sign-up (docs/DATA_MODEL.md, Increment 1): email + password only.
-    // No name or profile fields are collected — a fresh account is a *visitor*.
-    // Better Auth requires a `name` field, so we send an empty string; the
-    // Convex onCreate trigger leaves firstName/lastName unset accordingly.
+    // Sign-up (docs/DATA_MODEL.md, Increment 1): first/last name + email +
+    // password. A fresh account is still a *visitor* (no church profile yet).
+    // Better Auth stores a single `name`; the Convex onCreate trigger splits it
+    // back into firstName/lastName — the same path Google sign-in uses.
     const { error } = await authClient.signUp.email({
       email: parsed.data.email,
       password: parsed.data.password,
-      name: "",
+      name: `${parsed.data.firstName} ${parsed.data.lastName}`,
     });
     setLoading(false);
 
@@ -82,10 +93,48 @@ export default function SignUpPage() {
         Create your account
       </Heading>
       <p className="mt-1.5 font-body text-base text-on-surface-variant">
-        Just an email and password to get started.
+        Tell us your name, then an email and password to get started.
       </p>
 
       <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="firstName">First name</Label>
+            <Input
+              id="firstName"
+              type="text"
+              autoComplete="given-name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              error={!!fieldErrors.firstName}
+              placeholder="Grace"
+            />
+            {fieldErrors.firstName && (
+              <p className="font-body text-xs text-error">
+                Please enter your first name.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Last name</Label>
+            <Input
+              id="lastName"
+              type="text"
+              autoComplete="family-name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              error={!!fieldErrors.lastName}
+              placeholder="Nakato"
+            />
+            {fieldErrors.lastName && (
+              <p className="font-body text-xs text-error">
+                Please enter your last name.
+              </p>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="email">Email address</Label>
           <Input
