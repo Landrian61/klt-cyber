@@ -7,6 +7,8 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { TopBar } from '@/components/navigation/top-bar';
 import { BottomNavigation } from '@/components/navigation/bottom-navigation';
 import type { TabName } from '@/components/navigation/bottom-nav-bar';
+import { useMyAccount } from '@/hooks/use-my-account';
+import { getInitials } from '@/lib/user-display';
 
 const TAB_ROUTES: Record<Exclude<TabName, 'more'>, string> = {
   home: '/(tabs)',
@@ -36,6 +38,7 @@ export default function TabLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const [moreVisible, setMoreVisible] = useState(false);
+  const { user } = useMyAccount();
 
   const activeTab: TabName = moreVisible ? 'more' : pathnameToTab(pathname);
 
@@ -53,7 +56,7 @@ export default function TabLayout() {
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface }]}>
-      <TopBar title={TAB_TITLES[pathnameToTab(pathname)]} unreadCount={3} userInitials="A" />
+      <TopBar title={TAB_TITLES[pathnameToTab(pathname)]} unreadCount={3} userInitials={getInitials(user)} />
 
       <Tabs
         screenOptions={{

@@ -54,6 +54,7 @@ function RootLayoutInner() {
         {/* Authenticated area: tabs + all drill-down screens. */}
         <Stack.Protected guard={isAuthenticated}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="profile-completion" />
           <Stack.Screen name="notifications" />
           <Stack.Screen name="profile" />
           <Stack.Screen name="giving" />

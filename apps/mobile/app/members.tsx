@@ -13,6 +13,7 @@ import {
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { MemberGate } from '@/components/member-gate';
 
 const FILTERS = ['All', 'Elders', 'HODs', 'Ministers', 'Mentorship Complete', 'Youth', 'Men', 'Women', 'Visitors'];
 
@@ -29,7 +30,7 @@ function getInitials(name: string): string {
   return name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
-export default function MembersScreen() {
+function MembersScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -152,6 +153,15 @@ export default function MembersScreen() {
         }
       />
     </SafeAreaView>
+  );
+}
+
+// Member-only directory: visitors are nudged to complete their profile first.
+export default function MembersRoute() {
+  return (
+    <MemberGate featureLabel="the member directory">
+      <MembersScreen />
+    </MemberGate>
   );
 }
 

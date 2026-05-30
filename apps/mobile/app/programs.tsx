@@ -23,47 +23,49 @@ function ProgramRow({ program, index, onPress }: { program: Program; index: numb
   }));
 
   return (
-    <AnimatedPressable
-      entering={FadeInUp.duration(300).delay(index * 60)}
-      onPressIn={() => { scale.value = withTiming(0.98, { duration: Duration.fast }); }}
-      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
-      style={[styles.row, animatedStyle, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}
-      accessibilityRole="button"
-      accessibilityLabel={`${program.name}, ${program.day} ${program.time}`}
-    >
-      <ImageBackground
-        source={program.image}
-        resizeMode="cover"
-        style={styles.rowImage}
-        imageStyle={{ borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg }}
-      />
-      <View style={styles.rowContent}>
-        <Text style={[styles.rowName, { color: Colors.onSurface }]} numberOfLines={2}>
-          {program.name}
-        </Text>
-        <Text style={[styles.rowDay, { color: Colors.onSurfaceVariant }]} numberOfLines={1}>
-          {program.day}{program.time ? `, ${program.time}` : ''}
-          {program.endTime ? ` – ${program.endTime}` : ''}
-        </Text>
-        <View style={styles.rowLocationRow}>
-          <Ionicons
-            name={program.locationType === 'online' ? 'globe-outline' : 'location-outline'}
-            size={13}
-            color={Colors.outline}
-          />
-          <Text style={[styles.rowLocation, { color: Colors.outline }]} numberOfLines={1}>
-            {program.location}
+    // Entering animation on the wrapper; press-scale stays on the inner pressable.
+    <Animated.View entering={FadeInUp.duration(300).delay(index * 60)}>
+      <AnimatedPressable
+        onPressIn={() => { scale.value = withTiming(0.98, { duration: Duration.fast }); }}
+        onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        style={[styles.row, animatedStyle, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}
+        accessibilityRole="button"
+        accessibilityLabel={`${program.name}, ${program.day} ${program.time}`}
+      >
+        <ImageBackground
+          source={program.image}
+          resizeMode="cover"
+          style={styles.rowImage}
+          imageStyle={{ borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg }}
+        />
+        <View style={styles.rowContent}>
+          <Text style={[styles.rowName, { color: Colors.onSurface }]} numberOfLines={2}>
+            {program.name}
           </Text>
+          <Text style={[styles.rowDay, { color: Colors.onSurfaceVariant }]} numberOfLines={1}>
+            {program.day}{program.time ? `, ${program.time}` : ''}
+            {program.endTime ? ` – ${program.endTime}` : ''}
+          </Text>
+          <View style={styles.rowLocationRow}>
+            <Ionicons
+              name={program.locationType === 'online' ? 'globe-outline' : 'location-outline'}
+              size={13}
+              color={Colors.outline}
+            />
+            <Text style={[styles.rowLocation, { color: Colors.outline }]} numberOfLines={1}>
+              {program.location}
+            </Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.rowChevron}>
-        <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
-      </View>
-    </AnimatedPressable>
+        <View style={styles.rowChevron}>
+          <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
+        </View>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 
