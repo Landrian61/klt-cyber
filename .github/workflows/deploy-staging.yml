@@ -34,7 +34,10 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          # pnpm 11.3.0 (root packageManager) requires Node >= 22.13; Node 20
+          # breaks the pnpm cache step (node:sqlite missing). Matches eas.json
+          # and Cloudflare NODE_VERSION.
+          node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -67,7 +70,10 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          # pnpm 11.3.0 (root packageManager) requires Node >= 22.13; Node 20
+          # breaks the pnpm cache step (node:sqlite missing). Matches eas.json
+          # and Cloudflare NODE_VERSION.
+          node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
