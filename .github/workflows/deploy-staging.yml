@@ -1,0 +1,95 @@
+name: Deploy (staging)
+
+# Staging pipeline. On every push to `main`:
+#   - convex-deploy  : pushes Convex functions/schema to the staging deployment
+#                      (the klt-cyber project's prod deployment — see docs/DEPLOYMENT.md)
+#   - mobile-update  : publishes an EAS Update (OTA) to the "staging" channel
+#
+# The web admin (apps/admin) is NOT deployed here — Cloudflare Workers Builds
+# deploys it via its own native Git integration on push to main.
+#
+# The two jobs are independent and run in parallel.
+
+on:
+  push:
+    branches: [main]
+
+# Avoid overlapping staging deploys if pushes land back-to-back.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  convex-deploy:
+    name: Deploy Convex (staging)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # CONVEX_DEPLOY_KEY encodes the target deployment, so no --prod flag is
+      # needed. convex/ lives at the repo root, so no working-directory override.
+      - name: Deploy Convex functions
+        run: pnpm exec convex deploy
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+
+  mobile-update:
+    name: EAS Update (staging channel)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Check for EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "Missing EXPO_TOKEN secret. Add it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Publishes an OTA update to the "staging" branch, which the staging
+      # channel is bound to. EXPO_PUBLIC_* vars are re-inlined into the update
+      # bundle at publish time, so they MUST be present here — otherwise the
+      # OTA bundle ships an undefined Convex URL. These are public (non-secret)
+      # values, stored as repository VARIABLES, and must equal the eas.json
+      # `preview` profile env (binary builds) to avoid drift.
+      - name: Publish EAS Update (staging)
+        run: eas update --branch staging --message "${{ github.event.head_commit.message }}" --non-interactive
+        env:
+          EXPO_PUBLIC_CONVEX_URL: ${{ vars.EXPO_PUBLIC_CONVEX_URL_STAGING }}
+          EXPO_PUBLIC_CONVEX_SITE_URL: ${{ vars.EXPO_PUBLIC_CONVEX_SITE_URL_STAGING }}

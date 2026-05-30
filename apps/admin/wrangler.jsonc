@@ -1,0 +1,18 @@
+{
+  // Cloudflare Workers config for the admin app, deployed via the OpenNext
+  // Cloudflare adapter (@opennextjs/cloudflare). See docs/DEPLOYMENT.md.
+  //
+  // `nodejs_compat` is mandatory: Better Auth's token/cookie handling and the
+  // Convex client rely on Node APIs (e.g. node:crypto), which the edge runtime
+  // does not provide. This is why the deprecated @cloudflare/next-on-pages
+  // (edge-only) adapter is not used.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "klt-cyber-admin",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2024-12-30",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+}
