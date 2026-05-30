@@ -1,211 +1,177 @@
 # KLT Cyber Church
 
-A premium mobile application for **Kingdom Life Tabernacle (KLT) Cyber Church**, built with React Native and Expo. The app serves as a digital sanctuary for the church community, offering live radio streaming, giving, announcements, program schedules, and member engagement.
+A premium digital sanctuary for **Kingdom Life Tabernacle (KLT) Cyber Church** — a React Native mobile app, a Next.js web admin dashboard, and a shared Convex backend, all in one pnpm monorepo.
+
+| Surface | Lives in | README |
+|---------|----------|--------|
+| 📱 Mobile app (Expo / React Native) | [`apps/mobile`](apps/mobile) | [apps/mobile/README.md](apps/mobile/README.md) |
+| 🖥️ Web admin (Next.js) | [`apps/admin`](apps/admin) | [apps/admin/README.md](apps/admin/README.md) |
+| ⚙️ Backend (Convex) | [`convex`](convex) | this document |
+
+---
 
 ## Tech Stack
-
-This repository is a **pnpm workspace monorepo** containing the mobile app, a web admin dashboard, and a shared Convex backend.
 
 | Layer | Technology |
 |-------|-----------|
 | Monorepo | [pnpm workspaces](https://pnpm.io/workspaces) |
-| Mobile | [Expo SDK 54](https://expo.dev) (managed workflow) · React Native 0.81 · React 19 |
-| Web Admin | [Next.js 16](https://nextjs.org) (App Router) · React 19 · [Tailwind CSS 4](https://tailwindcss.com) |
-| Backend | [Convex](https://convex.dev) (real-time database & serverless functions) |
-| Language | TypeScript 5.9 (strict mode) |
-| Navigation (mobile) | [Expo Router 6](https://docs.expo.dev/router/introduction/) (file-based routing) |
-| Animations (mobile) | [React Native Reanimated 4](https://docs.swmansion.com/react-native-reanimated/) |
-| Gestures (mobile) | [React Native Gesture Handler](https://docs.swmansion.com/react-native-gesture-handler/) |
-| Styling (mobile) | React Native StyleSheet (no external CSS-in-JS) |
+| Mobile | [Expo SDK 54](https://expo.dev) · React Native 0.81 · React 19 · [Expo Router 6](https://docs.expo.dev/router/introduction/) |
+| Web admin | [Next.js 16](https://nextjs.org) (App Router) · React 19 · [Tailwind CSS 4](https://tailwindcss.com) |
+| Backend | [Convex](https://convex.dev) (real-time DB + serverless functions) |
+| Auth | [Better Auth](https://better-auth.com) via [`@convex-dev/better-auth`](https://github.com/get-convex/better-auth) |
+| Language | TypeScript 5.9 (strict) |
 
-## Features
-
-### Home
-- Personalised greeting with date
-- Church theme card for the year (image-backed)
-- Weekly program cards (horizontal scroll, image-backed with scrim overlays)
-- Scripture of the day with rotating brand-colour gradients
-- Upcoming events carousel
-- Quick links to giving and membership
-
-### Reign Radio
-- Live radio player with playback controls and volume
-- Dynamic hero background (current program image or church theme fallback)
-- Listener count display
-- Live comments with real-time input
-- Program schedule (online/hybrid programs)
-- Personal sermon notes with auto-save
-
-### Giving
-- Monthly giving summary (image-backed hero card)
-- 6 giving categories with multi-select (Tithe, Offering, Seed, Building Project, Missions, Special Gift)
-- Multi-step contribution flow:
-  - **Step 1** -- Amount entry with quick-select presets (10K--1M UGX)
-  - **Step 2** -- Payment method (Mobile Money, Card, Bank Transfer) with contextual sub-forms
-  - **Step 3** -- Review with anonymous and recurring toggles
-  - **Step 4** -- Success confirmation with animated gold checkmark
-- Recent transaction history
-
-### Updates
-- Weekly announcements with hero banner
-- Pinned priority announcements
-- Categorised announcement cards (General, Program, Event, Admin, Youth)
-- Announcement detail with cross-links to related programs and events
-
-### Programs & Events
-- Full program directory with 11 church programs
-- Upcoming events list (MWAT series, special services, baptisms)
-- Program detail screens with hero images and clock-in functionality
-- Event detail screens with date, time, and location
-
-### Authentication
-- Welcome screen with onboarding
-- Sign in / forgot password
-- 3-step registration flow with context-based state management
-
-### Additional Screens
-- Member directory with search and filters
-- User profile management
-- Notification centre
-
-## Design System -- "Sacred Curator"
-
-The app follows a bespoke design language inspired by cathedral interiors and premium editorial aesthetics.
-
-### Colour Palette
-
-| Role | Light | Dark |
-|------|-------|------|
-| Primary (Gold) | `#785600` | `#C49A2C` |
-| Brand Gold | `#B8860B` | -- |
-| Secondary (Crimson) | `#AB3332` | `#E05A59` |
-| Tertiary (Royal Blue) | `#145DA3` | `#4A8FD4` |
-| Surface (Parchment) | `#FCF9F2` | `#141413` |
-| On Surface | `#1C1C18` | `#E8E4DA` |
-
-### Typography
-
-| Family | Usage | Font |
-|--------|-------|------|
-| Display | Screen titles, scripture, headings (18px+) | Merriweather Bold |
-| Body | All UI text, labels, forms, navigation | Inter (Regular/Medium/SemiBold/Bold) |
-| Mono | Amounts, timers, reference numbers | JetBrains Mono |
-
-### Design Rules
-
-- **Warm Parchment** -- `#FCF9F2` base, never cold white
-- **No-Line Rule** -- No 1px borders; depth through tonal background shifts
-- **Glass & Gold** -- Floating elements use blur + translucent parchment; primary CTAs use gold gradients
-- **8-Point Grid** -- All spacing uses multiples of 4px
-- **Haptic Feedback** -- Every interactive element provides tactile response
-- **Spring Physics** -- Interactive animations use spring dynamics via Reanimated
-
-## Project Structure
-
-A pnpm workspace monorepo:
+## Repository Layout
 
 ```
 klt-cyber/
 ├── apps/
-│   ├── mobile/            Expo / React Native app   (workspace package: "mobile")
-│   └── admin/             Next.js web admin dashboard (workspace package: "admin")
-├── convex/                Convex backend — schema, functions, generated types
-├── docs/                  INTERFACE_SPEC.md and project documentation
-├── package.json           Root workspace scripts
-├── pnpm-workspace.yaml    Workspace package globs (apps/*, packages/*)
-└── .npmrc                 pnpm config (hoisted node-linker)
+│   ├── mobile/          Expo / React Native app      (workspace package "mobile")
+│   └── admin/           Next.js web admin dashboard   (workspace package "admin")
+├── convex/              Convex backend — schema, queries, mutations, auth, seed
+├── packages/
+│   ├── shared/          Code shared across apps (@klt-cyber/shared)
+│   └── config/          Shared TypeScript config (@klt-cyber/config)
+├── docs/                DATA_MODEL · DEPLOYMENT · INTERFACE_SPEC · AUTH_QA_CHECKLIST
+├── pnpm-workspace.yaml  Workspace globs + hoisted node-linker (required by Metro)
+└── package.json         Root workspace scripts
 ```
 
-### Mobile app — `apps/mobile`
-
-```
-app/                    Screens & layouts (file-based routing)
-  (auth)/               Authentication flow (8 screens)
-  (tabs)/               Bottom tab navigator (Home, Radio, Giving, Updates)
-  give/                 Multi-step giving flow (4 screens)
-  *.tsx                 Detail & utility screens
-components/
-  ui/                   Reusable primitives (Button, Card, Badge, Input, etc.)
-  navigation/           Navigation components (TopBar, BottomNav, MorePanel)
-  auth/                 Auth-specific components
-contexts/               React Context providers (Theme, Registration, Giving)
-constants/              Design tokens (colours, typography, spacing, shadows)
-data/                   Data models & mock data (programs, events, announcements)
-hooks/                  Custom hooks (useThemeColors, useColorScheme)
-assets/
-  fonts/                Merriweather, Inter, JetBrains Mono
-  images/               Program images, icons, church theme
-metro.config.js         Monorepo-aware Metro bundler config
-```
-
-### Web admin — `apps/admin`
-
-```
-app/                    Next.js App Router pages & layouts
-public/                 Static assets
-next.config.ts          Next.js config (Turbopack workspace root pinned)
-```
-
-### Backend — `convex/`
-
-```
-schema.ts               Database schema (define your tables here)
-_generated/             Auto-generated API & type bindings (do not edit)
-*.ts                    Query / mutation / action functions
-```
+---
 
 ## Getting Started
 
-### Prerequisites
+This guide gets the **full stack running locally** — backend, web admin, and mobile app — against your own Convex deployment.
 
-- [Node.js](https://nodejs.org/) 20+
-- [pnpm](https://pnpm.io/installation) 11+ (package manager for the workspace)
-- iOS Simulator (macOS) or Android Emulator, or a physical device with [Expo Go](https://expo.dev/go) — for the mobile app
+### 1. Prerequisites
 
-### Installation
+| Requirement | Notes |
+|-------------|-------|
+| [Node.js](https://nodejs.org) **22.13+** | Required — `pnpm@11` uses the `node:sqlite` builtin and will crash on Node 20. Use an even LTS (`22.x`). |
+| [pnpm](https://pnpm.io/installation) **11+** | The workspace package manager (`npm i -g pnpm`). |
+| A [**Convex account**](https://dashboard.convex.dev) | Free. The backend, auth, and all data live here — the apps will not run without one. |
+| An [**Expo account**](https://expo.dev/signup) | Only needed to run the mobile app on a device / make builds. |
+| Mobile runtime | [Expo Go](https://expo.dev/go) on a phone, **or** an Android emulator / iOS simulator (macOS). |
+
+> Google sign-in is optional; email + password works out of the box.
+
+### 2. Clone & install
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+git clone https://github.com/Landrian61/klt-cyber.git
 cd klt-cyber
-
-# Install all workspace dependencies (mobile + admin + backend) from the root
-pnpm install
+pnpm install        # installs every workspace (mobile + admin + backend) from the root
 ```
 
-### Development
+### 3. Provision the Convex backend
 
-All apps are launched from the repository root via workspace scripts:
+From the repo root, start Convex. On first run it opens a browser to log in (or create your account), then prompts you to create a project:
 
 ```bash
-# Mobile (Expo dev server)
-pnpm mobile
-pnpm mobile:android
-pnpm mobile:ios
-
-# Web admin (Next.js dev server → http://localhost:3000)
-pnpm admin
-
-# Backend (Convex dev — watches & pushes functions)
-pnpm convex
+pnpm convex         # = convex dev — keep this running; it watches & pushes functions
 ```
 
-> The Convex backend stores its deployment URL and keys in `.env.local` (git-ignored), generated on first `pnpm convex` / `convex dev`.
+This writes your deployment coordinates to **`.env.local`** at the repo root (`CONVEX_DEPLOYMENT`, `CONVEX_URL`). Your deployment gets two origins you'll reuse below:
 
-### Linting
+- **`.convex.cloud`** — the API host (the Convex client connects here)
+- **`.convex.site`** — the HTTP-actions host (Better Auth runs here)
+
+### 4. Configure backend environment variables
+
+Better Auth needs a couple of variables **on the Convex deployment**. Set them with `convex env set` (writes to your dev deployment — no `--prod` for local work):
 
 ```bash
-# Lint every workspace package
-pnpm lint
+# Required: a 32-byte secret for Better Auth
+pnpm exec convex env set BETTER_AUTH_SECRET "$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")"
+
+# Required: the trusted origin / cross-domain site URL (your local admin)
+pnpm exec convex env set SITE_URL "http://localhost:3000"
+
+# Optional: bootstrap a system admin (see step 6)
+pnpm exec convex env set SEED_ADMIN_EMAIL "you@example.com"
+
+# Optional: enable Google sign-in (only active when BOTH are set)
+pnpm exec convex env set GOOGLE_CLIENT_ID "…"
+pnpm exec convex env set GOOGLE_CLIENT_SECRET "…"
 ```
 
-## Key References
+> `CONVEX_SITE_URL` is **auto-provided** by Convex — do not set it.
+
+### 5. Configure the app environment files
+
+Each app reads its own git-ignored `.env.local`, pointing at the deployment from step 3. Use the `CONVEX_URL` value from the root `.env.local`; the `.site` URL is the same host with a `.site` suffix.
+
+**`apps/mobile/.env.local`**
+```bash
+EXPO_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
+EXPO_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
+```
+
+**`apps/admin/.env.local`**
+```bash
+NEXT_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
+NEXT_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+See each app's README for app-specific details: [mobile](apps/mobile/README.md) · [admin](apps/admin/README.md).
+
+### 6. Seed initial data (optional)
+
+The backend ships idempotent seed functions in [`convex/seed.ts`](convex/seed.ts):
+
+```bash
+pnpm exec convex run seed:clans              # create the 12 canonical clans
+pnpm exec convex run seed:bootstrapSystemAdmin   # promote SEED_ADMIN_EMAIL to system admin
+```
+
+> `bootstrapSystemAdmin` requires that user to have **signed up first** and `SEED_ADMIN_EMAIL` to be set (step 4).
+
+### 7. Run the apps
+
+Use a separate terminal per process, all from the repo root:
+
+```bash
+pnpm convex          # backend (leave running — pushes function changes live)
+pnpm admin           # web admin → http://localhost:3000
+pnpm mobile          # mobile dev server (scan the QR with Expo Go, or press 'a' / 'i')
+```
+
+---
+
+## Workspace Scripts
+
+All run from the repo root:
+
+| Script | Action |
+|--------|--------|
+| `pnpm install` | Install all workspace dependencies |
+| `pnpm convex` | Start the Convex dev backend (watch & push) |
+| `pnpm admin` | Start the web admin (Next.js dev server) |
+| `pnpm mobile` | Start the Expo dev server |
+| `pnpm mobile:android` | Start mobile on a connected Android device / emulator |
+| `pnpm mobile:ios` | Start mobile on the iOS simulator (macOS) |
+| `pnpm lint` | Lint every workspace package |
+| `pnpm test` | Run tests across all packages |
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `No such built-in module: node:sqlite` during install/build | Your Node is < 22.13. `pnpm@11` requires Node **22.13+** — upgrade Node. |
+| Metro can't resolve a workspace package | The repo uses a hoisted node-linker (`pnpm-workspace.yaml`). Re-run `pnpm install` from the **root**, not inside an app. |
+| Auth errors / `SITE_URL` undefined | Set `SITE_URL` and `BETTER_AUTH_SECRET` on the Convex deployment (step 4). |
+| App can't reach the backend | Confirm the app's `.env.local` URLs match your `CONVEX_URL` (step 5) and `pnpm convex` is running. |
+
+## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| `docs/INTERFACE_SPEC.md` | Authoritative design and interface specification |
-| `CLAUDE.md` | AI assistant project context and conventions |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | How each surface goes from commit → running environment |
+| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Convex schema, tables, and relationships |
+| [`docs/INTERFACE_SPEC.md`](docs/INTERFACE_SPEC.md) | Authoritative design & interface specification |
+| [`docs/AUTH_QA_CHECKLIST.md`](docs/AUTH_QA_CHECKLIST.md) | Authentication QA checklist |
 
 ## License
 
-Private -- Kingdom Life Tabernacle. All rights reserved.
+Private — Kingdom Life Tabernacle. All rights reserved.
