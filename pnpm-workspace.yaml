@@ -10,3 +10,7 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   workerd: true
+  # Transitive native dep of eas-cli (installed in CI by expo-github-action).
+  # pnpm v11 returns non-zero on an un-acknowledged build script; allow it so
+  # the EAS Update job's `pnpm add eas-cli` exits cleanly. No-op outside CI.
+  dtrace-provider: true
