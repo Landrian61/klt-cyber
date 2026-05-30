@@ -7,7 +7,9 @@
   // does not provide. This is why the deprecated @cloudflare/next-on-pages
   // (edge-only) adapter is not used.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "klt-cyber-admin",
+  // Must match the connected Cloudflare Workers service (klt-cyber) so deploys
+  // target the same Worker rather than creating a second one.
+  "name": "klt-cyber",
   "main": ".open-next/worker.js",
   "compatibility_date": "2024-12-30",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],

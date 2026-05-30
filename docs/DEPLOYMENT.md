@@ -18,7 +18,7 @@ Cloudflare's Git integration do it.
 
 | Branch | Environment | Convex | Web admin | Mobile |
 |---|---|---|---|---|
-| `main` | **staging** | `klt-cyber` project's **prod** deployment (treated as staging until PR 7) | Cloudflare Workers `klt-cyber-admin` | EAS Update `staging` channel |
+| `main` | **staging** | `klt-cyber` project's **prod** deployment (treated as staging until PR 7) | Cloudflare Workers `klt-cyber` | EAS Update `staging` channel |
 | `production` _(PR 7)_ | **production** | separate **production Convex project** _(PR 7)_ | separate Cloudflare Workers env _(PR 7)_ | EAS Update `production` channel |
 
 > **Why the project's prod deployment is "staging" for now:** Convex projects
@@ -114,7 +114,7 @@ pnpm exec convex env list --prod               # read
 
 Cloudflare watches the repo (Git integration). On push to `main` it runs the
 configured build (`npx opennextjs-cloudflare build`) and deploys
-(`npx opennextjs-cloudflare deploy`) the `klt-cyber-admin` Worker. See §6 for
+(`npx opennextjs-cloudflare deploy`) the `klt-cyber` Worker. See §6 for
 the exact dashboard settings. There is **no GitHub Actions job** for the web.
 
 ### 4.3 Mobile JS (OTA) — automatic on push to `main`
@@ -203,7 +203,7 @@ No secret values are ever committed to the repo.
 
 | | URL / id |
 |---|---|
-| Cloudflare admin (staging) | `<cloudflare-admin-url>` _(pending first successful Workers build)_ |
+| Cloudflare admin (staging) | `https://klt-cyber.luswataandrew190.workers.dev` |
 | Convex staging deployment | `https://polite-lemming-570.convex.cloud` (site: `https://polite-lemming-570.convex.site`) |
 | Convex staging dashboard | `https://dashboard.convex.dev/d/polite-lemming-570` |
 | GitHub Actions workflow | `.github/workflows/deploy-staging.yml` (trigger: push to `main`) |
