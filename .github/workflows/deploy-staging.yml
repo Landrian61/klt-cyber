@@ -77,12 +77,16 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
+      # Install eas-cli with npm (not pnpm): the action's `pnpm add eas-cli`
+      # runs outside the workspace config, so pnpm v11 aborts on the
+      # dtrace-provider build script (ERR_PNPM_IGNORED_BUILDS). npm has no such
+      # gate. Project deps are still installed with pnpm in the next step.
       - name: Setup EAS
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-          packager: pnpm
+          packager: npm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
