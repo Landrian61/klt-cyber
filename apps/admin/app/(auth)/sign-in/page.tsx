@@ -51,7 +51,7 @@ export default function SignInPage() {
       setFormError("Invalid email or password.");
       return;
     }
-    router.push("/");
+    router.push("/select-role");
     router.refresh();
   }
 
@@ -60,7 +60,7 @@ export default function SignInPage() {
     setGoogleLoading(true);
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/",
+      callbackURL: "/select-role",
     });
     if (error) {
       setGoogleLoading(false);
