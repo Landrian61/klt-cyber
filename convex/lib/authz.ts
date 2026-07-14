@@ -42,13 +42,19 @@ export async function getActiveRoles(
 }
 
 /**
- * Require that the caller holds an active `system_admin` role assignment.
- * Returns the caller's `users` row.
+ * Like {@link requireSystemAdmin}, but resolves null when the caller is
+ * unauthenticated instead of throwing. For queries subscribed by reactive
+ * clients: on sign-out the token drops while subscriptions are still live,
+ * so the server re-runs them unauthenticated — they must deliver a value
+ * (null), not an error the client surfaces as a crash. An authenticated
+ * caller *without* the role still throws: that's a real authorization
+ * violation, not a teardown race.
  */
-export async function requireSystemAdmin(
+export async function getSystemAdminOrNull(
   ctx: QueryCtx | MutationCtx
-): Promise<Doc<"users">> {
-  const user = await requireUser(ctx);
+): Promise<Doc<"users"> | null> {
+  const user = await getCurrentUser(ctx);
+  if (!user) return null;
   const admin = await ctx.db
     .query("roleAssignments")
     .withIndex("by_userId", (q) => q.eq("userId", user._id))
@@ -60,6 +66,19 @@ export async function requireSystemAdmin(
     )
     .first();
   if (!admin) throw new Error("Requires an active system_admin role");
+  return user;
+}
+
+/**
+ * Require that the caller holds an active `system_admin` role assignment.
+ * Returns the caller's `users` row. For mutations and one-shot server reads;
+ * reactive queries should prefer {@link getSystemAdminOrNull}.
+ */
+export async function requireSystemAdmin(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users">> {
+  const user = await getSystemAdminOrNull(ctx);
+  if (!user) throw new Error("Not authenticated");
   return user;
 }
 

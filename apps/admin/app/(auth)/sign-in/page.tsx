@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signInInputSchema } from "@klt-cyber/shared";
 import { authClient } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
@@ -13,7 +12,6 @@ import { Button } from "@/components/ui/Button";
 import { GoogleButton } from "@/components/ui/GoogleButton";
 
 export default function SignInPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
@@ -51,8 +49,10 @@ export default function SignInPage() {
       setFormError("Invalid email or password.");
       return;
     }
-    router.push("/select-role");
-    router.refresh();
+    // Hard navigation on purpose: the auth state just changed, and a
+    // client-side push + refresh can race the App Router cache while the
+    // session/middleware view of the world flips (headCacheNode crash).
+    window.location.assign("/select-role");
   }
 
   async function handleGoogle() {

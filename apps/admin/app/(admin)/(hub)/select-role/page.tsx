@@ -19,8 +19,10 @@ function rolePrefix(roleType: string, clanId?: Id<"clans">) {
 // Shown after every sign-in for a user with ≥1 active role assignment.
 // Defense in depth against a middleware bypass: 0 roles still redirect here.
 export default async function SelectRolePage() {
-  const { user, activeRoles } = await fetchAuthQuery(api.profile.getMyAccount);
+  const account = await fetchAuthQuery(api.profile.getMyAccount);
+  if (!account) redirect("/sign-in");
 
+  const { user, activeRoles } = account;
   if (activeRoles.length === 0) {
     redirect("/unauthorized");
   }

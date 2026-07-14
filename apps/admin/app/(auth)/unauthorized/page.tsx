@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Heading } from "@/components/ui/Heading";
@@ -11,15 +10,14 @@ import { Button } from "@/components/ui/Button";
 // or by direct/signed-out navigation. Handles both — the sign-out action only
 // renders when there's an active session.
 export default function UnauthorizedPage() {
-  const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
     setSigningOut(true);
     await authClient.signOut();
-    router.push("/sign-in");
-    router.refresh();
+    // Hard navigation on purpose — see the sign-in page's submit handler.
+    window.location.assign("/sign-in");
   }
 
   return (
