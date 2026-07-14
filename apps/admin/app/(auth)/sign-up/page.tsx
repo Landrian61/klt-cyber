@@ -68,7 +68,7 @@ export default function SignUpPage() {
       );
       return;
     }
-    router.push("/");
+    router.push("/select-role");
     router.refresh();
   }
 
@@ -77,7 +77,7 @@ export default function SignUpPage() {
     setGoogleLoading(true);
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/",
+      callbackURL: "/select-role",
     });
     if (error) {
       setGoogleLoading(false);
