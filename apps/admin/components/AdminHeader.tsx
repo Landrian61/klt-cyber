@@ -33,7 +33,6 @@ export function AdminHeader() {
               {session.user.email}
             </span>
           )}
-          <RoleBadge />
           <Button
             variant="secondary"
             size="sm"
@@ -45,16 +44,5 @@ export function AdminHeader() {
         </div>
       </div>
     </header>
-  );
-}
-
-// In Increment 1 every authenticated account is a visitor (see
-// docs/DATA_MODEL.md). The base role isn't yet exposed through a Convex query,
-// so the badge reflects that known state.
-function RoleBadge() {
-  return (
-    <span className="rounded-full bg-royal-light px-2.5 py-0.5 font-body text-xs font-semibold text-royal">
-      Visitor
-    </span>
   );
 }

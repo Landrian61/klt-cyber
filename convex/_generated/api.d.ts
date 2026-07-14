@@ -17,6 +17,7 @@ import type * as lib_authz from "../lib/authz.js";
 import type * as profile from "../profile.js";
 import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
+import type * as testing from "../testing.js";
 
 import type {
   ApiFromModules,
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   profile: typeof profile;
   roles: typeof roles;
   seed: typeof seed;
+  testing: typeof testing;
 }>;
 
 /**
