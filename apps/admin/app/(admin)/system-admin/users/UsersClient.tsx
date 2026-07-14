@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useAuthQuery } from "@/lib/useAuthQuery";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/lib/api";
 import { displayName, formatRelativeTime, roleLabel } from "@/lib/format";
@@ -22,7 +22,7 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { Select } from "@/components/ui/Select";
 
 // Row shapes come straight from the Convex query — no hand-rolled drift.
-type UsersResult = FunctionReturnType<typeof api.admin.listUsers>;
+type UsersResult = NonNullable<FunctionReturnType<typeof api.admin.listUsers>>;
 type UserRow = UsersResult["users"][number];
 
 const PAGE_SIZE = 25;
@@ -81,7 +81,7 @@ export function UsersClient() {
     router.replace("/system-admin/users", { scroll: false });
   }, [router]);
 
-  const result = useQuery(api.admin.listUsers, {
+  const result = useAuthQuery(api.admin.listUsers, {
     search: q || undefined,
     filter: {
       role: role === "visitor" || role === "member" ? role : undefined,
@@ -199,12 +199,13 @@ export function UsersClient() {
           <Select
             aria-label="Sort by"
             value={sort}
-            onChange={(event) => setParams({ sort: event.target.value })}
-          >
-            <option value="recent">Most recent</option>
-            <option value="name">Name</option>
-            <option value="email">Email</option>
-          </Select>
+            onValueChange={(value) => setParams({ sort: value })}
+            options={[
+              { value: "recent", label: "Most recent" },
+              { value: "name", label: "Name" },
+              { value: "email", label: "Email" },
+            ]}
+          />
         </div>
       </div>
 

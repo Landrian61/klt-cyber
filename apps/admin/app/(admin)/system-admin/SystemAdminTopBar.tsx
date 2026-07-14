@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { authClient } from "@/lib/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 
-// Top bar spanning the content column (right of the sidebar): where the admin
-// is (breadcrumb, left) and who they are (identity + role badge + sign out,
-// right). Glass-light parchment per INTERFACE_SPEC §2.1, adapted for web.
+// Top bar spanning the content column (right of the sidebar). Floating chrome
+// per the Glass & Gold rule: lifted-parchment glass with an ambient shadow —
+// tonally distinct from the page, no border line. Right side is the acting
+// identity (avatar, name, role caption) and sign-out; the left shows the
+// module title only while the sidebar is collapsed to icons (below lg) —
+// at lg+ the sidebar label and the page's own heading already say where
+// you are, so repeating it here would be noise.
 
 const MODULE_TITLES: [prefix: string, title: string][] = [
   ["/system-admin/users", "Users"],
@@ -33,37 +37,35 @@ export function SystemAdminTopBar({
   email: string;
   avatarUrl: string | null;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
     setSigningOut(true);
     await authClient.signOut();
-    router.push("/sign-in");
-    router.refresh();
+    // Hard navigation on purpose: a client-side push + refresh races the
+    // collapsing auth state inside the App Router cache (headCacheNode
+    // crash) and would keep signed-in RSC payloads cached. A full load
+    // tears both down.
+    window.location.assign("/sign-in");
   }
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 bg-parchment/80 px-6 backdrop-blur-xl lg:px-8">
-      <p className="min-w-0 truncate font-body text-sm text-on-surface-variant">
-        <span className="hidden sm:inline">System Admin</span>
-        <span aria-hidden="true" className="hidden px-2 text-outline sm:inline">
-          /
-        </span>
-        <span className="font-semibold text-on-surface">
-          {moduleTitle(pathname)}
-        </span>
+    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 bg-surface-lowest/85 px-6 shadow-[0_8px_32px_rgba(28,28,24,0.06)] backdrop-blur-xl lg:px-10">
+      <p className="min-w-0 truncate font-body text-base font-semibold text-on-surface lg:hidden">
+        {moduleTitle(pathname)}
       </p>
 
-      <div className="flex shrink-0 items-center gap-4">
-        <span className="hidden rounded-full bg-primary-light px-2.5 py-0.5 font-body text-xs font-semibold text-primary md:inline">
-          System Administrator
-        </span>
+      <div className="ml-auto flex shrink-0 items-center gap-4">
         <span className="flex items-center gap-2.5">
-          <Avatar name={name} email={email} src={avatarUrl} size="sm" />
-          <span className="hidden max-w-44 truncate font-body text-sm font-medium text-on-surface sm:inline">
-            {name ?? email}
+          <Avatar name={name} email={email} src={avatarUrl} size="md" />
+          <span className="hidden leading-tight sm:block">
+            <span className="block max-w-48 truncate font-body text-sm font-medium text-on-surface">
+              {name ?? email}
+            </span>
+            <span className="block font-body text-xs text-on-surface-variant">
+              System Administrator
+            </span>
           </span>
         </span>
         <Button

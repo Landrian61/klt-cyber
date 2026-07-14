@@ -6,7 +6,12 @@ import {
   profileUpdateInputSchema,
 } from "@klt-cyber/shared";
 import type { Doc, Id } from "./_generated/dataModel";
-import { getActiveRoles, logActivity, requireUser } from "./lib/authz";
+import {
+  getActiveRoles,
+  getCurrentUser,
+  logActivity,
+  requireUser,
+} from "./lib/authz";
 
 const sexValidator = v.union(v.literal("male"), v.literal("female"));
 const maritalStatusValidator = v.union(
@@ -243,7 +248,11 @@ export const updateProfile = mutation({
 export const getMyAccount = query({
   args: {},
   handler: async (ctx) => {
-    const user = await requireUser(ctx);
+    // Null (not an error) when unauthenticated: reactive clients stay
+    // subscribed through sign-out, and the unauthenticated re-run must
+    // resolve rather than crash the page mid-teardown.
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
     return await getMyAccountCore(ctx, user);
   },
 });

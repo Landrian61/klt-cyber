@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -91,21 +92,21 @@ export function SystemAdminSidebar() {
 
   return (
     <aside className="sticky top-0 flex h-dvh w-16 shrink-0 flex-col bg-surface-low lg:w-60">
-      {/* ── Brand ─────────────────────────────────────────────────────────── */}
+      {/* ── Brand: the KLT mark (shared with the mobile app), not the full
+             wordmark — the mark carries the identity, the caption the context. */}
       <Link
         href="/system-admin"
-        className="flex h-16 shrink-0 items-center justify-center rounded-md lg:justify-start lg:px-5"
+        className="flex h-16 shrink-0 items-center justify-center gap-2.5 lg:justify-start lg:px-4"
       >
-        <span className="font-display text-xl font-bold text-primary lg:hidden">
-          K
-        </span>
-        <span className="hidden min-w-0 lg:block">
-          <span className="block truncate font-display text-base font-bold leading-tight text-primary">
-            KLT Cyber Church
-          </span>
-          <span className="block font-body text-[11px] font-semibold uppercase tracking-wide text-outline">
-            Admin Portal
-          </span>
+        <Image
+          src="/klt-logo.png"
+          alt="KLT Cyber Church"
+          width={32}
+          height={32}
+          className="h-8 w-8 shrink-0 rounded-md object-cover"
+        />
+        <span className="hidden min-w-0 truncate font-body text-sm font-semibold text-on-surface lg:block">
+          Admin Portal
         </span>
       </Link>
 

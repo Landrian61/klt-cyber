@@ -76,11 +76,17 @@ body {
 }
 
 /*
-  Accessibility (§12.5): a visible keyboard focus ring on every focusable
-  element — gold, 2px, offset 2px. Desktop admin relies on keyboard nav, so
-  this is global rather than per-component.
+  Accessibility (§12.5): a visible keyboard focus ring on focusable elements —
+  gold, 2px, offset 2px. Desktop admin relies on keyboard nav, so this is
+  global rather than per-component. Form fields are excluded structurally:
+  they carry their own spec focus treatment (the 2px gold bottom border,
+  §1.7), and this rule outranks their `focus:outline-none` utilities because
+  the build emits custom CSS unlayered — an @layer wrapper here does not
+  survive compilation, so the ring would box every focused input in gold.
+  [data-field] opts custom field-styled triggers (e.g. the Select combobox
+  button) out the same way.
 */
-:focus-visible {
+:focus-visible:not(input, textarea, select, [data-field]) {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }

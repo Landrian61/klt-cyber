@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signUpInputSchema } from "@klt-cyber/shared";
 import { authClient } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
@@ -13,7 +12,6 @@ import { Button } from "@/components/ui/Button";
 import { GoogleButton } from "@/components/ui/GoogleButton";
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -68,8 +66,8 @@ export default function SignUpPage() {
       );
       return;
     }
-    router.push("/select-role");
-    router.refresh();
+    // Hard navigation on purpose — see the sign-in page's submit handler.
+    window.location.assign("/select-role");
   }
 
   async function handleGoogle() {

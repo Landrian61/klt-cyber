@@ -3,7 +3,11 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { clanVerificationInputSchema } from "@klt-cyber/shared";
 import type { Doc, Id } from "./_generated/dataModel";
-import { logActivity, requireSystemAdmin } from "./lib/authz";
+import {
+  getSystemAdminOrNull,
+  logActivity,
+  requireSystemAdmin,
+} from "./lib/authz";
 
 // ── Core logic (auth-free; the acting admin is passed in) ────────────────────
 
@@ -237,7 +241,8 @@ export const listUsers = query({
     pageSize: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireSystemAdmin(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getSystemAdminOrNull(ctx))) return null;
 
     const roleFilter = args.filter?.role;
     let users = roleFilter
@@ -339,7 +344,8 @@ export const listUsers = query({
 export const getUserDetail = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    await requireSystemAdmin(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getSystemAdminOrNull(ctx))) return null;
 
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
@@ -419,7 +425,8 @@ export const getUserDetail = query({
 export const getDashboardStats = query({
   args: {},
   handler: async (ctx) => {
-    await requireSystemAdmin(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getSystemAdminOrNull(ctx))) return null;
 
     const now = Date.now();
     const users = await ctx.db.query("users").collect();
@@ -473,7 +480,8 @@ export const listRecentActivity = query({
     actionFilter: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    await requireSystemAdmin(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getSystemAdminOrNull(ctx))) return null;
 
     let logs = await ctx.db.query("activityLogs").order("desc").collect();
     if (args.actionFilter && args.actionFilter.length > 0) {

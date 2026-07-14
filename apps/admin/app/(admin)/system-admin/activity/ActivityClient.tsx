@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useAuthQuery } from "@/lib/useAuthQuery";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/lib/api";
 import {
@@ -20,7 +20,9 @@ import { FilterBar, FilterChip } from "@/components/ui/FilterBar";
 import { Pagination } from "@/components/ui/Pagination";
 
 // Row shape comes straight from the Convex query — no hand-rolled drift.
-type ActivityResult = FunctionReturnType<typeof api.admin.listRecentActivity>;
+type ActivityResult = NonNullable<
+  FunctionReturnType<typeof api.admin.listRecentActivity>
+>;
 type ActivityRow = ActivityResult["entries"][number];
 
 const PAGE_SIZE = 25;
@@ -67,7 +69,7 @@ export function ActivityClient() {
     [router, searchParams]
   );
 
-  const result = useQuery(api.admin.listRecentActivity, {
+  const result = useAuthQuery(api.admin.listRecentActivity, {
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
     actionFilter: selectedFilter.actions.length

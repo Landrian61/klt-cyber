@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useAuthQuery } from "@/lib/useAuthQuery";
 import { roleAssignmentInputSchema } from "@klt-cyber/shared";
 import { api, type Id } from "@/lib/api";
 import { Sheet } from "@/components/ui/Sheet";
@@ -28,7 +29,7 @@ export function AssignRoleSheet({
   profileCompleted: boolean;
 }) {
   const assignRole = useMutation(api.roles.assignRole);
-  const clans = useQuery(api.clans.listClans, {});
+  const clans = useAuthQuery(api.clans.listClans, {});
 
   const [roleType, setRoleType] = useState<RoleChoice>("");
   const [clanId, setClanId] = useState("");
@@ -137,17 +138,16 @@ export function AssignRoleSheet({
             <Select
               id="assign-role-type"
               value={roleType}
-              onChange={(event) => {
-                setRoleType(event.target.value as RoleChoice);
+              onValueChange={(value) => {
+                setRoleType(value as RoleChoice);
                 setError(null);
               }}
-            >
-              <option value="" disabled>
-                Choose a role&hellip;
-              </option>
-              <option value="system_admin">System Administrator</option>
-              <option value="clan_elder">Clan Elder</option>
-            </Select>
+              placeholder="Choose a role…"
+              options={[
+                { value: "system_admin", label: "System Administrator" },
+                { value: "clan_elder", label: "Clan Elder" },
+              ]}
+            />
           </div>
 
           {roleType === "clan_elder" && (
@@ -156,18 +156,16 @@ export function AssignRoleSheet({
               <Select
                 id="assign-clan"
                 value={clanId}
-                onChange={(event) => {
-                  setClanId(event.target.value);
+                onValueChange={(value) => {
+                  setClanId(value);
                   setError(null);
                 }}
-              >
-                <option value="">Choose a clan&hellip;</option>
-                {clans?.map((clan) => (
-                  <option key={clan._id} value={clan._id}>
-                    {clan.name}
-                  </option>
-                ))}
-              </Select>
+                placeholder="Choose a clan…"
+                options={(clans ?? []).map((clan) => ({
+                  value: clan._id,
+                  label: clan.name,
+                }))}
+              />
             </div>
           )}
 

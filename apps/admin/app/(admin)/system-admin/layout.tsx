@@ -14,7 +14,10 @@ export default async function SystemAdminLayout({
 }: {
   children: ReactNode;
 }) {
-  const { user, activeRoles } = await fetchAuthQuery(api.profile.getMyAccount);
+  const account = await fetchAuthQuery(api.profile.getMyAccount);
+  if (!account) redirect("/sign-in");
+
+  const { user, activeRoles } = account;
   const isSystemAdmin = activeRoles.some((role) => role.roleType === "system_admin");
 
   if (!isSystemAdmin) {
@@ -33,7 +36,7 @@ export default async function SystemAdminLayout({
           email={user.email}
           avatarUrl={user.profilePictureUrl ?? null}
         />
-        <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-6 py-8 lg:px-8">
+        <main className="w-full min-w-0 flex-1 px-6 py-8 lg:px-10">
           {children}
         </main>
       </div>

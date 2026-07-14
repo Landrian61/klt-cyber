@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { displayName, formatLongDate, formatRelativeTime } from "@/lib/format";
@@ -23,9 +23,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 // undefined means loading, rendered as layout-stable skeletons (§12.1).
 
 export function DashboardClient() {
-  const account = useQuery(api.profile.getMyAccount);
-  const stats = useQuery(api.admin.getDashboardStats);
-  const activity = useQuery(api.admin.listRecentActivity, { limit: 15 });
+  const account = useAuthQuery(api.profile.getMyAccount);
+  const stats = useAuthQuery(api.admin.getDashboardStats);
+  const activity = useAuthQuery(api.admin.listRecentActivity, { limit: 15 });
 
   const adminName = account
     ? (account.user.firstName ?? account.user.email)
@@ -46,24 +46,17 @@ export function DashboardClient() {
       {/* ── Greeting region — editorial, breathable ─────────────────────── */}
       <div>
         <Heading as="h1" size="2xl">
-          Dashboard
+          {"Welcome back"}
+          {adminName ? `, ${adminName}` : ""}
         </Heading>
         <p className="mt-2 font-body text-base text-on-surface-variant">
-          {"Welcome back, "}
-          {adminName ?? (
-            <span
-              aria-hidden="true"
-              className="inline-block h-4 w-28 animate-pulse rounded-sm bg-surface-low align-middle"
-            />
-          )}
-          {" · "}
           {formatLongDate()}
         </p>
       </div>
 
       {/* ── Headline counts ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-        {stats === undefined ? (
+        {stats == null ? (
           <>
             <StatSkeleton />
             <StatSkeleton />
@@ -107,7 +100,7 @@ export function DashboardClient() {
           </h2>
 
           <div className="mt-4">
-            {activity === undefined ? (
+            {activity == null ? (
               <FeedSkeleton />
             ) : activity.entries.length === 0 ? (
               <EmptyState
@@ -140,7 +133,7 @@ export function DashboardClient() {
             Attention Needed
           </h2>
 
-          {stats === undefined ? (
+          {stats == null ? (
             <>
               <div className="h-24 animate-pulse rounded-lg bg-surface-low" />
               <div className="h-24 animate-pulse rounded-lg bg-surface-low" />

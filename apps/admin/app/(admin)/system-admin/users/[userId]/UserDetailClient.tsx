@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Id } from "@/lib/api";
 import { Card } from "@/components/ui/Card";
 import { Heading } from "@/components/ui/Heading";
@@ -25,7 +25,7 @@ import { ClanAffiliationCard } from "./ClanAffiliationCard";
 // one reactive query — every mutation on the right rail refreshes the whole
 // page without manual refetching.
 export function UserDetailClient({ userId }: { userId: string }) {
-  const detail = useQuery(api.admin.getUserDetail, {
+  const detail = useAuthQuery(api.admin.getUserDetail, {
     userId: userId as Id<"users">,
   });
 
