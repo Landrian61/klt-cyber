@@ -580,9 +580,13 @@ The table itself is unchanged. New `action` values introduced:
 
 ---
 
-### Next increment — System Admin Dashboard + Role Management UI (preview)
+### Following Increment 2 — System Admin Dashboard + Role Management UI
 
-The web side of all this:
+*Status: implemented in PRs 8–11 (Convex schema mutations, mobile profile
+completion, web middleware refactor, System Admin dashboard). No new tables
+were introduced; those PRs consumed Increment 2's schema.*
+
+The web side of Increment 2's schema:
 
 - `/select-role` page shown after sign-in to users with ≥1 active assignment; users
   with none are redirected to `/unauthorized`.
@@ -594,6 +598,60 @@ The web side of all this:
 - Mobile profile-completion flow wired against `memberProfiles`.
 - Mobile tab-level gating (Home/Radio/Library open; member-rooted tabs prompt
   "Complete your profile" for visitors, non-blocking).
+
+---
+
+### Increment 3 — Church Administration Domain (preview, not built yet)
+
+The next data model increment introduces the schema for the Church Administration
+MVP subset — the module that publishes the content the mobile app consumes on Home
+and Updates. Precise field definitions are settled when the module work begins;
+this preview captures the anticipated shape so future contributors know what's coming.
+
+**Anticipated tables**
+
+- **`events`** — one-off and scheduled church events. Surfaced on the mobile Home
+  tab and Church Admin's calendar view. Fields likely include title, date/time,
+  description, location, banner image, and an author reference to the Church Admin
+  who published it.
+- **`weeklyProgram`** — the recurring weekly schedule of activities shown on the
+  mobile Home tab. Structure TBD when work begins — possibly a set of activity
+  entries with day-of-week and time-of-day, possibly a more flexible template.
+- **`themes`** — the current annual theme (with scripture reference) and current
+  monthly theme. A small table or singleton record; displayed on every mobile
+  user's Home tab. Note: per `VISION.md` §4.3, theme management sits with Church
+  Admin for MVP rather than Pastoral Team (which is deferred). This may transfer
+  post-MVP.
+- **`announcements`** — church-wide announcements authored by Church Admin and
+  shown in the mobile Updates tab.
+
+**Seeded content pattern** — a formalized MVP approach
+
+Certain mobile-facing content is delivered via seed rather than an admin surface,
+because building the corresponding admin surface would exceed MVP scope. This is
+deliberate and worth naming as a pattern:
+
+- **`scriptures`** — a rotating set of scriptures seeded at deploy time, used for
+  the mobile "scripture of the day" feature. Curated via commits (a change to the
+  seed) until a scripture-management surface exists.
+- **`libraryResources`** — a small seeded set of library items visible in the
+  mobile Library tab. The full Library management module (per the church spec) is
+  deferred post-MVP; seeded content is how the mobile Library tab is populated
+  meanwhile.
+
+The seeded content pattern lets mobile features that need content ship in MVP
+without waiting for their full admin surface. When content demand grows beyond
+what commit-based curation can handle, the corresponding admin surface earns its
+keep — but not before. See `ARCHITECTURE.md` §8 for the broader "admin publishes,
+mobile consumes" pattern this fits within.
+
+**Not in Increment 3** (further deferred)
+
+- The Reign Radio domain (`broadcasts`, banner uploads to R2, listenership records)
+  — arrives with its own increment, aligned with the Radio Admin module.
+- Notifications (richly modeled) — a separate cross-cutting increment.
+- Anything from post-MVP modules (mentorship, ushering, departments,
+  finance, missions, etc.).
 
 ---
 
