@@ -1,7 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { clanVerificationInputSchema } from "@klt-cyber/shared";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   getSystemAdminOrNull,
@@ -47,43 +46,6 @@ export async function unsuspendUserCore(
   return { ok: true as const };
 }
 
-export async function verifyClanAffiliationCore(
-  ctx: MutationCtx,
-  caller: Doc<"users">,
-  args: { userId: Id<"users">; status: "verified" | "rejected"; note?: string }
-) {
-  clanVerificationInputSchema.parse(args);
-
-  const profile = await ctx.db
-    .query("memberProfiles")
-    .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-    .unique();
-  if (!profile) throw new Error("Target user has no member profile");
-  if (!profile.clanId) throw new Error("Target user has no clan to verify");
-
-  await ctx.db.patch(profile._id, {
-    clanApproval: {
-      status: args.status,
-      verifiedBy: caller._id,
-      verifiedAt: Date.now(),
-      ...(args.note ? { note: args.note } : {}),
-    },
-  });
-
-  await logActivity(ctx, {
-    actorUserId: caller._id,
-    action:
-      args.status === "verified"
-        ? "clan.affiliation_verified"
-        : "clan.affiliation_rejected",
-    targetType: "memberProfiles",
-    targetId: profile._id,
-    metadata: { userId: args.userId, clanId: profile.clanId },
-  });
-
-  return { ok: true as const };
-}
-
 // ── Registered functions (auth wrappers) ─────────────────────────────────────
 
 /** Suspend a user (reversible). system_admin only. Optional audit note. */
@@ -101,22 +63,6 @@ export const unsuspendUser = mutation({
   handler: async (ctx, args) => {
     const caller = await requireSystemAdmin(ctx);
     return await unsuspendUserCore(ctx, caller, args.userId);
-  },
-});
-
-/**
- * Verify or reject a member's self-selected clan affiliation. system_admin only
- * — an Elder-portal stand-in until that module ships.
- */
-export const verifyClanAffiliation = mutation({
-  args: {
-    userId: v.id("users"),
-    status: v.union(v.literal("verified"), v.literal("rejected")),
-    note: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const caller = await requireSystemAdmin(ctx);
-    return await verifyClanAffiliationCore(ctx, caller, args);
   },
 });
 
@@ -229,9 +175,6 @@ export const listUsers = query({
           v.union(v.literal("active"), v.literal("suspended"))
         ),
         profileCompleted: v.optional(v.boolean()),
-        // Members whose self-selected clan still awaits verification — powers
-        // the dashboard's "Attention Needed" link into a filtered list.
-        pendingClan: v.optional(v.boolean()),
       })
     ),
     sort: v.optional(
@@ -276,18 +219,6 @@ export const listUsers = query({
       users = users.filter(
         (user) => rolesByUser.has(user._id) === args.filter!.hasAnyRole
       );
-    }
-    if (args.filter?.pendingClan) {
-      const profiles = await ctx.db.query("memberProfiles").collect();
-      const pendingIds = new Set(
-        profiles
-          .filter(
-            (profile) =>
-              profile.clanId && profile.clanApproval?.status === "pending"
-          )
-          .map((profile) => profile.userId)
-      );
-      users = users.filter((user) => pendingIds.has(user._id));
     }
     if (args.search) {
       const needle = args.search.trim().toLowerCase();
@@ -459,8 +390,8 @@ export const getDashboardStats = query({
       profileCompletionsLast7Days: profiles.filter(
         (profile) => profile._creationTime >= now - 7 * DAY_MS
       ).length,
-      pendingClanAffiliations: profiles.filter(
-        (profile) => profile.clanId && profile.clanApproval?.status === "pending"
+      pendingVerifications: profiles.filter(
+        (profile) => profile.profileStatus === "pending_verification"
       ).length,
       suspendedUsers: users.filter((user) => user.status === "suspended")
         .length,
