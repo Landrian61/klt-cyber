@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "mobile": "pnpm --filter mobile start",
+    "mobile:offline": "pnpm --filter mobile run start:offline",
     "mobile:android": "pnpm --filter mobile run android",
     "mobile:ios": "pnpm --filter mobile run ios",
     "admin": "pnpm --filter admin dev",

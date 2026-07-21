@@ -82,6 +82,90 @@ export default defineSchema({
     order: v.number(),
   }).index("by_order", ["order"]),
 
+  // ── Increment 3 — Content & Home Feed ──────────────────────────────────────
+  // All content here is global (not per-user) and readable by any authenticated
+  // session. Writes are gated by `canManageContent` (see convex/lib/authz.ts).
+
+  // Annual & monthly themes. "Current" is derived from the validity period
+  // (periodStart <= now <= periodEnd) rather than a manual toggle.
+  themes: defineTable({
+    scope: v.union(v.literal("annual"), v.literal("monthly")),
+    title: v.string(),
+    scriptureReference: v.string(),
+    scriptureText: v.string(),
+    coverImageUrl: v.optional(v.string()),
+    periodStart: v.number(), // unix ms, start of day
+    periodEnd: v.number(), // unix ms, end of day
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_scope_period", ["scope", "periodStart"]),
+
+  // Recurring weekly slots (Sunday Service, prayer meeting, …). No stored
+  // occurrences — the calendar expands these virtually at query time.
+  weeklyPrograms: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    dayOfWeek: v.number(), // 0 = Sunday … 6 = Saturday
+    time: v.string(), // "09:00", 24h HH:mm, church-local (Africa/Kampala, no DST)
+    location: v.optional(v.string()),
+    coverImageUrl: v.optional(v.string()),
+    active: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_active", ["active"])
+    .index("by_dayOfWeek", ["dayOfWeek"]),
+
+  // One-off events. Separate from weeklyPrograms — events grow event-specific
+  // features (ICS export, RSVPs) that programs never need.
+  events: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    location: v.optional(v.string()),
+    startDateTime: v.number(), // unix ms — stored as an instant, for future ICS export
+    endDateTime: v.number(),
+    coverImageUrl: v.optional(v.string()),
+    featured: v.boolean(), // surfaces in the Home tab event slider
+    active: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_startDateTime", ["startDateTime"])
+    .index("by_featured", ["featured", "startDateTime"]),
+
+  // Announcements. draft → published → active → expired/disabled → archived is
+  // derived at query time; only draft/published/archived are stored.
+  announcements: defineTable({
+    title: v.string(),
+    body: v.string(),
+    category: v.optional(v.string()),
+    priority: v.optional(
+      v.union(v.literal("low"), v.literal("normal"), v.literal("high"))
+    ),
+    coverImageUrl: v.optional(v.string()),
+    links: v.optional(
+      v.array(
+        v.object({
+          label: v.string(),
+          url: v.string(),
+        })
+      )
+    ),
+    startDate: v.number(),
+    endDate: v.number(),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("published"),
+      v.literal("archived")
+    ),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_status_startDate", ["status", "startDate"]),
+
   // Scoped administrative role grants. A user may hold any number of these.
   roleAssignments: defineTable({
     userId: v.id("users"),
@@ -96,6 +180,8 @@ export default defineSchema({
     note: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
+    // Content-management gate (Increment 3): active-role lookup for a user.
+    .index("by_userId_status", ["userId", "status"])
     .index("by_roleType", ["roleType"])
     .index("by_clanId", ["clanId"]),
 });
