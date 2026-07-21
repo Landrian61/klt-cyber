@@ -10,10 +10,10 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(next@16.2.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(next@16.2.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(convex@1.39.1(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       '@convex-dev/r2':
         specifier: ^0.10.2
-        version: 0.10.2(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
+        version: 0.10.2(@standard-schema/spec@1.1.0)(convex@1.39.1(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
       '@klt-cyber/shared':
         specifier: workspace:*
         version: link:packages/shared
@@ -22,8 +22,8 @@ importers:
         version: 1.6.11(next@16.2.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       convex:
-        specifier: latest
-        version: 1.42.3(react@19.2.4)
+        specifier: 1.39.1
+        version: 1.39.1(react@19.2.4)
 
   apps/admin:
     dependencies:
@@ -3716,25 +3716,6 @@ packages:
 
   convex@1.39.1:
     resolution: {integrity: sha512-W+gVXA7BpRF1xLlS1kGTtKVaqd5yonqbGESKiPtIUXjV744GdDz8IG7RVsSY5KzHbgxuJBHKaJYk+92OIHTskQ==}
-    engines: {node: '>=18.0.0', npm: '>=7.0.0'}
-    hasBin: true
-    peerDependencies:
-      '@auth0/auth0-react': ^2.0.1
-      '@clerk/clerk-react': ^4.12.8 || ^5.0.0
-      '@clerk/react': ^6.4.3
-      react: ^18.0.0 || ^19.0.0-0 || ^19.0.0
-    peerDependenciesMeta:
-      '@auth0/auth0-react':
-        optional: true
-      '@clerk/clerk-react':
-        optional: true
-      '@clerk/react':
-        optional: true
-      react:
-        optional: true
-
-  convex@1.42.3:
-    resolution: {integrity: sha512-7Tz/lH6UlZdiqzLPF/zrlH6Rlo/DOp836dL+GZkUMEQ2jaGGNnBIiIDcOOiEqtfSehuQ65r/rdNMnb4LupowaA==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -8153,9 +8134,9 @@ snapshots:
   '@cloudflare/workerd-windows-64@1.20260526.1':
     optional: true
 
-  '@convex-dev/action-retrier@0.3.1(convex@1.42.3(react@19.2.4))':
+  '@convex-dev/action-retrier@0.3.1(convex@1.39.1(react@19.2.4))':
     dependencies:
-      convex: 1.42.3(react@19.2.4)
+      convex: 1.39.1(react@19.2.4)
 
   '@convex-dev/better-auth@0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(next@16.2.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(convex@1.39.1(react@19.1.0))(react@19.1.0)(typescript@5.9.3)':
     dependencies:
@@ -8193,31 +8174,13 @@ snapshots:
       - hono
       - typescript
 
-  '@convex-dev/better-auth@0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(next@16.2.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
-    dependencies:
-      '@better-fetch/fetch': 1.1.21
-      better-auth: 1.6.11(next@16.2.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      common-tags: 1.8.2
-      convex: 1.42.3(react@19.2.4)
-      convex-helpers: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
-      jose: 6.2.3
-      react: 19.2.4
-      remeda: 2.37.0
-      semver: 7.8.1
-      type-fest: 5.6.0
-      zod: 4.4.3
-    transitivePeerDependencies:
-      - '@standard-schema/spec'
-      - hono
-      - typescript
-
-  '@convex-dev/r2@0.10.2(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)':
+  '@convex-dev/r2@0.10.2(@standard-schema/spec@1.1.0)(convex@1.39.1(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)':
     dependencies:
       '@aws-sdk/client-s3': 3.1090.0
       '@aws-sdk/s3-request-presigner': 3.1090.0
-      '@convex-dev/action-retrier': 0.3.1(convex@1.42.3(react@19.2.4))
-      convex: 1.42.3(react@19.2.4)
-      convex-helpers: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
+      '@convex-dev/action-retrier': 0.3.1(convex@1.39.1(react@19.2.4))
+      convex: 1.39.1(react@19.2.4)
+      convex-helpers: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.39.1(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
       file-type: 21.3.4
       uuid: 14.0.1
     optionalDependencies:
@@ -10800,15 +10763,6 @@ snapshots:
       typescript: 5.9.3
       zod: 4.4.3
 
-  convex-helpers@0.1.118(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3):
-    dependencies:
-      convex: 1.42.3(react@19.2.4)
-    optionalDependencies:
-      '@standard-schema/spec': 1.1.0
-      react: 19.2.4
-      typescript: 5.9.3
-      zod: 4.4.3
-
   convex@1.39.1(react@19.1.0):
     dependencies:
       esbuild: 0.27.0
@@ -10825,17 +10779,6 @@ snapshots:
       esbuild: 0.27.0
       prettier: 3.8.3
       ws: 8.18.0
-    optionalDependencies:
-      react: 19.2.4
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
-  convex@1.42.3(react@19.2.4):
-    dependencies:
-      esbuild: 0.27.0
-      prettier: 3.8.3
-      ws: 8.21.0
     optionalDependencies:
       react: 19.2.4
     transitivePeerDependencies:
