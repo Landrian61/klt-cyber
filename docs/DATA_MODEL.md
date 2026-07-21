@@ -600,87 +600,434 @@ The web side of Increment 2's schema:
   "Complete your profile" for visitors, non-blocking).
 
 ---
+Increment 3: Content & Home Feed
+ 
+## Status
+Implemented (PR7). This revision (PR7a) replaces the original temporary access-control mechanism
+— an environment-variable allowlist — with a minimal slice of Increment 2's `roleAssignments`
+table, pulled forward for the reasons described below. The rest of Increment 2 —
+`memberProfiles`, `children`, `clans`, the role picker UI, and Clan Elder's revoke-and-replace
+mutation logic — is untouched by this and still lands in PR8–11.
+ 
+## Purpose
+Powers the visitor-facing Home tab: leadership welcome, theme/scripture, weekly programs,
+upcoming events, and announcements. All content in this increment is global (not per-user) and
+readable by every authenticated session, visitor or member, per current tab-gating policy (Home
+is open to visitors).
+ 
+Explicitly out of scope for this increment: activity check-in / live attendee counts (12.3.4),
+the Giving section (deferred per MVP phasing), "Join the Ministry" lead capture / visitor
+inquiries (pending stakeholder discussion), and `programExceptions` (see note under
+`weeklyPrograms` below).
+ 
+---
+ 
+## Tables
+ 
+### `themes`
+Annual and monthly themes, each with scripture and an explicit validity period rather than a
+manual toggle — a theme naturally stops applying once `periodEnd` passes, and a theme can span
+multiple months by widening the period.
+ 
+```ts
+themes: defineTable({
+  scope: v.union(v.literal("annual"), v.literal("monthly")),
+  title: v.string(),
+  scriptureReference: v.string(),
+  scriptureText: v.string(),
+  coverImageUrl: v.optional(v.string()),
+  periodStart: v.number(),   // unix ms, start of day
+  periodEnd: v.number(),     // unix ms, end of day
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_scope_period", ["scope", "periodStart"])
+```
+ 
+"Current theme" for a given scope = the row where `periodStart <= now <= periodEnd`. Overlapping
+periods within the same scope are an admin data-entry error, not something the schema prevents —
+fine at this scale, revisit if it becomes a real problem.
+ 
+### `weeklyPrograms`
+Recurring slots (Sunday Service, prayer meeting, etc.), defined once and repeating indefinitely
+until deactivated. No stored occurrences — the calendar view expands these virtually at query
+time (see below).
+ 
+```ts
+weeklyPrograms: defineTable({
+  title: v.string(),
+  description: v.optional(v.string()),
+  dayOfWeek: v.number(),      // 0 = Sunday … 6 = Saturday
+  time: v.string(),           // "09:00", 24h HH:mm, church-local time (Africa/Kampala, no DST)
+  location: v.optional(v.string()),
+  coverImageUrl: v.optional(v.string()),
+  active: v.boolean(),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_active", ["active"])
+  .index("by_dayOfWeek", ["dayOfWeek"])
+```
+ 
+**Deliberately no `programExceptions` table this increment.** A one-off schedule change (e.g.
+this Sunday only, service moves to 11am) is handled by creating a one-time `events` row and
+leaving the program as-is; the admin makes the change visible via title/description rather than
+the system suppressing the default occurrence. Revisit only if this proves painful in practice —
+don't build the exception machinery preemptively.
+ 
+**Occurrence key convention:** when a program is expanded into a calendar occurrence for a
+specific date, use `${programId}_${YYYY-MM-DD}` as its identifier. Nothing consumes this yet, but
+future check-in / attendance features (12.3.4) will need a stable key per occurrence, so the
+expansion logic should produce this consistently from day one.
+ 
+### `events`
+One-off events. Kept as a separate table from `weeklyPrograms` even though the fields overlap
+today, since events are expected to grow event-specific features (calendar export, RSVPs, etc.)
+that programs won't need.
+ 
+```ts
+events: defineTable({
+  title: v.string(),
+  description: v.optional(v.string()),
+  location: v.optional(v.string()),
+  startDateTime: v.number(),  // unix ms — stored as an instant, not date+time strings, for future ICS export
+  endDateTime: v.number(),
+  coverImageUrl: v.optional(v.string()),
+  featured: v.boolean(),      // surfaces in the Home tab event slider
+  active: v.boolean(),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_startDateTime", ["startDateTime"])
+  .index("by_featured", ["featured", "startDateTime"])
+```
+ 
+### `announcements`
+```ts
+announcements: defineTable({
+  title: v.string(),
+  body: v.string(),
+  category: v.optional(v.string()),
+  priority: v.optional(v.union(v.literal("low"), v.literal("normal"), v.literal("high"))),
+  coverImageUrl: v.optional(v.string()),
+  links: v.optional(v.array(v.object({
+    label: v.string(),
+    url: v.string(),
+  }))),
+  startDate: v.number(),
+  endDate: v.number(),
+  status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_status_startDate", ["status", "startDate"])
+```
+ 
+`draft → published → active → expired/disabled → archived` (per spec §10.8) is derived at query
+time, not stored as separate states: "active" = `status == "published" AND startDate <= now <=
+endDate`; "expired" = `status == "published" AND now > endDate`; "disabled" = admin sets `status`
+to `"archived"` before `endDate` passes. Only `draft`, `published`, `archived` need to be actual
+stored values.
+ 
+### `visitorInquiries` — deferred
+Not created this increment. Schema TBD pending stakeholder discussion on what "Join the Ministry"
+is actually meant to capture, and whether it's distinct from mobile profile completion.
+ 
+---
+ 
+## Access Control
+ 
+All five reads (theme, programs, events, announcements, calendar) are open to any authenticated
+session — visitor or member — matching current tab-gating for Home.
+ 
+Writes are gated by a single helper, `canManageContent(ctx)`, called from every content mutation.
+It checks for an active row in `roleAssignments` (see below) with `roleType` in
+`["system_admin", "church_admin"]` for the caller's `userId` — `church_admin` is anticipated but
+not yet a defined value in the union; adding it later is a one-line union extension, not a
+rewrite of this helper or its callers.
+ 
+This replaces the original design, which checked the caller's `authId` against an
+environment-variable allowlist (`CONTENT_ADMIN_AUTH_IDS`). That approach was dropped once a
+second developer joined working against a shared dev deployment: granting or revoking admin
+access meant editing deployment configuration, which doesn't hold up for day-to-day
+collaboration. A `roleAssignments` row is just data — visible and editable directly in the
+Convex dashboard's table view, no redeploy and no code change either direction.
+ 
+Church Administrator and System Administrator share identical content-management permissions in
+this increment — no distinction is enforced yet, consistent with the note that system admin can
+also perform this role.
+ 
+### Minimal `roleAssignments` slice
+ 
+Only the table and a lookup are needed here — not the rest of Increment 2.
+ 
+```ts
+roleAssignments: defineTable({
+  userId: v.id("users"),
+  roleType: v.union(v.literal("system_admin"), v.literal("clan_elder")), // church_admin planned
+  clanId: v.optional(v.id("clans")),   // unused by this increment; reserved for clan_elder scoping
+  assignedBy: v.optional(v.id("users")),
+  status: v.union(v.literal("active"), v.literal("revoked")),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_userId_status", ["userId", "status"])
+```
+ 
+`canManageContent(ctx)` resolves the caller's `userId`, then looks up `roleAssignments` via the
+`by_userId_status` index for a row with `status: "active"` and `roleType` in
+`["system_admin", "church_admin"]`. No `assignRole`/`revokeRole` mutation ships in this
+increment — granting access is a manual dashboard insert (see `WEB_COLLABORATOR_SETUP.md` for
+the exact steps). A proper mutation with its own authorization belongs to Increment 2, alongside
+the role picker UI and Clan Elder's revoke-and-replace semantics.
+ 
+## Calendar (view, not a table)
+ 
+The calendar is a query, `getCalendarRange(startDate, endDate)`, not a stored entity — avoids a
+redundant table that could drift from `events` / `weeklyPrograms`. It:
+ 
+1. Expands every `active` `weeklyPrograms` row into virtual occurrences for each matching
+   `dayOfWeek` within the range (computed on the fly, nothing persisted).
+2. Pulls `events` rows whose `startDateTime` falls within the range.
+3. Merges both into one sorted list, each item tagged `type: "program" | "event"`, programs
+   carrying the `occurrenceKey` described above.
+This is also the shape future departmental calendars (Missions, Creative Arts, etc.) will plug
+into later — extend the merge, don't build a parallel structure.
+ 
+## Audit logging
+Content create/update/publish/archive mutations should write to the existing `activityLogs`
+table (Increment 1) for consistency with the audit pattern already in place, rather than
+introducing a separate content-log table.
+ 
+## Media
+`coverImageUrl` fields store a plain URL for this increment. If R2 upload wiring isn't already
+available from earlier PRs, admin UI accepts a pasted URL for v1; a dedicated upload flow can
+follow once needed rather than being built as a prerequisite here.
 
-### Increment 3 — Church Administration Domain (preview, not built yet)
+# DATA_MODEL.md — Increment 4: Member Profiles, Verification & Tower of Faith
 
-The next data model increment introduces the schema for the Church Administration
-MVP subset — the module that publishes the content the mobile app consumes on Home
-and Updates. Precise field definitions are settled when the module work begins;
-this preview captures the anticipated shape so future contributors know what's coming.
-
-**Anticipated tables**
-
-- **`events`** — one-off and scheduled church events. Surfaced on the mobile Home
-  tab and Church Admin's calendar view. Fields likely include title, date/time,
-  description, location, banner image, and an author reference to the Church Admin
-  who published it.
-- **`weeklyProgram`** — the recurring weekly schedule of activities shown on the
-  mobile Home tab. Structure TBD when work begins — possibly a set of activity
-  entries with day-of-week and time-of-day, possibly a more flexible template.
-- **`themes`** — the current annual theme (with scripture reference) and current
-  monthly theme. A small table or singleton record; displayed on every mobile
-  user's Home tab. Note: per `VISION.md` §4.3, theme management sits with Church
-  Admin for MVP rather than Pastoral Team (which is deferred). This may transfer
-  post-MVP.
-- **`announcements`** — church-wide announcements authored by Church Admin and
-  shown in the mobile Updates tab.
-
-**Seeded content pattern** — a formalized MVP approach
-
-Certain mobile-facing content is delivered via seed rather than an admin surface,
-because building the corresponding admin surface would exceed MVP scope. This is
-deliberate and worth naming as a pattern:
-
-- **`scriptures`** — a rotating set of scriptures seeded at deploy time, used for
-  the mobile "scripture of the day" feature. Curated via commits (a change to the
-  seed) until a scripture-management surface exists.
-- **`libraryResources`** — a small seeded set of library items visible in the
-  mobile Library tab. The full Library management module (per the church spec) is
-  deferred post-MVP; seeded content is how the mobile Library tab is populated
-  meanwhile.
-
-The seeded content pattern lets mobile features that need content ship in MVP
-without waiting for their full admin surface. When content demand grows beyond
-what commit-based curation can handle, the corresponding admin surface earns its
-keep — but not before. See `ARCHITECTURE.md` §8 for the broader "admin publishes,
-mobile consumes" pattern this fits within.
-
-**Not in Increment 3** (further deferred)
-
-- The Reign Radio domain (`broadcasts`, banner uploads to R2, listenership records)
-  — arrives with its own increment, aligned with the Radio Admin module.
-- Notifications (richly modeled) — a separate cross-cutting increment.
-- Anything from post-MVP modules (mentorship, ushering, departments,
-  finance, missions, etc.).
+## Status
+Proposed. Depends on Increment 3's `roleAssignments` table (extends its `roleType` union) and
+the fixed `clans` reference table. Mobile submission (the 7-step form + uploads) ships this week,
+owned outside this doc. This increment covers the backend schema and the web-side verification
+workflow Naomi is building.
 
 ---
 
-### Open / in-flux items (flagged, not settled)
+## `roleAssignments` — activate `church_admin`
 
-1. ~~**Self-edit policy for `sex` and `dateOfBirth`**~~ — **Resolved.** `dateOfBirth` is
-   optional at completion and freely self-editable thereafter. `sex` is admin-only.
-   Members can also edit phone, profession, profilePictureUrl, firstName, lastName, and
-   clanId (re-triggers approval).
+Increment 3 left `church_admin` as a planned-but-undefined union member. It's real now:
 
-2. **Last-role revocation while signed in** — middleware enforces the invariant on the
-   next request. Server-pushed session invalidation is an enhancement, not MVP-required.
+```ts
+roleType: v.union(v.literal("system_admin"), v.literal("clan_elder"), v.literal("church_admin"))
+```
 
-3. ~~**Multi-clan-elder conflict**~~ — **Resolved.** Revoke-and-replace at mutation
-   time, with both events logged. The spec's "one Elder per clan" rule is enforced by
-   mutations, not by a schema constraint.
+No other change to that table.
 
-4. **Children without DOB age statically** — without `dateOfBirth`, `ageBracket` is
-   whatever the parent entered and never changes. Accept this; parents who want
-   automatic progression provide DOB.
+---
 
-5. **Age-driven features depend on member-provided DOB.** With `dateOfBirth` optional,
-   any feature that needs it (birthday celebration messages, automatic Youth/Adult
-   reallocation, age-based eligibility checks) silently excludes members who left it
-   blank. Modules that rely on age must design for this — either by treating "no DOB"
-   as an exclusion, or by prompting members to add it when they need it.
+## `memberProfiles`
 
-6. **Eligibility rules beyond `profileCompleted`** remain deferred. Elder rules, HOD
-   rules, etc. arrive with the modules that house their data sources.
+One row per user, created on final submission (not on first form open — see "Open questions"
+below on whether partial drafts need persisting).
 
-7. **Super T broadcaster structure** — still flagged from Increment 1, still out of
-   scope.
+```ts
+memberProfiles: defineTable({
+  userId: v.id("users"),
+
+  // Personal — Step 1
+  firstName: v.string(),
+  middleName: v.optional(v.string()),
+  lastName: v.string(),
+  phone: v.optional(v.string()),
+  sex: v.union(v.literal("male"), v.literal("female")),
+  dateOfBirth: v.optional(v.object({
+    day: v.number(),                 // 1–31
+    month: v.number(),               // 1–12
+    year: v.optional(v.number()),    // omitted if the member declines to share birth year
+  })),
+  maritalStatus: v.union(
+    v.literal("single"), v.literal("married"), v.literal("widowed"), v.literal("divorced")
+  ),
+  shortBio: v.optional(v.string()),
+  photoUrl: v.optional(v.string()),
+  joinDate: v.optional(v.number()),  // self-reported; distinct from this record's own createdAt
+
+  // Family — Step 2
+  spouseUserId: v.optional(v.id("users")),       // linked via search, only if spouse is registered
+  spouseNameUnlinked: v.optional(v.string()),     // fallback free text — confirm this is wanted
+  anniversaryDate: v.optional(v.number()),
+  nextOfKin: v.optional(v.object({
+    fullName: v.string(),
+    relationship: v.string(),
+    phone: v.string(),
+  })),
+
+  // Mentorship — Step 3. Hard gate: mobile client blocks submission unless status is "completed".
+  mentorshipStatus: v.union(
+    v.literal("not_enrolled"), v.literal("enrolled"), v.literal("completed")
+  ),
+  mentorshipProofUrl: v.optional(v.string()),     // absent = admin must follow up manually
+
+  // Departments / Clan — Steps 5–6
+  departmentId: v.optional(v.id("departments")),
+  clanId: v.optional(v.id("clans")),
+
+  // Profession — Step 7
+  occupation: v.optional(v.string()),
+  industry: v.optional(v.string()),
+  employer: v.optional(v.string()),
+  skills: v.optional(v.array(v.string())),
+
+  // Verification
+  profileStatus: v.union(v.literal("pending_verification"), v.literal("verified")),
+  verifiedBy: v.optional(v.id("users")),
+  verifiedAt: v.optional(v.number()),
+
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_userId", ["userId"])
+  .index("by_profileStatus", ["profileStatus"])
+  .index("by_spouseUserId", ["spouseUserId"])
+```
+
+No `rejected` status, per the "no formal rejection" rule — admin edits fields in place and moves
+a profile straight to `verified` rather than bouncing it back.
+
+---
+
+## `leadershipProgress`
+
+Separate table, not an array on the profile, since proof is tracked per level as someone
+progresses through Level 1 → Level 2 → Advanced.
+
+```ts
+leadershipProgress: defineTable({
+  userId: v.id("users"),
+  level: v.union(v.literal("level_1"), v.literal("level_2"), v.literal("advanced")),
+  status: v.union(v.literal("in_progress"), v.literal("completed")),
+  proofUrl: v.optional(v.string()),
+  completedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_userId", ["userId"])
+```
+
+No row for a level = not enrolled in it — same "don't store negative space" convention as
+`roleAssignments`. Sequential ordering (can't be mid-Level-2 without a completed Level 1) isn't
+enforced at the schema level; treat it as a mutation-time check if you want it enforced at all.
+
+---
+
+## `children`
+
+```ts
+children: defineTable({
+  parentUserId: v.id("users"),
+  name: v.string(),
+  dateOfBirth: v.optional(v.number()),   // simplified to a single optional date; age derives at display time
+  sex: v.union(v.literal("male"), v.literal("female")),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_parentUserId", ["parentUserId"])
+```
+
+Kept as its own table (not embedded in `memberProfiles`) — the Children's Church spec needs to
+query children as a standalone collection (birthday lists, age-based transition to Youth at 13),
+which doesn't work cleanly if they only exist nested inside a parent's document.
+
+---
+
+## `departments`
+
+```ts
+departments: defineTable({
+  name: v.string(),
+  description: v.optional(v.string()),
+  active: v.boolean(),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_active", ["active"])
+```
+
+Deliberately **not** seeded, unlike the fixed 12 clans — Church Admin owns and populates this
+list live. This also makes a clean, self-contained second task for Naomi: same CRUD shape as the
+four content tables, but simpler (no dates, no lifecycle), good for applying the pattern herself.
+
+---
+
+## `facilities` (Tower of Faith)
+
+```ts
+facilities: defineTable({
+  name: v.string(),
+  tagline: v.optional(v.string()),
+  description: v.optional(v.string()),
+  servicesOffered: v.optional(v.array(v.string())),
+  campusBlock: v.optional(v.string()),
+  address: v.optional(v.string()),
+  contactPerson: v.optional(v.string()),
+  contactEmail: v.optional(v.string()),
+  contactPhone: v.optional(v.string()),   // wa.me link is built from this at render time, not stored separately
+  imageUrl: v.optional(v.string()),
+  active: v.boolean(),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_active", ["active"])
+```
+
+No separate `facilityId` field — Convex's generated document ID covers it; add one only if you
+need a human-readable code for something printed physically at the facility.
+
+---
+
+## Verification mutation
+
+`verifyProfile(profileId, edits?)`:
+1. If `edits` is provided, apply the admin's corrections to the relevant fields first.
+2. Set `profileStatus: "verified"`, `verifiedBy`, `verifiedAt`.
+3. In the same mutation, flip the linked `users.role` from `"visitor"` to `"member"`.
+4. Does **not** touch `roleAssignments` — membership and admin authority stay fully orthogonal,
+   exactly as already established. Verifying someone's profile never grants them any authority.
+
+## Media uploads
+
+Mentorship proof, leadership proof, and facility images all need the same underlying capability:
+upload to R2, get back a URL, attach it to the relevant mutation. Worth building this once as a
+shared utility (client requests an upload URL, uploads directly to R2, submits the resulting URL)
+rather than three separate implementations — mobile needs it for certificates this week, web
+needs it for facility images around the same time.
+
+## Access control
+
+Introduce `canManageChurchAdmin(ctx)`, checking for an active `roleAssignment` with `roleType` in
+`["system_admin", "church_admin"]` — same check Increment 3's `canManageContent` already
+performs. Use it for `verifyProfile`, and for the `departments` and `facilities` mutations.
+`canManageContent` can either be refactored to call this directly, or left alone — functionally
+identical, just avoiding duplicated authorization logic going forward.
+
+---
+
+## Open questions to confirm
+
+- **`spouseNameUnlinked`** — kept as a fallback so an unregistered spouse's name isn't lost
+  entirely. Drop it if you'd rather the field be link-only.
+- **No draft persistence** — assumed the 7-step form submits atomically at the end; no partial
+  progress saved server-side. If you want someone to close the app mid-form and resume later,
+  that's a real addition (a `draft` `profileStatus`, partial-save mutations) worth deciding now.
+- **`joinDate`** treated as optional, matching the pattern of only marking fields required when
+  explicitly marked so in your spec.
+- **Children's date of birth** simplified to a single optional date rather than the
+  DOB-or-age ambiguity in the original wording — confirm that's fine.
+ 

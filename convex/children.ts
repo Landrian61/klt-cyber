@@ -3,18 +3,15 @@ import { v } from "convex/values";
 import { childInputSchema } from "@klt-cyber/shared";
 import { logActivity, requireUser } from "./lib/authz";
 
-const ageBracketValidator = v.union(
-  v.literal("0-12"),
-  v.literal("13-19"),
-  v.literal("20-35"),
-  v.literal("36+")
-);
+// Children of members — data records, not user accounts. See
+// docs/DATA_MODEL.md, Increment 4 — "children".
+
+const sexValidator = v.union(v.literal("male"), v.literal("female"));
 
 const childFields = {
   name: v.string(),
-  dateOfBirth: v.optional(v.string()),
-  ageBracket: ageBracketValidator,
-  guardianContact: v.optional(v.string()),
+  dateOfBirth: v.optional(v.number()),
+  sex: sexValidator,
 };
 
 /** Add a child record for the calling user. */
@@ -24,14 +21,16 @@ export const addChild = mutation({
     const user = await requireUser(ctx);
     const input = childInputSchema.parse(args);
 
+    const now = Date.now();
     const childId = await ctx.db.insert("children", {
       parentUserId: user._id,
       name: input.name,
-      ...(input.dateOfBirth ? { dateOfBirth: input.dateOfBirth } : {}),
-      ageBracket: input.ageBracket,
-      ...(input.guardianContact
-        ? { guardianContact: input.guardianContact }
+      ...(input.dateOfBirth !== undefined
+        ? { dateOfBirth: input.dateOfBirth }
         : {}),
+      sex: input.sex,
+      createdAt: now,
+      updatedAt: now,
     });
 
     await logActivity(ctx, {
@@ -64,9 +63,9 @@ export const updateChild = mutation({
 
     await ctx.db.patch(childId, {
       name: input.name,
-      ageBracket: input.ageBracket,
+      sex: input.sex,
       dateOfBirth: input.dateOfBirth,
-      guardianContact: input.guardianContact,
+      updatedAt: Date.now(),
     });
 
     await logActivity(ctx, {

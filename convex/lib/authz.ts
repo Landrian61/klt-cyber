@@ -82,6 +82,71 @@ export async function requireSystemAdmin(
   return user;
 }
 
+// Role types that confer Church Admin rights (DATA_MODEL.md, Increment 3 —
+// Access Control; formalized as `canManageChurchAdmin` in Increment 4).
+// `church_admin` is now a real member of the `roleAssignments.roleType` union.
+const CHURCH_ADMIN_ROLES = ["system_admin", "church_admin"] as const;
+
+/** True when `userId` holds an active Church Admin-equivalent role assignment. */
+async function hasActiveChurchAdminRole(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  const active = await ctx.db
+    .query("roleAssignments")
+    .withIndex("by_userId_status", (q) =>
+      q.eq("userId", userId).eq("status", "active")
+    )
+    .collect();
+  return active.some((row) =>
+    (CHURCH_ADMIN_ROLES as readonly string[]).includes(row.roleType)
+  );
+}
+
+/**
+ * Church Admin gate (DATA_MODEL.md, Increment 4 — Access Control).
+ *
+ * Checks the caller for an active `roleAssignments` row with `roleType` in
+ * {@link CHURCH_ADMIN_ROLES}, via the `by_userId_status` index. A role row is
+ * just data — grantable/revocable directly in the Convex dashboard with no
+ * redeploy. Revoking a row removes access on the very next request; there is
+ * no caching.
+ *
+ * Throws when the caller is unauthenticated or lacks the role. Returns the
+ * caller's `users` row (for audit-log attribution) on success. Called by every
+ * content, member-verification, department, and facility mutation.
+ */
+export async function canManageChurchAdmin(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users">> {
+  const user = await getCurrentUser(ctx);
+  if (!user) throw new Error("Not authenticated");
+  if (!(await hasActiveChurchAdminRole(ctx, user._id))) {
+    throw new Error("Not authorized to manage church admin resources");
+  }
+  return user;
+}
+
+/**
+ * @deprecated Increment 3's name for {@link canManageChurchAdmin}, kept as an
+ * alias so existing content-mutation call sites (themes, events, programs,
+ * announcements) don't need touching. Same check, same roles.
+ */
+export const canManageContent = canManageChurchAdmin;
+
+/**
+ * Non-throwing capability check: `true` when the caller may manage Church
+ * Admin resources (content, verification, departments, facilities). For
+ * gating admin UI without surfacing an authorization error — the write
+ * mutations still enforce {@link canManageChurchAdmin} server-side regardless.
+ */
+export async function isContentManager(
+  ctx: QueryCtx | MutationCtx
+): Promise<boolean> {
+  const user = await getCurrentUser(ctx);
+  return user ? await hasActiveChurchAdminRole(ctx, user._id) : false;
+}
+
 /** Append an audit entry. The single write-point for `activityLogs`. */
 export async function logActivity(
   ctx: MutationCtx,

@@ -24,11 +24,3 @@ export const roleAssignmentInputSchema = z.discriminatedUnion('roleType', [
   }),
 ]);
 export type RoleAssignmentInput = z.infer<typeof roleAssignmentInputSchema>;
-
-/** Authority verdict on a member's self-selected clan affiliation. */
-export const clanVerificationInputSchema = z.object({
-  userId: convexId,
-  status: z.enum(['verified', 'rejected']),
-  note: z.string().trim().min(1).optional(),
-});
-export type ClanVerificationInput = z.infer<typeof clanVerificationInputSchema>;

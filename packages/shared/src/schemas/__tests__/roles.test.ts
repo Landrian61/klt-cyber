@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { roleAssignmentInputSchema, clanVerificationInputSchema } from '../roles';
+import { roleAssignmentInputSchema } from '../roles';
 
 // Unit tests for the role-assignment validators. DATA_MODEL.md, Increment 2:
 // the input is discriminated on roleType so clan_elder requires a clanId while
-// system_admin does not; clan verification is a verified/rejected verdict.
+// system_admin does not.
 
 describe('roleAssignmentInputSchema', () => {
   it('accepts a system_admin assignment without a clanId', () => {
@@ -63,36 +63,5 @@ describe('roleAssignmentInputSchema', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) expect('clanId' in result.data).toBe(false);
-  });
-});
-
-describe('clanVerificationInputSchema', () => {
-  it('accepts a verified verdict', () => {
-    const result = clanVerificationInputSchema.safeParse({
-      userId: 'user_123',
-      status: 'verified',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('accepts a rejected verdict with a note', () => {
-    const result = clanVerificationInputSchema.safeParse({
-      userId: 'user_123',
-      status: 'rejected',
-      note: 'Not a recognised member of this clan',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects a pending verdict (verification is a final verified/rejected call)', () => {
-    const result = clanVerificationInputSchema.safeParse({
-      userId: 'user_123',
-      status: 'pending',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects a missing userId', () => {
-    expect(clanVerificationInputSchema.safeParse({ status: 'verified' }).success).toBe(false);
   });
 });
