@@ -9,17 +9,11 @@ import { Heading } from "@/components/ui/Heading";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import {
-  ageFrom,
-  displayName,
-  formatDate,
-  formatRelativeTime,
-} from "@/lib/format";
+import { displayName, formatDate, formatRelativeTime } from "@/lib/format";
 import { describeActivity } from "@/lib/activity";
 import { CardHeading, capitalize, type UserDetail } from "./shared";
 import { RolesCard } from "./RolesCard";
 import { AccountActionsCard } from "./AccountActionsCard";
-import { ClanAffiliationCard } from "./ClanAffiliationCard";
 
 // The richest screen of the module: bio + roles + admin actions, all fed by
 // one reactive query — every mutation on the right rail refreshes the whole
@@ -51,10 +45,6 @@ export function UserDetailClient({ userId }: { userId: string }) {
     );
   }
 
-  const showClanAffiliation =
-    detail.profile?.clanId != null &&
-    detail.profile.clanApproval?.status === "pending";
-
   return (
     <div className="space-y-6">
       <BackLink />
@@ -74,12 +64,6 @@ export function UserDetailClient({ userId }: { userId: string }) {
         <div className="space-y-6">
           <RolesCard detail={detail} userId={userId as Id<"users">} />
           <AccountActionsCard detail={detail} userId={userId as Id<"users">} />
-          {showClanAffiliation && (
-            <ClanAffiliationCard
-              detail={detail}
-              userId={userId as Id<"users">}
-            />
-          )}
         </div>
       </div>
     </div>
@@ -157,20 +141,20 @@ function BioCard({ detail }: { detail: UserDetail }) {
             value={capitalize(profile.maritalStatus)}
           />
           <BioRow label="Phone" value={profile.phone ?? null} />
-          <BioRow label="Profession" value={profile.profession ?? null} />
+          <BioRow label="Occupation" value={profile.occupation ?? null} />
+          <BioRow label="Clan" value={profile.clanName ?? null} />
           <BioRow
-            label="Clan"
+            label="Verification"
             value={
-              profile.clanName ? (
-                <span className="inline-flex flex-wrap items-center gap-2">
-                  {profile.clanName}
-                  {profile.clanApproval && (
-                    <Badge variant={profile.clanApproval.status}>
-                      {capitalize(profile.clanApproval.status)}
-                    </Badge>
-                  )}
-                </span>
-              ) : null
+              <Badge
+                variant={
+                  profile.profileStatus === "verified" ? "verified" : "pending"
+                }
+              >
+                {profile.profileStatus === "verified"
+                  ? "Verified"
+                  : "Pending verification"}
+              </Badge>
             }
           />
         </dl>
@@ -192,15 +176,32 @@ function BioRow({ label, value }: { label: string; value: ReactNode | null }) {
   );
 }
 
-/** "12 Jul 1990 · 36 yrs", the raw string when unparseable, null when absent. */
-function dobValue(dateOfBirth: string | undefined): ReactNode | null {
+type DateOfBirthParts = { day: number; month: number; year?: number };
+
+/** "12 Jul 1990 · 36 yrs", "12 Jul" when the year was withheld, null when absent. */
+function dobValue(dateOfBirth: DateOfBirthParts | undefined): ReactNode | null {
   if (!dateOfBirth) return null;
-  const time = new Date(dateOfBirth).getTime();
-  if (Number.isNaN(time)) return dateOfBirth;
-  const age = ageFrom(dateOfBirth);
+  const monthName = new Date(2000, dateOfBirth.month - 1, 1).toLocaleDateString(
+    "en-GB",
+    { month: "short" }
+  );
+  const datePart = `${dateOfBirth.day} ${monthName}`;
+  if (dateOfBirth.year === undefined) return datePart;
+  const age = ageFromParts(dateOfBirth.day, dateOfBirth.month, dateOfBirth.year);
   return age === null
-    ? formatDate(time)
-    : `${formatDate(time)} · ${age} yrs`;
+    ? `${datePart} ${dateOfBirth.year}`
+    : `${datePart} ${dateOfBirth.year} · ${age} yrs`;
+}
+
+/** Whole years since a day/month/year birthdate. */
+function ageFromParts(day: number, month: number, year: number): number | null {
+  const now = new Date();
+  let age = now.getFullYear() - year;
+  const hadBirthday =
+    now.getMonth() + 1 > month ||
+    (now.getMonth() + 1 === month && now.getDate() >= day);
+  if (!hadBirthday) age -= 1;
+  return age;
 }
 
 // ── Children ──────────────────────────────────────────────────────────────
@@ -218,12 +219,9 @@ function ChildrenCard({ records }: { records: UserDetail["children"] }) {
             <span className="font-body text-sm font-medium text-on-surface">
               {child.name}
             </span>
-            <Badge variant="neutral">{child.ageBracket}</Badge>
-            <span className="font-body text-sm text-on-surface-variant">
-              {childDob(child.dateOfBirth)}
-            </span>
+            <Badge variant="neutral">{capitalize(child.sex)}</Badge>
             <span className="ml-auto font-body text-sm text-on-surface-variant">
-              {child.guardianContact ?? "—"}
+              {childDob(child.dateOfBirth)}
             </span>
           </div>
         ))}
@@ -232,10 +230,8 @@ function ChildrenCard({ records }: { records: UserDetail["children"] }) {
   );
 }
 
-function childDob(dateOfBirth: string | undefined): string {
-  if (!dateOfBirth) return "—";
-  const time = new Date(dateOfBirth).getTime();
-  return Number.isNaN(time) ? dateOfBirth : formatDate(time);
+function childDob(dateOfBirth: number | undefined): string {
+  return dateOfBirth === undefined ? "—" : formatDate(dateOfBirth);
 }
 
 // ── Recent activity ───────────────────────────────────────────────────────

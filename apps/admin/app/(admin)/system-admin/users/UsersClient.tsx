@@ -43,7 +43,6 @@ export function UsersClient() {
   const roles = searchParams.get("roles") ?? "";
   const status = searchParams.get("status") ?? "";
   const profile = searchParams.get("profile") ?? "";
-  const clan = searchParams.get("clan") ?? "";
   const sortParam = searchParams.get("sort");
   const sort =
     sortParam === "name" || sortParam === "email" ? sortParam : "recent";
@@ -95,16 +94,13 @@ export function UsersClient() {
           : profile === "incomplete"
             ? false
             : undefined,
-      pendingClan: clan === "pending" ? true : undefined,
     },
     sort,
     page,
     pageSize: PAGE_SIZE,
   });
 
-  const hasActiveFilters = Boolean(
-    q || role || roles || status || profile || clan
-  );
+  const hasActiveFilters = Boolean(q || role || roles || status || profile);
 
   const columns: Column<UserRow>[] = [
     {
@@ -183,7 +179,6 @@ export function UsersClient() {
             <span aria-hidden="true">—</span>
           )}{" "}
           accounts on record
-          {clan === "pending" && " · filtered to pending clan approvals"}
         </p>
       </header>
 
@@ -260,11 +255,6 @@ export function UsersClient() {
         >
           Incomplete
         </FilterChip>
-        {clan === "pending" && (
-          <FilterChip selected onClick={() => setParams({ clan: "" })}>
-            Pending clan approval
-          </FilterChip>
-        )}
       </FilterBar>
 
       <DataTable<UserRow>
