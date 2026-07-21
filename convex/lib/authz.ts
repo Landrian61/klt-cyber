@@ -82,14 +82,13 @@ export async function requireSystemAdmin(
   return user;
 }
 
-// Role types that confer content-management rights (DATA_MODEL.md, Increment 3
-// — Access Control). `church_admin` is anticipated but not yet a member of the
-// `roleAssignments.roleType` union; the cast below tolerates that until it lands
-// as a one-line union extension.
-const CONTENT_MANAGER_ROLES = ["system_admin", "church_admin"] as const;
+// Role types that confer Church Admin rights (DATA_MODEL.md, Increment 3 —
+// Access Control; formalized as `canManageChurchAdmin` in Increment 4).
+// `church_admin` is now a real member of the `roleAssignments.roleType` union.
+const CHURCH_ADMIN_ROLES = ["system_admin", "church_admin"] as const;
 
-/** True when `userId` holds an active content-manager role assignment. */
-async function hasActiveContentRole(
+/** True when `userId` holds an active Church Admin-equivalent role assignment. */
+async function hasActiveChurchAdminRole(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">
 ): Promise<boolean> {
@@ -100,45 +99,52 @@ async function hasActiveContentRole(
     )
     .collect();
   return active.some((row) =>
-    (CONTENT_MANAGER_ROLES as readonly string[]).includes(row.roleType)
+    (CHURCH_ADMIN_ROLES as readonly string[]).includes(row.roleType)
   );
 }
 
 /**
- * Content-management gate (DATA_MODEL.md, Increment 3 — Access Control).
+ * Church Admin gate (DATA_MODEL.md, Increment 4 — Access Control).
  *
  * Checks the caller for an active `roleAssignments` row with `roleType` in
- * {@link CONTENT_MANAGER_ROLES}, via the `by_userId_status` index. A role row is
+ * {@link CHURCH_ADMIN_ROLES}, via the `by_userId_status` index. A role row is
  * just data — grantable/revocable directly in the Convex dashboard with no
- * redeploy — which is why this replaced the earlier `CONTENT_ADMIN_AUTH_IDS`
- * env-var allowlist (PR7a). Revoking a row removes access on the very next
- * request; there is no caching.
+ * redeploy. Revoking a row removes access on the very next request; there is
+ * no caching.
  *
  * Throws when the caller is unauthenticated or lacks the role. Returns the
  * caller's `users` row (for audit-log attribution) on success. Called by every
- * content create/update/publish/archive mutation.
+ * content, member-verification, department, and facility mutation.
  */
-export async function canManageContent(
+export async function canManageChurchAdmin(
   ctx: QueryCtx | MutationCtx
 ): Promise<Doc<"users">> {
   const user = await getCurrentUser(ctx);
   if (!user) throw new Error("Not authenticated");
-  if (!(await hasActiveContentRole(ctx, user._id))) {
-    throw new Error("Not authorized to manage content");
+  if (!(await hasActiveChurchAdminRole(ctx, user._id))) {
+    throw new Error("Not authorized to manage church admin resources");
   }
   return user;
 }
 
 /**
- * Non-throwing capability check: `true` when the caller may manage content.
- * For gating admin UI without surfacing an authorization error — the write
- * mutations still enforce {@link canManageContent} server-side regardless.
+ * @deprecated Increment 3's name for {@link canManageChurchAdmin}, kept as an
+ * alias so existing content-mutation call sites (themes, events, programs,
+ * announcements) don't need touching. Same check, same roles.
+ */
+export const canManageContent = canManageChurchAdmin;
+
+/**
+ * Non-throwing capability check: `true` when the caller may manage Church
+ * Admin resources (content, verification, departments, facilities). For
+ * gating admin UI without surfacing an authorization error — the write
+ * mutations still enforce {@link canManageChurchAdmin} server-side regardless.
  */
 export async function isContentManager(
   ctx: QueryCtx | MutationCtx
 ): Promise<boolean> {
   const user = await getCurrentUser(ctx);
-  return user ? await hasActiveContentRole(ctx, user._id) : false;
+  return user ? await hasActiveChurchAdminRole(ctx, user._id) : false;
 }
 
 /** Append an audit entry. The single write-point for `activityLogs`. */

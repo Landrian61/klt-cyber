@@ -138,7 +138,7 @@ export function DashboardClient() {
               <div className="h-24 animate-pulse rounded-lg bg-surface-low" />
               <div className="h-24 animate-pulse rounded-lg bg-surface-low" />
             </>
-          ) : stats.pendingClanAffiliations === 0 &&
+          ) : stats.pendingVerifications === 0 &&
             stats.suspendedUsers === 0 &&
             membersWithoutRoles === 0 ? (
             <Card>
@@ -150,12 +150,12 @@ export function DashboardClient() {
             </Card>
           ) : (
             <>
-              {stats.pendingClanAffiliations > 0 && (
+              {stats.pendingVerifications > 0 && (
                 <AttentionCard
-                  href="/system-admin/users?clan=pending"
-                  count={stats.pendingClanAffiliations}
-                  label="Pending clan affiliations"
-                  caption="Awaiting verification"
+                  href="/system-admin/users"
+                  count={stats.pendingVerifications}
+                  label="Pending verifications"
+                  caption="Member profiles awaiting review"
                   cardClass="bg-warning-light"
                   countClass="text-warning"
                 />
