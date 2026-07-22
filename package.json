@@ -5,6 +5,7 @@
   "scripts": {
     "mobile": "pnpm --filter mobile start",
     "mobile:offline": "pnpm --filter mobile run start:offline",
+    "mobile:tunnel": "pnpm --filter mobile run start:tunnel",
     "mobile:android": "pnpm --filter mobile run android",
     "mobile:ios": "pnpm --filter mobile run ios",
     "admin": "pnpm --filter admin dev",

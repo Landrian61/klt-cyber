@@ -9,50 +9,148 @@ import { FontFamily, Spacing } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Button } from '@/components/ui/button';
+import type { DobValue } from '@/components/ui/dob-field';
 import type { Id } from '@/lib/api';
 
-// ── Draft state shared across the steps ───────────────────────────────────────
-// Children are intentionally NOT captured during setup — they are deferred and
-// managed later from the profile page (see docs/DATA_MODEL.md).
+// ── Domain literals not in the shared enums package ──────────────────────────
 
-export interface ProfileDraft {
-  firstName: string;
-  lastName: string;
+export type MentorshipStatus = 'not_enrolled' | 'enrolled' | 'completed';
+export type LeadershipLevel = 'level_1' | 'level_2' | 'advanced';
+export type LeadershipStatus = 'in_progress' | 'completed';
+
+// ── Draft state shared across all seven wizard steps ─────────────────────────
+// Nothing here is persisted to Convex until the final `submitProfile` on the
+// review screen — closing the app mid-wizard loses progress by design
+// (docs/Profile-completion-mobile.md, "Explicitly out of scope").
+
+/** A repeatable child row. Age derives from `dobISO` at display time. */
+export interface ChildDraft {
+  key: string; // local list key only
+  name: string;
   sex?: Sex;
-  dateOfBirth?: string;
-  maritalStatus?: MaritalStatus;
-  phone: string;
-  clanId?: Id<'clans'>;
+  dobISO?: string; // YYYY-MM-DD
 }
 
+/** A repeatable leadership (KLLII) row, each with its own proof slot. */
+export interface LeadershipDraft {
+  key: string; // local list key only
+  level?: LeadershipLevel;
+  status?: LeadershipStatus;
+  proofKey?: string; // R2 object key
+}
+
+export interface WizardDraft {
+  // Step 1 — Personal
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  sex?: Sex;
+  maritalStatus?: MaritalStatus;
+  phone: string;
+  shortBio: string;
+  dob?: DobValue;
+  /** R2 object key for a fresh upload, or an account (Google) photo URL. */
+  photoValue?: string;
+  /** True when `photoValue` is the account photo URL rather than an R2 key. */
+  photoFromAccount: boolean;
+  joinDateISO?: string;
+  // Address — flat here, assembled into an object at submit. Only sent when
+  // `addressLine1` is filled (line1 is the one essential locator).
+  addressLine1: string;
+  addressCity: string;
+  addressDistrict: string;
+  addressCountry: string;
+
+  // Step 2 — Family
+  spouseUserId?: Id<'users'>;
+  /** Display name of the linked spouse, or a free-typed unlinked name. */
+  spouseName: string;
+  anniversaryISO?: string;
+  children: ChildDraft[];
+  nextOfKinName: string;
+  nextOfKinRelationship: string;
+  nextOfKinPhone: string;
+
+  // Step 3 — Mentorship (hard gate)
+  mentorshipStatus?: MentorshipStatus;
+  mentorshipProofKey?: string;
+
+  // Step 4 — Leadership (KLLII)
+  leadership: LeadershipDraft[];
+
+  // Step 5 — Department
+  departmentId?: Id<'departments'>;
+
+  // Step 6 — Clan
+  clanId?: Id<'clans'>;
+
+  // Step 7 — Profession
+  occupation: string;
+  industry: string;
+  employer: string;
+  skills: string[];
+}
+
+const EMPTY_DRAFT: WizardDraft = {
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  phone: '',
+  shortBio: '',
+  photoFromAccount: false,
+  addressLine1: '',
+  addressCity: '',
+  addressDistrict: '',
+  addressCountry: 'Uganda',
+  spouseName: '',
+  children: [],
+  nextOfKinName: '',
+  nextOfKinRelationship: '',
+  nextOfKinPhone: '',
+  leadership: [],
+  occupation: '',
+  industry: '',
+  employer: '',
+  skills: [],
+};
+
 interface DraftContextValue {
-  draft: ProfileDraft;
-  patch: (partial: Partial<ProfileDraft>) => void;
+  draft: WizardDraft;
+  patch: (partial: Partial<WizardDraft>) => void;
 }
 
 const DraftContext = createContext<DraftContextValue | null>(null);
 
-export function useProfileDraft(): DraftContextValue {
+export function useWizardDraft(): DraftContextValue {
   const ctx = useContext(DraftContext);
-  if (!ctx) throw new Error('useProfileDraft must be used within the profile-completion layout');
+  if (!ctx) throw new Error('useWizardDraft must be used within the profile-completion layout');
   return ctx;
 }
 
-const EMPTY_DRAFT: ProfileDraft = {
-  firstName: '',
-  lastName: '',
-  phone: '',
-};
-
 // ── Step ordering for the shared progress header ─────────────────────────────
 
-const STEPS = ['bio', 'contact', 'review'] as const;
+export const STEPS = [
+  'personal',
+  'family',
+  'mentorship',
+  'leadership',
+  'department',
+  'clan',
+  'profession',
+] as const;
+
+/** Routes that render outside the numbered step chrome. */
+const CHROMELESS = ['pending'];
+
+function currentSegment(pathname: string): string {
+  const parts = pathname.split('/').filter(Boolean);
+  return parts[parts.length - 1] ?? '';
+}
 
 function stepIndexForPath(pathname: string): number {
-  for (let i = STEPS.length - 1; i >= 0; i--) {
-    if (pathname.includes(STEPS[i])) return i;
-  }
-  return 0;
+  const seg = currentSegment(pathname);
+  const idx = STEPS.indexOf(seg as (typeof STEPS)[number]);
+  return idx < 0 ? 0 : idx;
 }
 
 export default function ProfileCompletionLayout() {
@@ -60,7 +158,7 @@ export default function ProfileCompletionLayout() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [draft, setDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
+  const [draft, setDraft] = useState<WizardDraft>(EMPTY_DRAFT);
 
   const value = useMemo<DraftContextValue>(
     () => ({
@@ -70,27 +168,37 @@ export default function ProfileCompletionLayout() {
     [draft],
   );
 
+  const seg = currentSegment(pathname);
+  const isStep = (STEPS as readonly string[]).includes(seg);
+  const isReview = seg === 'review';
+  const showChrome = (isStep || isReview) && !CHROMELESS.includes(seg);
   const stepIndex = stepIndexForPath(pathname);
 
   return (
     <DraftContext.Provider value={value}>
       <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top']}>
-        {/* Shared header: dismiss + step progress */}
-        <View style={styles.header}>
-          <Button
-            variant="icon"
-            onPress={() => router.back()}
-            accessibilityLabel="Go back"
-            icon={<Ionicons name="arrow-back" size={24} color={Colors.onSurface} />}
-          />
-          <Text style={[styles.stepText, { color: Colors.outline }]}>
-            Step {stepIndex + 1} of {STEPS.length}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.progress}>
-          <ProgressBar totalSteps={STEPS.length} currentStep={stepIndex + 1} />
-        </View>
+        {showChrome && (
+          <>
+            <View style={styles.header}>
+              <Button
+                variant="icon"
+                onPress={() => router.back()}
+                accessibilityLabel="Go back"
+                icon={<Ionicons name="arrow-back" size={24} color={Colors.onSurface} />}
+              />
+              <Text style={[styles.stepText, { color: Colors.outline }]}>
+                {isReview ? 'Review' : `Step ${stepIndex + 1} of ${STEPS.length}`}
+              </Text>
+              <View style={styles.headerSpacer} />
+            </View>
+            <View style={styles.progress}>
+              <ProgressBar
+                totalSteps={STEPS.length}
+                currentStep={isReview ? STEPS.length : stepIndex + 1}
+              />
+            </View>
+          </>
+        )}
 
         <Stack
           screenOptions={{
@@ -99,9 +207,16 @@ export default function ProfileCompletionLayout() {
             contentStyle: { backgroundColor: Colors.surface },
           }}
         >
-          <Stack.Screen name="bio" />
-          <Stack.Screen name="contact" />
+          <Stack.Screen name="index" />
+          <Stack.Screen name="personal" />
+          <Stack.Screen name="family" />
+          <Stack.Screen name="mentorship" />
+          <Stack.Screen name="leadership" />
+          <Stack.Screen name="department" />
+          <Stack.Screen name="clan" />
+          <Stack.Screen name="profession" />
           <Stack.Screen name="review" />
+          <Stack.Screen name="pending" />
         </Stack>
       </SafeAreaView>
     </DraftContext.Provider>
@@ -109,9 +224,7 @@ export default function ProfileCompletionLayout() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
+  safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -124,9 +237,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     letterSpacing: 0.5,
   },
-  headerSpacer: {
-    width: 44,
-  },
+  headerSpacer: { width: 44 },
   progress: {
     paddingHorizontal: Spacing[5],
     paddingTop: Spacing[1],

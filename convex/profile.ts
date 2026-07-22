@@ -69,3 +69,26 @@ export const getMyProfile = query({
     return await getMyProfileCore(ctx, user);
   },
 });
+
+/**
+ * Drives the mobile profile-completion flow (docs/Profile-completion-mobile.md):
+ * the caller's own `memberProfiles` row if one exists, else null. The client
+ * gates on the result — null shows the 7-step wizard, `pending_verification`
+ * shows the review-pending screen, `verified` means the member experience
+ * applies and the flow has nothing to do.
+ *
+ * Returns null (not an error) when unauthenticated, matching `getMyAccount`:
+ * reactive clients stay subscribed through sign-out and must resolve rather
+ * than crash mid-teardown.
+ */
+export const getMyProfileStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    return await ctx.db
+      .query("memberProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
+  },
+});

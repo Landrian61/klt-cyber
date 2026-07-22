@@ -1,7 +1,6 @@
 import {
   ScrollView, View, Text, Pressable, ImageBackground, StyleSheet, Linking, ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from 'convex/react';
@@ -10,8 +9,8 @@ import * as Haptics from 'expo-haptics';
 
 import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ProfileCompletionBanner } from '@/components/profile-completion-banner';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getGreetingName } from '@/lib/user-display';
 import { api, type Doc } from '@/lib/api';
@@ -228,8 +227,7 @@ function AnnouncementCard({ item, index }: { item: Doc<'announcements'>; index: 
 
 export default function HomeScreen() {
   const Colors = useThemeColors();
-  const router = useRouter();
-  const { user, isVisitor } = useMyAccount();
+  const { user } = useMyAccount();
   const greetingName = getGreetingName(user);
 
   // Each section subscribes to Convex directly — no mocked data.
@@ -254,6 +252,10 @@ export default function HomeScreen() {
         </Text>
         <Text style={[styles.date, { color: Colors.outline }]}>{getFormattedDate()}</Text>
       </Animated.View>
+
+      {/* Join-the-family invitation — shown to visitors (and a review-status
+          card to pending users); renders nothing once verified. */}
+      <ProfileCompletionBanner />
 
       {contentLoading && (
         <View style={styles.loading}>
@@ -318,28 +320,6 @@ export default function HomeScreen() {
             ))}
           </View>
         </>
-      )}
-
-      {/* Visitor nudge into profile completion (unchanged; not the lead-capture
-          flow, which is out of scope for this increment). */}
-      {isVisitor && (
-        <Animated.View entering={FadeInUp.duration(400).delay(480)} style={styles.section}>
-          <View style={[styles.ministryCard, { backgroundColor: Colors.surfaceLow }]}>
-            <View style={styles.ministryRow}>
-              <Ionicons name="people" size={24} color={Colors.primary} />
-              <View style={styles.ministryText}>
-                <Text style={[styles.ministryTitle, { color: Colors.onSurface }]}>Become a member</Text>
-                <Text style={[styles.ministrySubtitle, { color: Colors.onSurfaceVariant }]}>Connect, grow and serve with us.</Text>
-              </View>
-            </View>
-            <Button
-              label="Complete your profile"
-              variant="ghost"
-              fullWidth
-              onPress={() => router.push('/profile-completion/bio' as any)}
-            />
-          </View>
-        </Animated.View>
       )}
 
       <View style={{ height: Spacing[8] }} />
@@ -454,9 +434,4 @@ const styles = StyleSheet.create({
   linkChipText: { fontFamily: FontFamily.bodySemiBold, fontSize: 13, lineHeight: 18 },
   announcementDate: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 15.4, marginTop: Spacing[3] },
   // Ministry
-  ministryCard: { borderRadius: Radius.lg, padding: Spacing[4] },
-  ministryRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing[3], marginBottom: Spacing[4] },
-  ministryText: { flex: 1 },
-  ministryTitle: { fontFamily: FontFamily.bodySemiBold, fontSize: 16, lineHeight: 24 },
-  ministrySubtitle: { fontFamily: FontFamily.body, fontSize: 12, lineHeight: 18, marginTop: Spacing[1] },
 });

@@ -32,6 +32,12 @@ const nextOfKinValidator = v.object({
   relationship: v.string(),
   phone: v.string(),
 });
+const addressValidator = v.object({
+  line1: v.string(),
+  city: v.optional(v.string()),
+  district: v.optional(v.string()),
+  country: v.optional(v.string()),
+});
 const leadershipLevelValidator = v.union(
   v.literal("level_1"),
   v.literal("level_2"),
@@ -55,6 +61,7 @@ const profileEditableFields = {
   shortBio: v.optional(v.string()),
   photoUrl: v.optional(v.string()),
   joinDate: v.optional(v.number()),
+  address: v.optional(addressValidator),
   spouseUserId: v.optional(v.id("users")),
   spouseNameUnlinked: v.optional(v.string()),
   anniversaryDate: v.optional(v.number()),
@@ -80,6 +87,7 @@ const profileEditsPatchValidator = v.object({
   shortBio: v.optional(v.string()),
   photoUrl: v.optional(v.string()),
   joinDate: v.optional(v.number()),
+  address: v.optional(addressValidator),
   spouseUserId: v.optional(v.id("users")),
   spouseNameUnlinked: v.optional(v.string()),
   anniversaryDate: v.optional(v.number()),

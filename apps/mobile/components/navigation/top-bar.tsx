@@ -23,7 +23,7 @@ export function TopBar({ title, unreadCount = 0, userInitials = 'U' }: TopBarPro
   const insets = useSafeAreaInsets();
 
   return (
-    <BlurView intensity={20} tint={Colors.glassTint} style={[styles.container, { paddingTop: insets.top, backgroundColor: Colors.glassBackground }]}>
+    <BlurView intensity={20} tint={Colors.glassTint as 'light'} style={[styles.container, { paddingTop: insets.top, backgroundColor: Colors.glassBackground }]}>
       <View style={styles.bar}>
         {/* Left — logo + page title */}
         <View style={styles.leftGroup}>
