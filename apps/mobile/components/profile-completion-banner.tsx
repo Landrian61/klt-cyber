@@ -1,10 +1,10 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ImageBackground, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { FontFamily, Spacing, Radius, GoldGradient, AmbientShadow } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, AmbientShadow } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useMyAccount } from '@/hooks/use-my-account';
 
@@ -28,16 +28,19 @@ export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBanner
 
   if (isLoading || isMember) return null;
 
+  // Visitors enter the wizard; pending users go to their read-only profile
+  // preview (not the post-submit "under review" dead-end).
   const go = () => router.push('/profile-completion');
+  const viewProfile = () => router.push('/profile');
 
   if (isPending) {
     return (
       <Animated.View entering={FadeInUp.duration(400).delay(delay)} style={styles.section}>
         <Pressable
-          onPress={go}
+          onPress={viewProfile}
           style={[styles.pendingCard, { backgroundColor: Colors.surfaceLowest }]}
           accessibilityRole="button"
-          accessibilityLabel="View profile verification status"
+          accessibilityLabel="View your submitted profile"
         >
           <View style={[styles.pendingIcon, { backgroundColor: Colors.primaryLight }]}>
             <Ionicons name="hourglass-outline" size={20} color={Colors.primary} />
@@ -56,35 +59,47 @@ export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBanner
     );
   }
 
-  // Visitor — a warm gold invitation into the wizard.
+  // Visitor — a warm invitation into the wizard over a church backdrop. The
+  // outer view carries the shadow; the inner clips the image to rounded corners.
   return (
     <Animated.View entering={FadeInUp.duration(400).delay(delay)} style={styles.section}>
-      <LinearGradient
-        colors={[...GoldGradient.colors]}
-        start={GoldGradient.start}
-        end={GoldGradient.end}
-        style={[styles.hero, AmbientShadow]}
-      >
-        <View style={styles.heroHead}>
-          <View style={styles.heroIcon}>
-            <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+      <View style={[styles.heroShadow, { backgroundColor: Colors.primary }, AmbientShadow]}>
+        <View style={styles.heroClip}>
+          <ImageBackground
+            source={require('@/assets/images/Church_Theme.jpg')}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+          {/* Scrim keeps white text legible over any photo. */}
+          <LinearGradient
+            colors={['rgba(120,86,0,0.72)', 'rgba(28,28,24,0.82)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.heroContent}>
+            <View style={styles.heroHead}>
+              <View style={styles.heroIcon}>
+                <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.heroLabel}>KLT CHURCH FAMILY</Text>
+            </View>
+            <Text style={styles.heroTitle}>Become part of the family</Text>
+            <Text style={styles.heroBody}>
+              Complete your member profile to connect, grow and serve with the church.
+            </Text>
+            <Pressable
+              onPress={go}
+              style={[styles.cta, { backgroundColor: Colors.surfaceLowest }]}
+              accessibilityRole="button"
+              accessibilityLabel="Complete your profile"
+            >
+              <Text style={[styles.ctaLabel, { color: Colors.primary }]}>Complete your profile</Text>
+              <Ionicons name="arrow-forward" size={18} color={Colors.primary} />
+            </Pressable>
           </View>
-          <Text style={styles.heroLabel}>KLT CHURCH FAMILY</Text>
         </View>
-        <Text style={styles.heroTitle}>Become part of the family</Text>
-        <Text style={styles.heroBody}>
-          Complete your member profile to connect, grow and serve with the church.
-        </Text>
-        <Pressable
-          onPress={go}
-          style={[styles.cta, { backgroundColor: Colors.surfaceLowest }]}
-          accessibilityRole="button"
-          accessibilityLabel="Complete your profile"
-        >
-          <Text style={[styles.ctaLabel, { color: Colors.primary }]}>Complete your profile</Text>
-          <Ionicons name="arrow-forward" size={18} color={Colors.primary} />
-        </Pressable>
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
@@ -95,8 +110,14 @@ const styles = StyleSheet.create({
     marginTop: Spacing[5],
   },
   // Visitor hero
-  hero: {
+  heroShadow: {
     borderRadius: Radius.xl,
+  },
+  heroClip: {
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
+  },
+  heroContent: {
     padding: Spacing[5],
   },
   heroHead: {

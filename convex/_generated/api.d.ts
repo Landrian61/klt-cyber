@@ -18,6 +18,7 @@ import type * as clans from "../clans.js";
 import type * as content from "../content.js";
 import type * as contentSeed from "../contentSeed.js";
 import type * as departments from "../departments.js";
+import type * as devTools from "../devTools.js";
 import type * as events from "../events.js";
 import type * as facilities from "../facilities.js";
 import type * as http from "../http.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   content: typeof content;
   contentSeed: typeof contentSeed;
   departments: typeof departments;
+  devTools: typeof devTools;
   events: typeof events;
   facilities: typeof facilities;
   http: typeof http;

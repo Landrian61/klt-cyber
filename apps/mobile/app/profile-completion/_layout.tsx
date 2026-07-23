@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Stack, useRouter, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -160,13 +160,13 @@ export default function ProfileCompletionLayout() {
 
   const [draft, setDraft] = useState<WizardDraft>(EMPTY_DRAFT);
 
-  const value = useMemo<DraftContextValue>(
-    () => ({
-      draft,
-      patch: (partial) => setDraft((d) => ({ ...d, ...partial })),
-    }),
-    [draft],
-  );
+  // Stable identity so memoized step rows don't re-render on every keystroke:
+  // `setDraft`'s functional form means `patch` never needs `draft` in its deps.
+  const patch = useCallback((partial: Partial<WizardDraft>) => {
+    setDraft((d) => ({ ...d, ...partial }));
+  }, []);
+
+  const value = useMemo<DraftContextValue>(() => ({ draft, patch }), [draft, patch]);
 
   const seg = currentSegment(pathname);
   const isStep = (STEPS as readonly string[]).includes(seg);

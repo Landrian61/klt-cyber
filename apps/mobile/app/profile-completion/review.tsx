@@ -1,15 +1,37 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation } from 'convex/react';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  useReducedMotion,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FontFamily, Spacing } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration, AmbientShadowUp } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useWizardDraft, type WizardDraft } from './_layout';
 import type { DobValue } from '@/components/ui/dob-field';
+
+// Each editable section jumps to its wizard step in edit mode (`returnTo=1`);
+// StepScaffold turns that step's primary action into "Save changes" → back here.
+type StepRoutePath =
+  | '/profile-completion/personal'
+  | '/profile-completion/family'
+  | '/profile-completion/mentorship'
+  | '/profile-completion/leadership'
+  | '/profile-completion/department'
+  | '/profile-completion/clan'
+  | '/profile-completion/profession';
 
 const SEX_LABEL: Record<string, string> = { male: 'Male', female: 'Female' };
 const MARITAL_LABEL: Record<string, string> = {
@@ -137,6 +159,36 @@ function buildSubmitArgs(draft: WizardDraft) {
   };
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** Tactile "Edit" affordance in a section header. */
+function EditPill({ onPress }: { onPress: () => void }) {
+  const Colors = useThemeColors();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <AnimatedPressable
+      onPressIn={() => {
+        scale.value = withTiming(0.92, { duration: Duration.fast });
+      }}
+      onPressOut={() => {
+        scale.value = withTiming(1, { duration: 150 });
+      }}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      hitSlop={10}
+      style={[animatedStyle, styles.editPill, { backgroundColor: Colors.primaryFixedDim }]}
+      accessibilityRole="button"
+      accessibilityLabel="Edit this section"
+    >
+      <Ionicons name="create-outline" size={14} color={Colors.primary} />
+      <Text style={[styles.editPillText, { color: Colors.primary }]}>Edit</Text>
+    </AnimatedPressable>
+  );
+}
+
 function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   const Colors = useThemeColors();
   return (
@@ -149,21 +201,41 @@ function Row({ label, value, muted }: { label: string; value: string; muted?: bo
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  editPath,
+  delay,
+  children,
+}: {
+  title: string;
+  editPath: StepRoutePath;
+  delay: number;
+  children: React.ReactNode;
+}) {
   const Colors = useThemeColors();
+  const router = useRouter();
+  const reduceMotion = useReducedMotion();
   return (
-    <View style={styles.section}>
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(delay)}
+      style={styles.section}
+    >
       <Card variant="editorial">
-        <Text style={[styles.sectionLabel, { color: Colors.outline }]}>{title}</Text>
+        <View style={styles.sectionHead}>
+          <Text style={[styles.sectionLabel, { color: Colors.outline }]}>{title}</Text>
+          <EditPill onPress={() => router.push({ pathname: editPath, params: { returnTo: '1' } })} />
+        </View>
         {children}
       </Card>
-    </View>
+    </Animated.View>
   );
 }
 
 export default function ReviewStep() {
   const Colors = useThemeColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const { draft } = useWizardDraft();
 
   const submitProfile = useMutation(api.memberProfiles.submitProfile);
@@ -221,99 +293,127 @@ export default function ReviewStep() {
     .filter(Boolean)
     .join(' ');
 
+  const completeChildren = draft.children.filter((c) => c.name.trim() && c.sex);
+  const completeLeadership = draft.leadership.filter((e) => e.level && e.status);
+  const nokComplete =
+    !!draft.nextOfKinName.trim() && !!draft.nextOfKinRelationship.trim() && !!draft.nextOfKinPhone.trim();
+  const address = formatAddressFromDraft(draft);
+  const hasProfession =
+    !!draft.occupation.trim() || !!draft.industry.trim() || !!draft.employer.trim() || draft.skills.length > 0;
+
   return (
     <View style={styles.container}>
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: Colors.onSurface }]}>Review &amp; submit</Text>
-        <Text style={[styles.subtitle, { color: Colors.onSurfaceVariant }]}>
-          Check your details. After submitting, your profile goes to a church admin for
-          verification.
-        </Text>
+        <Animated.View entering={reduceMotion ? undefined : FadeInDown.duration(360)}>
+          <Text style={[styles.title, { color: Colors.onSurface }]}>Your profile</Text>
+          <Text style={[styles.subtitle, { color: Colors.onSurfaceVariant }]}>
+            A preview of what the church family will see. Tap Edit on any section to change it, then
+            submit for verification.
+          </Text>
+        </Animated.View>
 
-        <Section title="PERSONAL">
+        <Section title="PERSONAL" editPath="/profile-completion/personal" delay={40}>
           <Row label="Name" value={fullName} />
           <Row label="Sex" value={draft.sex ? SEX_LABEL[draft.sex] : '—'} />
           <Row label="Marital status" value={draft.maritalStatus ? MARITAL_LABEL[draft.maritalStatus] : '—'} />
           <Row label="Date of birth" value={draft.dob ? formatDob(draft.dob) : 'Not provided'} muted={!draft.dob} />
           <Row label="Phone" value={draft.phone.trim() || 'Not provided'} muted={!draft.phone.trim()} />
-          <Row
-            label="Address"
-            value={formatAddressFromDraft(draft) || 'Not provided'}
-            muted={!formatAddressFromDraft(draft)}
-          />
+          <Row label="Address" value={address || 'Not provided'} muted={!address} />
           <Row label="Photo" value={draft.photoValue ? 'Added' : 'Not added'} muted={!draft.photoValue} />
         </Section>
 
-        {draft.maritalStatus === 'married' && (
-          <Section title="FAMILY">
+        <Section title="FAMILY" editPath="/profile-completion/family" delay={80}>
+          {draft.maritalStatus === 'married' && (
             <Row
               label="Spouse"
               value={draft.spouseName.trim() ? `${draft.spouseName}${draft.spouseUserId ? ' (linked)' : ''}` : 'Not provided'}
               muted={!draft.spouseName.trim()}
             />
-          </Section>
-        )}
+          )}
+          {completeChildren.length > 0 ? (
+            completeChildren.map((c) => (
+              <Row key={c.key} label={`Child — ${c.name}`} value={c.sex ? SEX_LABEL[c.sex] : ''} />
+            ))
+          ) : (
+            <Row label="Children" value="None added" muted />
+          )}
+          <Row
+            label="Next of kin"
+            value={nokComplete ? `${draft.nextOfKinName} · ${draft.nextOfKinRelationship}` : 'Not added'}
+            muted={!nokComplete}
+          />
+        </Section>
 
-        {draft.children.filter((c) => c.name.trim() && c.sex).length > 0 && (
-          <Section title="CHILDREN">
-            {draft.children
-              .filter((c) => c.name.trim() && c.sex)
-              .map((c) => (
-                <Row key={c.key} label={c.name} value={c.sex ? SEX_LABEL[c.sex] : ''} />
-              ))}
-          </Section>
-        )}
-
-        <Section title="MENTORSHIP">
+        <Section title="MENTORSHIP" editPath="/profile-completion/mentorship" delay={120}>
           <Row label="Status" value="Completed" />
           <Row label="Certificate" value={draft.mentorshipProofKey ? 'Uploaded' : 'Not uploaded'} muted={!draft.mentorshipProofKey} />
         </Section>
 
-        {draft.leadership.filter((e) => e.level && e.status).length > 0 && (
-          <Section title="LEADERSHIP">
-            {draft.leadership
-              .filter((e) => e.level && e.status)
-              .map((e) => (
-                <Row
-                  key={e.key}
-                  label={e.level ? LEVEL_LABEL[e.level] : ''}
-                  value={e.status ? LEADERSHIP_STATUS_LABEL[e.status] : ''}
-                />
-              ))}
-          </Section>
-        )}
+        <Section title="LEADERSHIP" editPath="/profile-completion/leadership" delay={160}>
+          {completeLeadership.length > 0 ? (
+            completeLeadership.map((e) => (
+              <Row
+                key={e.key}
+                label={e.level ? LEVEL_LABEL[e.level] : ''}
+                value={e.status ? LEADERSHIP_STATUS_LABEL[e.status] : ''}
+              />
+            ))
+          ) : (
+            <Row label="Levels" value="None added" muted />
+          )}
+        </Section>
 
-        {(departmentName || clanName) && (
-          <Section title="SERVICE & CLAN">
-            {departmentName ? <Row label="Department" value={departmentName} /> : null}
-            {clanName ? <Row label="Clan" value={clanName} /> : null}
-          </Section>
-        )}
+        <Section title="AREA OF SERVICE" editPath="/profile-completion/department" delay={200}>
+          <Row label="Department" value={departmentName || 'None selected'} muted={!departmentName} />
+        </Section>
 
-        {(draft.occupation.trim() || draft.industry.trim() || draft.employer.trim() || draft.skills.length > 0) && (
-          <Section title="PROFESSION">
-            {draft.occupation.trim() ? <Row label="Occupation" value={draft.occupation.trim()} /> : null}
-            {draft.industry.trim() ? <Row label="Industry" value={draft.industry.trim()} /> : null}
-            {draft.employer.trim() ? <Row label="Employer" value={draft.employer.trim()} /> : null}
-            {draft.skills.length > 0 ? <Row label="Skills" value={draft.skills.join(', ')} /> : null}
-          </Section>
-        )}
+        <Section title="CLAN" editPath="/profile-completion/clan" delay={240}>
+          <Row label="Clan" value={clanName || 'None selected'} muted={!clanName} />
+        </Section>
+
+        <Section title="PROFESSION" editPath="/profile-completion/profession" delay={280}>
+          {hasProfession ? (
+            <>
+              {draft.occupation.trim() ? <Row label="Occupation" value={draft.occupation.trim()} /> : null}
+              {draft.industry.trim() ? <Row label="Industry" value={draft.industry.trim()} /> : null}
+              {draft.employer.trim() ? <Row label="Employer" value={draft.employer.trim()} /> : null}
+              {draft.skills.length > 0 ? <Row label="Skills" value={draft.skills.join(', ')} /> : null}
+            </>
+          ) : (
+            <Row label="Work" value="Not added" muted />
+          )}
+        </Section>
 
         {error ? <Text style={[styles.error, { color: Colors.error }]}>{error}</Text> : null}
-      </ScrollView>
+      </Animated.ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: Colors.surface }]}>
-        <Button
-          label="Submit for verification"
-          variant="primary"
-          fullWidth
-          loading={submitting}
-          onPress={handleSubmit}
-        />
+      <View
+        style={[
+          styles.footer,
+          { backgroundColor: Colors.surface, paddingBottom: insets.bottom + Spacing[4] },
+          AmbientShadowUp,
+        ]}
+      >
+        <View style={styles.footerRow}>
+          {router.canGoBack() ? (
+            <View style={styles.backWrap}>
+              <Button label="Back" variant="ghost" fullWidth onPress={() => router.back()} />
+            </View>
+          ) : null}
+          <View style={styles.primaryWrap}>
+            <Button
+              label="Submit for verification"
+              variant="primary"
+              fullWidth
+              loading={submitting}
+              onPress={handleSubmit}
+            />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -339,12 +439,30 @@ const styles = StyleSheet.create({
     marginBottom: Spacing[5],
   },
   section: { marginBottom: Spacing[3] },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing[3],
+  },
   sectionLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
     lineHeight: 15.4,
     letterSpacing: 0.5,
-    marginBottom: Spacing[3],
+  },
+  editPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing[3],
+    paddingVertical: 6,
+  },
+  editPillText: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 12,
+    lineHeight: 16,
   },
   row: { marginBottom: Spacing[3] },
   rowLabel: {
@@ -369,8 +487,13 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing[5],
     paddingTop: Spacing[3],
-    paddingBottom: Spacing[4],
   },
+  footerRow: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+  },
+  backWrap: { flex: 1 },
+  primaryWrap: { flex: 1.8 },
   guard: {
     flex: 1,
     alignItems: 'center',

@@ -126,9 +126,8 @@ export function Button({
       style={[
         animatedStyle,
         styles.base,
-        isDestructive
-          ? [styles.destructive, { backgroundColor: Colors.secondaryLight }]
-          : styles.ghost,
+        // No-Line Rule: depth comes from a tonal fill, never a 1px outline.
+        { backgroundColor: isDestructive ? Colors.secondaryLight : Colors.surfaceLow },
         fullWidth && styles.fullWidth,
       ]}
       accessibilityLabel={accessibilityLabel || label}
@@ -171,19 +170,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  ghost: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(120, 86, 0, 0.20)',
-  },
   ghostLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
-  },
-  destructive: {
-    borderWidth: 1,
-    borderColor: 'rgba(171, 51, 50, 0.20)',
   },
   textLinkLabel: {
     fontFamily: FontFamily.bodyMedium,

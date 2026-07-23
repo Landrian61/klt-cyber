@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SEX, MARITAL_STATUSES, type Sex, type MaritalStatus } from '@klt-cyber/shared';
@@ -24,15 +24,19 @@ export default function PersonalStep() {
   const { user } = useMyAccount();
   const { draft, patch } = useWizardDraft();
 
-  // Prefill names from a Google sign-up once, while the draft is untouched.
+  // Auto-fill first/last name from the account (set at sign-up — email/password
+  // or Google) the first time it resolves, without clobbering anything already
+  // typed. A ref guards against re-running as the reactive query updates.
+  const prefilled = useRef(false);
   useEffect(() => {
-    if (!user) return;
+    if (prefilled.current || !user) return;
+    prefilled.current = true;
     patch({
-      firstName: draft.firstName || user.firstName || '',
-      lastName: draft.lastName || user.lastName || '',
+      ...(draft.firstName.trim() ? {} : { firstName: user.firstName ?? '' }),
+      ...(draft.lastName.trim() ? {} : { lastName: user.lastName ?? '' }),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.firstName, user?.lastName]);
+  }, [user]);
 
   const sexIndex = draft.sex ? SEX.indexOf(draft.sex) : -1;
   const maritalIndex = draft.maritalStatus ? MARITAL_STATUSES.indexOf(draft.maritalStatus) : -1;
@@ -129,7 +133,7 @@ export default function PersonalStep() {
         <FieldLabel>Sex</FieldLabel>
         <SegmentedControl
           options={SEX_LABELS}
-          selectedIndex={sexIndex < 0 ? 0 : sexIndex}
+          selectedIndex={sexIndex}
           onChange={(i) => patch({ sex: SEX[i] as Sex })}
         />
         {sexIndex < 0 && <Hint>Tap to choose.</Hint>}
@@ -139,7 +143,7 @@ export default function PersonalStep() {
         <FieldLabel>Marital status</FieldLabel>
         <SegmentedControl
           options={MARITAL_LABELS}
-          selectedIndex={maritalIndex < 0 ? 0 : maritalIndex}
+          selectedIndex={maritalIndex}
           onChange={(i) => patch({ maritalStatus: MARITAL_STATUSES[i] as MaritalStatus })}
         />
         {maritalIndex < 0 && <Hint>Tap to choose.</Hint>}

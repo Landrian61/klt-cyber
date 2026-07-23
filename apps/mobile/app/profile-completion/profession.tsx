@@ -1,13 +1,68 @@
-import { useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  useReducedMotion,
+} from 'react-native-reanimated';
 
-import { FontFamily, Spacing, Radius } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Input } from '@/components/ui/input';
 import { StepScaffold, WizardField, FieldLabel, Hint } from '@/components/profile-wizard/step-scaffold';
 import { useWizardDraft } from './_layout';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** A removable skill token. Memoized; enters/leaves and reflows on the UI thread. */
+const SkillChip = memo(function SkillChip({
+  skill,
+  onRemove,
+}: {
+  skill: string;
+  onRemove: (skill: string) => void;
+}) {
+  const Colors = useThemeColors();
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeIn.duration(200)}
+      exiting={reduceMotion ? undefined : FadeOut.duration(160)}
+      layout={reduceMotion ? undefined : LinearTransition.springify().damping(18)}
+      style={[styles.chip, { backgroundColor: Colors.surfaceLow }]}
+    >
+      <Text style={[styles.chipText, { color: Colors.onSurface }]}>{skill}</Text>
+      <AnimatedPressable
+        onPressIn={() => {
+          scale.value = withTiming(0.85, { duration: Duration.fast });
+        }}
+        onPressOut={() => {
+          scale.value = withTiming(1, { duration: 150 });
+        }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onRemove(skill);
+        }}
+        hitSlop={10}
+        style={animatedStyle}
+        accessibilityLabel={`Remove ${skill}`}
+        accessibilityRole="button"
+      >
+        <Ionicons name="close" size={16} color={Colors.outline} />
+      </AnimatedPressable>
+    </Animated.View>
+  );
+});
 
 export default function ProfessionStep() {
   const Colors = useThemeColors();
@@ -15,19 +70,26 @@ export default function ProfessionStep() {
   const { draft, patch } = useWizardDraft();
   const [skillInput, setSkillInput] = useState('');
 
+  // Ref mirrors the latest skills so the memoized chips' `onRemove` stays stable.
+  const skillsRef = useRef(draft.skills);
+  skillsRef.current = draft.skills;
+
   const addSkill = () => {
     const skill = skillInput.trim();
     if (!skill) return;
     // Case-insensitive de-dupe.
-    if (draft.skills.some((s) => s.toLowerCase() === skill.toLowerCase())) {
+    if (skillsRef.current.some((s) => s.toLowerCase() === skill.toLowerCase())) {
       setSkillInput('');
       return;
     }
-    patch({ skills: [...draft.skills, skill] });
+    patch({ skills: [...skillsRef.current, skill] });
     setSkillInput('');
   };
-  const removeSkill = (skill: string) =>
-    patch({ skills: draft.skills.filter((s) => s !== skill) });
+
+  const removeSkill = useCallback(
+    (skill: string) => patch({ skills: skillsRef.current.filter((s) => s !== skill) }),
+    [patch],
+  );
 
   return (
     <StepScaffold
@@ -94,12 +156,7 @@ export default function ProfessionStep() {
         {draft.skills.length > 0 ? (
           <View style={styles.chips}>
             {draft.skills.map((skill) => (
-              <View key={skill} style={[styles.chip, { backgroundColor: Colors.surfaceLow }]}>
-                <Text style={[styles.chipText, { color: Colors.onSurface }]}>{skill}</Text>
-                <Pressable onPress={() => removeSkill(skill)} hitSlop={6} accessibilityLabel={`Remove ${skill}`}>
-                  <Ionicons name="close" size={16} color={Colors.outline} />
-                </Pressable>
-              </View>
+              <SkillChip key={skill} skill={skill} onRemove={removeSkill} />
             ))}
           </View>
         ) : (

@@ -7,8 +7,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
-import { FontFamily, Spacing } from '@/constants/theme';
+import { FontFamily, Spacing, AmbientShadowUp } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 
@@ -20,17 +23,18 @@ export interface StepScaffoldProps {
   onPrimary: () => void;
   primaryDisabled?: boolean;
   primaryLoading?: boolean;
-  /** Optional secondary action shown above the primary button (e.g. "Skip"). */
-  secondaryLabel?: string;
-  onSecondary?: () => void;
-  /** Small note rendered below the primary button. */
+  /** Show a Back button paired with the primary action (default true). */
+  showBack?: boolean;
+  /** Small note rendered below the buttons. */
   footerNote?: string;
 }
 
 /**
- * Shared chrome for every wizard step: scrolling title/subtitle/body over a
- * pinned footer with a primary (and optional secondary) action. Keeps all seven
- * steps visually consistent and keyboard-safe.
+ * Shared chrome for every wizard step: a scrolling title/subtitle/body over a
+ * pinned footer that pairs a Back button with the primary action — so each
+ * section can be revisited and the user sees how the flow is structured. The
+ * whole thing is keyboard-aware: the footer lifts above the keyboard and the
+ * focused field scrolls into the visible area.
  */
 export function StepScaffold({
   title,
@@ -40,46 +44,73 @@ export function StepScaffold({
   onPrimary,
   primaryDisabled,
   primaryLoading,
-  secondaryLabel,
-  onSecondary,
+  showBack = true,
   footerNote,
 }: StepScaffoldProps) {
   const Colors = useThemeColors();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+
+  // When a step is opened from the review preview (`?returnTo=1`), it's an edit,
+  // not a forward walk: the primary action saves-in-place (the draft is shared)
+  // and returns to review, and the redundant Back button is dropped.
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const editing = returnTo === '1';
+  const resolvedPrimaryLabel = editing ? 'Save changes' : primaryLabel;
+  const resolvedOnPrimary = editing ? () => router.back() : onPrimary;
+  const resolvedShowBack = editing ? false : showBack;
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
     >
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
-        <Text style={[styles.title, { color: Colors.onSurface }]}>{title}</Text>
-        {subtitle ? (
-          <Text style={[styles.subtitle, { color: Colors.onSurfaceVariant }]}>{subtitle}</Text>
-        ) : (
-          <View style={{ height: Spacing[5] }} />
-        )}
+        <Animated.View entering={reduceMotion ? undefined : FadeInDown.duration(360)}>
+          <Text style={[styles.title, { color: Colors.onSurface }]}>{title}</Text>
+          {subtitle ? (
+            <Text style={[styles.subtitle, { color: Colors.onSurfaceVariant }]}>{subtitle}</Text>
+          ) : (
+            <View style={{ height: Spacing[5] }} />
+          )}
+        </Animated.View>
         {children}
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: Colors.surface }]}>
-        {secondaryLabel && onSecondary ? (
-          <View style={styles.secondary}>
-            <Button label={secondaryLabel} variant="ghost" fullWidth onPress={onSecondary} />
+      {/* Pinned action bar — floats over the scrolling body via an upward
+          ambient shadow (No-Line), and clears the home indicator. */}
+      <View
+        style={[
+          styles.footer,
+          { backgroundColor: Colors.surface, paddingBottom: insets.bottom + Spacing[4] },
+          AmbientShadowUp,
+        ]}
+      >
+        <View style={styles.footerRow}>
+          {resolvedShowBack && router.canGoBack() ? (
+            <View style={styles.backWrap}>
+              <Button label="Back" variant="ghost" fullWidth onPress={() => router.back()} />
+            </View>
+          ) : null}
+          <View style={styles.primaryWrap}>
+            <Button
+              label={resolvedPrimaryLabel}
+              variant="primary"
+              fullWidth
+              disabled={primaryDisabled}
+              loading={primaryLoading}
+              onPress={resolvedOnPrimary}
+            />
           </View>
-        ) : null}
-        <Button
-          label={primaryLabel}
-          variant="primary"
-          fullWidth
-          disabled={primaryDisabled}
-          loading={primaryLoading}
-          onPress={onPrimary}
-        />
+        </View>
         {footerNote ? (
           <Text style={[styles.footerNote, { color: Colors.outline }]}>{footerNote}</Text>
         ) : null}
@@ -143,7 +174,12 @@ const styles = StyleSheet.create({
     paddingTop: Spacing[3],
     paddingBottom: Spacing[4],
   },
-  secondary: { marginBottom: Spacing[3] },
+  footerRow: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+  },
+  backWrap: { flex: 1 },
+  primaryWrap: { flex: 1.8 },
   footerNote: {
     fontFamily: FontFamily.body,
     fontSize: 12,

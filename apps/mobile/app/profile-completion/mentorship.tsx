@@ -39,7 +39,7 @@ export default function MentorshipStep() {
         <FieldLabel>Mentee status</FieldLabel>
         <SegmentedControl
           options={MENTORSHIP_LABELS}
-          selectedIndex={statusIndex < 0 ? 0 : statusIndex}
+          selectedIndex={statusIndex}
           onChange={(i) => patch({ mentorshipStatus: MENTORSHIP_STATUSES[i] })}
         />
       </WizardField>

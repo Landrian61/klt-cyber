@@ -1,11 +1,22 @@
-import { useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  FadeOut,
+  LinearTransition,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import { SEX, type Sex } from '@klt-cyber/shared';
 
-import { FontFamily, Spacing, Radius } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Input } from '@/components/ui/input';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -19,9 +30,127 @@ import { useWizardDraft, type ChildDraft } from './_layout';
 
 const SEX_LABELS = ['Male', 'Female'];
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 function newKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+// ── Spouse search result row (tactile, memoized) ─────────────────────────────
+
+const SpouseResultRow = memo(function SpouseResultRow({
+  id,
+  name,
+  email,
+  index,
+  onSelect,
+}: {
+  id: Id<'users'>;
+  name: string;
+  email: string;
+  index: number;
+  onSelect: (id: Id<'users'>, name: string) => void;
+}) {
+  const Colors = useThemeColors();
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <AnimatedPressable
+      onPressIn={() => {
+        scale.value = withTiming(0.98, { duration: Duration.fast });
+      }}
+      onPressOut={() => {
+        scale.value = withTiming(1, { duration: 150 });
+      }}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onSelect(id, name);
+      }}
+      entering={reduceMotion ? undefined : FadeIn.duration(200).delay(index * 40)}
+      style={[animatedStyle, styles.resultRow, { backgroundColor: Colors.surfaceLowest }]}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.resultName, { color: Colors.onSurface }]}>{name}</Text>
+      <Text style={[styles.resultEmail, { color: Colors.onSurfaceVariant }]}>{email}</Text>
+    </AnimatedPressable>
+  );
+});
+
+// ── Child card (tactile, memoized) ───────────────────────────────────────────
+
+const ChildCard = memo(function ChildCard({
+  child,
+  index,
+  onUpdate,
+  onRemove,
+}: {
+  child: ChildDraft;
+  index: number;
+  onUpdate: (key: string, partial: Partial<ChildDraft>) => void;
+  onRemove: (key: string) => void;
+}) {
+  const Colors = useThemeColors();
+  const reduceMotion = useReducedMotion();
+  const trash = useSharedValue(1);
+  const trashStyle = useAnimatedStyle(() => ({ transform: [{ scale: trash.value }] }));
+
+  const sexIndex = child.sex ? SEX.indexOf(child.sex) : -1;
+
+  return (
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInUp.duration(280).delay(index * 40)}
+      exiting={reduceMotion ? undefined : FadeOut.duration(160)}
+      layout={reduceMotion ? undefined : LinearTransition.springify().damping(18)}
+      style={[styles.childCard, { backgroundColor: Colors.surfaceLowest }]}
+    >
+      <View style={styles.childHeader}>
+        <Text style={[styles.childHeaderText, { color: Colors.outline }]}>CHILD {index + 1}</Text>
+        <AnimatedPressable
+          onPressIn={() => {
+            trash.value = withTiming(0.85, { duration: Duration.fast });
+          }}
+          onPressOut={() => {
+            trash.value = withTiming(1, { duration: 150 });
+          }}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onRemove(child.key);
+          }}
+          hitSlop={10}
+          style={trashStyle}
+          accessibilityLabel={`Remove child ${index + 1}`}
+          accessibilityRole="button"
+        >
+          <Ionicons name="trash-outline" size={18} color={Colors.error} />
+        </AnimatedPressable>
+      </View>
+      <Input
+        label="Name"
+        value={child.name}
+        onChangeText={(v) => onUpdate(child.key, { name: v })}
+        autoCapitalize="words"
+        placeholder="Child's name"
+      />
+      <View style={{ height: Spacing[3] }} />
+      <FieldLabel>Sex</FieldLabel>
+      <SegmentedControl
+        options={SEX_LABELS}
+        selectedIndex={sexIndex}
+        onChange={(i) => onUpdate(child.key, { sex: SEX[i] as Sex })}
+      />
+      {sexIndex < 0 && <Hint>Tap to choose.</Hint>}
+      <View style={{ height: Spacing[3] }} />
+      <DateField
+        label="Date of birth (optional)"
+        value={child.dobISO}
+        onChange={(v) => onUpdate(child.key, { dobISO: v })}
+        placeholder="Add date of birth"
+      />
+    </Animated.View>
+  );
+});
 
 export default function FamilyStep() {
   const Colors = useThemeColors();
@@ -40,10 +169,13 @@ export default function FamilyStep() {
       : 'skip',
   );
 
-  const selectSpouse = (id: Id<'users'>, name: string) => {
-    patch({ spouseUserId: id, spouseName: name });
-    setSpouseQuery('');
-  };
+  const selectSpouse = useCallback(
+    (id: Id<'users'>, name: string) => {
+      patch({ spouseUserId: id, spouseName: name });
+      setSpouseQuery('');
+    },
+    [patch],
+  );
   const useUnlinkedName = () => {
     patch({ spouseUserId: undefined, spouseName: trimmedQuery });
     setSpouseQuery('');
@@ -51,14 +183,23 @@ export default function FamilyStep() {
   const clearSpouse = () => patch({ spouseUserId: undefined, spouseName: '' });
 
   // ── Children ────────────────────────────────────────────────────────────────
-  const addChild = () =>
-    patch({ children: [...draft.children, { key: newKey(), name: '' }] });
-  const updateChild = (key: string, partial: Partial<ChildDraft>) =>
-    patch({
-      children: draft.children.map((c) => (c.key === key ? { ...c, ...partial } : c)),
-    });
-  const removeChild = (key: string) =>
-    patch({ children: draft.children.filter((c) => c.key !== key) });
+  // Ref mirrors the latest rows so the memoized cards' callbacks stay stable.
+  const childrenRef = useRef(draft.children);
+  childrenRef.current = draft.children;
+
+  const addChild = useCallback(
+    () => patch({ children: [...childrenRef.current, { key: newKey(), name: '' }] }),
+    [patch],
+  );
+  const updateChild = useCallback(
+    (key: string, partial: Partial<ChildDraft>) =>
+      patch({ children: childrenRef.current.map((c) => (c.key === key ? { ...c, ...partial } : c)) }),
+    [patch],
+  );
+  const removeChild = useCallback(
+    (key: string) => patch({ children: childrenRef.current.filter((c) => c.key !== key) }),
+    [patch],
+  );
 
   // ── Next of kin: all-or-nothing ──────────────────────────────────────────────
   const nokValues = [draft.nextOfKinName, draft.nextOfKinRelationship, draft.nextOfKinPhone];
@@ -107,22 +248,16 @@ export default function FamilyStep() {
                 />
                 {results && results.length > 0 && (
                   <View style={styles.results}>
-                    {results.map((u) => {
-                      const name = getDisplayName(u) || u.email;
-                      return (
-                        <Pressable
-                          key={u._id}
-                          onPress={() => selectSpouse(u._id as Id<'users'>, name)}
-                          style={[styles.resultRow, { backgroundColor: Colors.surfaceLowest }]}
-                          accessibilityRole="button"
-                        >
-                          <Text style={[styles.resultName, { color: Colors.onSurface }]}>{name}</Text>
-                          <Text style={[styles.resultEmail, { color: Colors.onSurfaceVariant }]}>
-                            {u.email}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                    {results.map((u, idx) => (
+                      <SpouseResultRow
+                        key={u._id}
+                        id={u._id as Id<'users'>}
+                        name={getDisplayName(u) || u.email}
+                        email={u.email}
+                        index={idx}
+                        onSelect={selectSpouse}
+                      />
+                    ))}
                   </View>
                 )}
                 {results && results.length === 0 && trimmedQuery.length >= 2 && (
@@ -159,50 +294,15 @@ export default function FamilyStep() {
           <Hint>None added.</Hint>
         ) : (
           <View style={styles.childList}>
-            {draft.children.map((child, idx) => {
-              const sexIndex = child.sex ? SEX.indexOf(child.sex) : -1;
-              return (
-                <View
-                  key={child.key}
-                  style={[styles.childCard, { backgroundColor: Colors.surfaceLowest }]}
-                >
-                  <View style={styles.childHeader}>
-                    <Text style={[styles.childHeaderText, { color: Colors.outline }]}>
-                      CHILD {idx + 1}
-                    </Text>
-                    <Pressable
-                      onPress={() => removeChild(child.key)}
-                      hitSlop={8}
-                      accessibilityLabel={`Remove child ${idx + 1}`}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={Colors.error} />
-                    </Pressable>
-                  </View>
-                  <Input
-                    label="Name"
-                    value={child.name}
-                    onChangeText={(v) => updateChild(child.key, { name: v })}
-                    autoCapitalize="words"
-                    placeholder="Child's name"
-                  />
-                  <View style={{ height: Spacing[3] }} />
-                  <FieldLabel>Sex</FieldLabel>
-                  <SegmentedControl
-                    options={SEX_LABELS}
-                    selectedIndex={sexIndex < 0 ? 0 : sexIndex}
-                    onChange={(i) => updateChild(child.key, { sex: SEX[i] as Sex })}
-                  />
-                  {sexIndex < 0 && <Hint>Tap to choose.</Hint>}
-                  <View style={{ height: Spacing[3] }} />
-                  <DateField
-                    label="Date of birth (optional)"
-                    value={child.dobISO}
-                    onChange={(v) => updateChild(child.key, { dobISO: v })}
-                    placeholder="Add date of birth"
-                  />
-                </View>
-              );
-            })}
+            {draft.children.map((child, idx) => (
+              <ChildCard
+                key={child.key}
+                child={child}
+                index={idx}
+                onUpdate={updateChild}
+                onRemove={removeChild}
+              />
+            ))}
           </View>
         )}
         <View style={styles.addBtn}>

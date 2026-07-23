@@ -253,10 +253,6 @@ export default function HomeScreen() {
         <Text style={[styles.date, { color: Colors.outline }]}>{getFormattedDate()}</Text>
       </Animated.View>
 
-      {/* Join-the-family invitation — shown to visitors (and a review-status
-          card to pending users); renders nothing once verified. */}
-      <ProfileCompletionBanner />
-
       {contentLoading && (
         <View style={styles.loading}>
           <ActivityIndicator color={Colors.primary} />
@@ -265,6 +261,11 @@ export default function HomeScreen() {
 
       {/* Section 1 — Theme banner (annual + monthly, scripture, cover) */}
       {themes && <ThemeBanner themes={themes} />}
+
+      {/* Join-the-family invitation — sits just below the monthly theme. Shown
+          to visitors (and a review-status card to pending users); renders
+          nothing once verified. */}
+      <ProfileCompletionBanner />
 
       {/* Section 2 — Weekly programs */}
       {programs && programs.length > 0 && (
