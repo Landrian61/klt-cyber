@@ -3,6 +3,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { canManageChurchAdmin, logActivity, requireUser } from "./lib/authz";
+import { resolveMediaUrl } from "./lib/media";
 
 // The mobile 7-step profile-submission wizard and its Church Admin
 // verification workflow. See docs/DATA_MODEL.md, Increment 4. Supersedes
@@ -131,7 +132,21 @@ async function withChildrenAndLeadership(
       .withIndex("by_userId", (q) => q.eq("userId", profile.userId))
       .collect(),
   ]);
-  return { ...profile, children, leadershipProgress };
+  // Resolve the uploaded photo + proof KEYS to signed URLs so a reviewing admin
+  // sees the actual images. (photoUrl may be a Google account URL — passed
+  // through; proofs are always R2 keys.)
+  return {
+    ...profile,
+    photoUrl: await resolveMediaUrl(profile.photoUrl),
+    mentorshipProofUrl: await resolveMediaUrl(profile.mentorshipProofUrl),
+    children,
+    leadershipProgress: await Promise.all(
+      leadershipProgress.map(async (lp) => ({
+        ...lp,
+        proofUrl: await resolveMediaUrl(lp.proofUrl),
+      }))
+    ),
+  };
 }
 
 // ── Mutations ─────────────────────────────────────────────────────────────────

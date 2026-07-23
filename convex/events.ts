@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { canManageContent, logActivity } from "./lib/authz";
+import { resolveCoverUrls } from "./lib/media";
 
 // One-off events. `archiveEvent` sets active:false rather than hard-deleting, so
 // a mistaken archive is reversible and history is preserved. See
@@ -20,7 +21,9 @@ export const listUpcomingEvents = query({
       .order("asc")
       .collect();
     const upcoming = events.filter((event) => event.active);
-    return typeof limit === "number" ? upcoming.slice(0, limit) : upcoming;
+    return resolveCoverUrls(
+      typeof limit === "number" ? upcoming.slice(0, limit) : upcoming
+    );
   },
 });
 
@@ -36,7 +39,7 @@ export const listFeaturedEvents = query({
       )
       .order("asc")
       .collect();
-    return featured.filter((event) => event.active);
+    return resolveCoverUrls(featured.filter((event) => event.active));
   },
 });
 

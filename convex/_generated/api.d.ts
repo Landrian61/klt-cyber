@@ -23,6 +23,7 @@ import type * as events from "../events.js";
 import type * as facilities from "../facilities.js";
 import type * as http from "../http.js";
 import type * as lib_authz from "../lib/authz.js";
+import type * as lib_media from "../lib/media.js";
 import type * as memberProfiles from "../memberProfiles.js";
 import type * as profile from "../profile.js";
 import type * as roles from "../roles.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   facilities: typeof facilities;
   http: typeof http;
   "lib/authz": typeof lib_authz;
+  "lib/media": typeof lib_media;
   memberProfiles: typeof memberProfiles;
   profile: typeof profile;
   roles: typeof roles;

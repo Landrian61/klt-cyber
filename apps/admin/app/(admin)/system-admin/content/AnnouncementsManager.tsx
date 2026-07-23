@@ -6,6 +6,7 @@ import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Doc, type Id } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Sheet } from "@/components/ui/Sheet";
@@ -253,8 +254,12 @@ export function AnnouncementsManager() {
               />
             </Field>
           </div>
-          <Field label="Cover image URL" htmlFor="ann-cover" hint="Paste an image URL (optional).">
-            <Input id="ann-cover" value={form.coverImageUrl} onChange={(e) => set("coverImageUrl", e.target.value)} placeholder="https://…" />
+          <Field label="Cover image" hint="Upload the image members see (optional).">
+            <ImageUpload
+              value={form.coverImageUrl || undefined}
+              onChange={(value) => set("coverImageUrl", value ?? "")}
+              disabled={busy}
+            />
           </Field>
 
           <div>

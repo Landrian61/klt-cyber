@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { canManageContent, logActivity } from "./lib/authz";
+import { resolveCoverUrls } from "./lib/media";
 
 // Announcements. The lifecycle draft → published → active → expired/disabled →
 // archived (spec §10.8) is derived at query time; only draft/published/archived
@@ -40,14 +41,16 @@ export const listActiveAnnouncements = query({
         q.eq("status", "published").lte("startDate", now)
       )
       .collect();
-    return published
-      .filter((a) => a.endDate >= now)
-      .sort(
-        (a, b) =>
-          (PRIORITY_RANK[b.priority ?? "normal"] ?? 2) -
-            (PRIORITY_RANK[a.priority ?? "normal"] ?? 2) ||
-          b.startDate - a.startDate
-      );
+    return resolveCoverUrls(
+      published
+        .filter((a) => a.endDate >= now)
+        .sort(
+          (a, b) =>
+            (PRIORITY_RANK[b.priority ?? "normal"] ?? 2) -
+              (PRIORITY_RANK[a.priority ?? "normal"] ?? 2) ||
+            b.startDate - a.startDate
+        )
+    );
   },
 });
 

@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { canManageContent, logActivity } from "./lib/authz";
+import { resolveCoverUrls } from "./lib/media";
 
 // Weekly programs — recurring slots defined once and repeating until
 // deactivated. The calendar expands these into virtual occurrences at query
@@ -24,7 +25,7 @@ export const listActivePrograms = query({
       .query("weeklyPrograms")
       .withIndex("by_active", (q) => q.eq("active", true))
       .collect();
-    return programs.sort(byDayThenTime);
+    return resolveCoverUrls(programs.sort(byDayThenTime));
   },
 });
 

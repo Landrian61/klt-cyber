@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { resolveCoverUrls } from "./lib/media";
 
 // Calendar is a query, not a table — it avoids a redundant store that could
 // drift from `events` / `weeklyPrograms`. It expands active weekly programs into
@@ -149,6 +150,6 @@ export const getCalendarRange = query({
     }
 
     items.sort((a, b) => a.start - b.start);
-    return items;
+    return resolveCoverUrls(items);
   },
 });
