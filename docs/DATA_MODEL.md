@@ -1015,6 +1015,11 @@ shared utility (client requests an upload URL, uploads directly to R2, submits t
 rather than three separate implementations — mobile needs it for certificates this week, web
 needs it for facility images around the same time.
 
+> Built. The shared gateway is `convex/uploads.ts` (backed by the `@convex-dev/r2`
+> component); the durable value stored on documents is the object **key**, resolved to a
+> short-lived signed URL at display time. Provisioning, environment setup, and usage across
+> backend / mobile / admin are documented in [STORAGE.md](./STORAGE.md).
+
 ## Access control
 
 Introduce `canManageChurchAdmin(ctx)`, checking for an active `roleAssignment` with `roleType` in
