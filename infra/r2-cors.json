@@ -2,7 +2,7 @@
   {
     "AllowedOrigins": [
       "http://localhost:3000",
-      "https://REPLACE_WITH_ADMIN_DOMAIN"
+      "https://klt-cyber.luswataandrew190.workers.dev"
     ],
     "AllowedMethods": ["GET", "PUT"],
     "AllowedHeaders": ["Content-Type"],
