@@ -6,6 +6,7 @@ import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Doc, type Id } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Textarea } from "@/components/ui/Textarea";
 import { Sheet } from "@/components/ui/Sheet";
 import { Modal } from "@/components/ui/Modal";
@@ -220,8 +221,12 @@ export function EventsManager() {
               <Input id="event-end" type="datetime-local" value={form.endDateTime} onChange={(e) => set("endDateTime", e.target.value)} />
             </Field>
           </div>
-          <Field label="Cover image URL" htmlFor="event-cover" hint="Paste an image URL (optional).">
-            <Input id="event-cover" value={form.coverImageUrl} onChange={(e) => set("coverImageUrl", e.target.value)} placeholder="https://…" />
+          <Field label="Cover image" hint="Upload the image members see (optional).">
+            <ImageUpload
+              value={form.coverImageUrl || undefined}
+              onChange={(value) => set("coverImageUrl", value ?? "")}
+              disabled={busy}
+            />
           </Field>
           <div className="flex flex-col gap-3">
             <CheckboxField id="event-featured" label="Featured (Home tab slider)" checked={form.featured} onChange={(value) => set("featured", value)} />

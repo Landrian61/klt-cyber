@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { canManageChurchAdmin, logActivity } from "./lib/authz";
+import { resolveMediaUrl } from "./lib/media";
 
 // Tower of Faith facilities directory (docs/DATA_MODEL.md, Increment 4).
 
@@ -21,10 +22,13 @@ const facilityFields = {
 export const listActiveFacilities = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    const rows = await ctx.db
       .query("facilities")
       .withIndex("by_active", (q) => q.eq("active", true))
       .collect();
+    return Promise.all(
+      rows.map(async (f) => ({ ...f, imageUrl: await resolveMediaUrl(f.imageUrl) }))
+    );
   },
 });
 
