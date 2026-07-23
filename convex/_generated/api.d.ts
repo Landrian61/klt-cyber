@@ -18,6 +18,7 @@ import type * as clans from "../clans.js";
 import type * as content from "../content.js";
 import type * as contentSeed from "../contentSeed.js";
 import type * as departments from "../departments.js";
+import type * as devTools from "../devTools.js";
 import type * as events from "../events.js";
 import type * as facilities from "../facilities.js";
 import type * as http from "../http.js";
@@ -28,6 +29,7 @@ import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
 import type * as themes from "../themes.js";
 import type * as uploads from "../uploads.js";
+import type * as users from "../users.js";
 import type * as weeklyPrograms from "../weeklyPrograms.js";
 
 import type {
@@ -47,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   content: typeof content;
   contentSeed: typeof contentSeed;
   departments: typeof departments;
+  devTools: typeof devTools;
   events: typeof events;
   facilities: typeof facilities;
   http: typeof http;
@@ -57,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   themes: typeof themes;
   uploads: typeof uploads;
+  users: typeof users;
   weeklyPrograms: typeof weeklyPrograms;
 }>;
 

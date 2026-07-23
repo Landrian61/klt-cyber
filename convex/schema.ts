@@ -58,6 +58,17 @@ export default defineSchema({
     shortBio: v.optional(v.string()),
     photoUrl: v.optional(v.string()),
     joinDate: v.optional(v.number()), // self-reported; distinct from _creationTime
+    // Self-reported address. `line1` is the essential locator (village/zone,
+    // plot & street); city/district/country refine it for pastoral visits and
+    // geographic grouping. Absent when the member declines to share.
+    address: v.optional(
+      v.object({
+        line1: v.string(),
+        city: v.optional(v.string()),
+        district: v.optional(v.string()),
+        country: v.optional(v.string()),
+      })
+    ),
 
     // Family — Step 2
     spouseUserId: v.optional(v.id("users")),

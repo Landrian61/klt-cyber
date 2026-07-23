@@ -24,7 +24,7 @@ export interface MemberGateProps {
 export function MemberGate({ children, featureLabel }: MemberGateProps) {
   const Colors = useThemeColors();
   const router = useRouter();
-  const { isLoading, isMember } = useMyAccount();
+  const { isLoading, isMember, isPending } = useMyAccount();
 
   // Subtle, branded hold while the reactive query first resolves — no flash.
   if (isLoading) {
@@ -37,12 +37,36 @@ export function MemberGate({ children, featureLabel }: MemberGateProps) {
 
   if (isMember) return <>{children}</>;
 
+  // Submitted-but-unverified: reassure rather than re-prompt to "complete".
+  if (isPending) {
+    return (
+      <View style={[styles.gate, { backgroundColor: Colors.surface }]}>
+        <View style={[styles.iconCircle, { backgroundColor: Colors.primaryLight }]}>
+          <Ionicons name="hourglass-outline" size={34} color={Colors.primary} />
+        </View>
+        <Text style={[styles.title, { color: Colors.onSurface }]}>Almost there</Text>
+        <Text style={[styles.body, { color: Colors.onSurfaceVariant }]}>
+          Your profile is with a church admin for verification. You&apos;ll unlock{' '}
+          {featureLabel ?? 'this space'} once it&apos;s approved.
+        </Text>
+        <View style={styles.cta}>
+          <Button
+            label="View status"
+            variant="primary"
+            fullWidth
+            onPress={() => router.push('/profile-completion' as any)}
+          />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.gate, { backgroundColor: Colors.surface }]}>
       <View style={[styles.iconCircle, { backgroundColor: Colors.primaryLight }]}>
         <Ionicons name="sparkles-outline" size={34} color={Colors.primary} />
       </View>
-      <Text style={[styles.title, { color: Colors.onSurface }]}>Join the community</Text>
+      <Text style={[styles.title, { color: Colors.onSurface }]}>Join the KLT family</Text>
       <Text style={[styles.body, { color: Colors.onSurfaceVariant }]}>
         Complete your member profile to unlock {featureLabel ?? 'this space'} and grow,
         connect, and serve with the church.
@@ -52,7 +76,7 @@ export function MemberGate({ children, featureLabel }: MemberGateProps) {
           label="Complete your profile"
           variant="primary"
           fullWidth
-          onPress={() => router.push('/profile-completion/bio' as any)}
+          onPress={() => router.push('/profile-completion' as any)}
         />
       </View>
     </View>

@@ -1,25 +1,23 @@
-import { useState } from 'react';
 import {
-  ScrollView, View, Text, StyleSheet, Pressable, Alert, ActivityIndicator,
+  ScrollView, View, Text, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery } from 'convex/react';
+import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
 
 import {
-  FontFamily, Spacing, Radius, GoldGradient, AmbientShadow,
+  FontFamily, Spacing, GoldGradient, AmbientShadow,
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { DateField } from '@/components/ui/date-field';
 import { authClient } from '@/lib/auth';
-import { api, type Id } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getDisplayName, getInitials } from '@/lib/user-display';
 
@@ -27,15 +25,36 @@ const SEX_LABEL: Record<string, string> = { male: 'Male', female: 'Female' };
 const MARITAL_LABEL: Record<string, string> = {
   single: 'Single', married: 'Married', widowed: 'Widowed', divorced: 'Divorced',
 };
-const APPROVAL_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
-  pending: { label: 'Pending review', variant: 'pending' },
-  verified: { label: 'Verified', variant: 'confirmed' },
-  rejected: { label: 'Not verified', variant: 'ended' },
+const LEVEL_LABEL: Record<string, string> = {
+  level_1: 'Level 1', level_2: 'Level 2', advanced: 'Advanced',
 };
+const LEAD_STATUS_LABEL: Record<string, string> = {
+  in_progress: 'In Progress', completed: 'Completed',
+};
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
-function DetailRow({
-  label, value, muted,
-}: { label: string; value: string; muted?: boolean }) {
+function formatDob(v?: { day: number; month: number; year?: number }): string {
+  if (!v) return 'Not set';
+  const month = MONTHS[v.month - 1] ?? '';
+  return v.year ? `${v.day} ${month} ${v.year}` : `${v.day} ${month}`;
+}
+
+function formatMsDate(ms?: number): string {
+  if (!ms) return '';
+  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function formatAddress(a?: {
+  line1: string; city?: string; district?: string; country?: string;
+}): string {
+  if (!a) return 'Not set';
+  return [a.line1, a.city, a.district, a.country].filter(Boolean).join(', ');
+}
+
+function DetailRow({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   const Colors = useThemeColors();
   return (
     <View style={styles.detailRow}>
@@ -47,54 +66,33 @@ function DetailRow({
   );
 }
 
+/** A titled detail card with a staggered, UI-thread entrance. */
+function DetailCard({ title, delay, children }: { title: string; delay: number; children: React.ReactNode }) {
+  const Colors = useThemeColors();
+  const reduceMotion = useReducedMotion();
+  return (
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(delay)}
+      style={styles.cardSection}
+    >
+      <Card variant="editorial">
+        <Text style={[styles.cardLabel, { color: Colors.outline }]}>{title}</Text>
+        {children}
+      </Card>
+    </Animated.View>
+  );
+}
+
 export default function ProfileScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
 
-  const { user, profile, isMember, isVisitor, isLoading } = useMyAccount();
+  const { user, profile, isMember, isVisitor, isPending, isLoading } = useMyAccount();
+  // Richer profile (children + leadership) for the read-only preview. Resolves
+  // null for visitors with no profile; undefined while loading.
+  const myProfile = useQuery(api.profile.getMyProfile);
   const clans = useQuery(api.clans.listClans);
-  const updateProfile = useMutation(api.profile.updateProfile);
-
-  // ── Field edit mode ─────────────────────────────────────────────────────────
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [efirst, setEfirst] = useState('');
-  const [elast, setElast] = useState('');
-  const [ephone, setEphone] = useState('');
-  const [eprof, setEprof] = useState('');
-  const [edob, setEdob] = useState<string | undefined>(undefined);
-  const [eclan, setEclan] = useState<Id<'clans'> | undefined>(undefined);
-
-  const startEdit = () => {
-    setEfirst(user?.firstName ?? '');
-    setElast(user?.lastName ?? '');
-    setEphone(profile?.phone ?? '');
-    setEprof(profile?.profession ?? '');
-    setEdob(profile?.dateOfBirth);
-    setEclan(profile?.clanId);
-    setEditing(true);
-  };
-
-  const saveEdit = async () => {
-    // Omit blank optionals — the shared schema rejects empty strings, and a
-    // patch only touches the fields it is given.
-    const args: Record<string, unknown> = {};
-    if (efirst.trim()) args.firstName = efirst.trim();
-    if (elast.trim()) args.lastName = elast.trim();
-    if (ephone.trim()) args.phone = ephone.trim();
-    if (eprof.trim()) args.profession = eprof.trim();
-    if (edob) args.dateOfBirth = edob;
-    if (eclan) args.clanId = eclan;
-    setSaving(true);
-    try {
-      await updateProfile(args);
-      setEditing(false);
-    } catch {
-      Alert.alert('Could not save', 'Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const departments = useQuery(api.departments.listActiveDepartments);
 
   const signOut = async () => {
     // Clears the secure-store session; the root auth gate redirects to (auth).
@@ -113,15 +111,31 @@ export default function ProfileScreen() {
   const initials = getInitials(user);
   const roleBadge: { label: string; variant: BadgeVariant } = isMember
     ? { label: 'Member', variant: 'member' }
-    : { label: 'Visitor', variant: 'visitor' };
+    : isPending
+      ? { label: 'Pending review', variant: 'pending' }
+      : { label: 'Visitor', variant: 'visitor' };
+
   const clanName = clans?.find((c) => c._id === profile?.clanId)?.name;
-  const approval = profile?.clanApproval?.status
-    ? APPROVAL_BADGE[profile.clanApproval.status]
-    : undefined;
+  const departmentName = departments?.find((d) => d._id === profile?.departmentId)?.name;
+  const hasProfession =
+    !!profile?.occupation || !!profile?.industry || !!profile?.employer || (profile?.skills?.length ?? 0) > 0;
+
+  const children = myProfile?.children ?? [];
+  const leadership = myProfile?.leadershipProgress ?? [];
+  const isMarried = profile?.maritalStatus === 'married';
+  const spouseValue = profile?.spouseNameUnlinked
+    ? profile.spouseNameUnlinked
+    : profile?.spouseUserId
+      ? 'Linked church member'
+      : 'Not provided';
+  const hasFamily = isMarried || children.length > 0 || !!profile?.nextOfKin;
+
+  // The full read-only preview is shown to anyone who has submitted — pending or
+  // verified. (The gate flags remain role-based: pending users aren't members.)
+  const showProfile = !!profile;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top']}>
-      {/* Header bar */}
       <View style={styles.headerBar}>
         <Button
           variant="icon"
@@ -129,17 +143,9 @@ export default function ProfileScreen() {
           accessibilityLabel="Go back"
           icon={<Ionicons name="arrow-back" size={24} color={Colors.onSurface} />}
         />
-        {isMember && !editing && (
-          <Button
-            variant="icon"
-            onPress={startEdit}
-            accessibilityLabel="Edit profile"
-            icon={<Ionicons name="pencil" size={20} color={Colors.primary} />}
-          />
-        )}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <LinearGradient colors={[Colors.primaryLight, Colors.surface]} style={styles.heroGradient}>
           {user?.profilePictureUrl ? (
@@ -164,144 +170,125 @@ export default function ProfileScreen() {
         </LinearGradient>
 
         {/* Visitor: prompt to complete profile */}
-        {isVisitor && (
+        {isVisitor && !isPending && (
           <View style={styles.cardSection}>
             <Card variant="editorial">
               <Text style={[styles.cardLabel, { color: Colors.outline }]}>MEMBER PROFILE</Text>
-              <Text style={[styles.visitorText, { color: Colors.onSurfaceVariant }]}>
-                You haven&apos;t completed your member profile yet. It only takes a minute
-                and unlocks the full community.
+              <Text style={[styles.bodyText, { color: Colors.onSurfaceVariant }]}>
+                You&apos;re not yet part of the KLT Church family. Complete your member profile —
+                it takes a few minutes and unlocks the full community.
               </Text>
-              <View style={styles.visitorCta}>
+              <View style={styles.cta}>
                 <Button
                   label="Complete your profile"
                   variant="primary"
                   fullWidth
-                  onPress={() => router.push('/profile-completion/bio' as any)}
+                  onPress={() => router.push('/profile-completion' as any)}
                 />
               </View>
             </Card>
           </View>
         )}
 
-        {/* Member: identity (edit mode only) */}
-        {isMember && editing && (
+        {/* Pending: a status note above the read-only preview below */}
+        {isPending && (
           <View style={styles.cardSection}>
-            <Card variant="editorial">
-              <Text style={[styles.cardLabel, { color: Colors.outline }]}>NAME</Text>
-              <Input label="First name" value={efirst} onChangeText={setEfirst} autoCapitalize="words" placeholder="First name" />
-              <View style={{ height: Spacing[4] }} />
-              <Input label="Last name" value={elast} onChangeText={setElast} autoCapitalize="words" placeholder="Last name" />
-            </Card>
+            <View style={[styles.pendingBanner, { backgroundColor: Colors.primaryLight }]}>
+              <Ionicons name="hourglass-outline" size={20} color={Colors.primary} />
+              <Text style={[styles.pendingText, { color: Colors.onSurface }]}>
+                Your profile is under review. Here&apos;s everything you submitted — a church admin
+                will verify it, and you&apos;ll gain full member access once it&apos;s approved.
+              </Text>
+            </View>
           </View>
         )}
 
-        {/* Member: personal details */}
-        {isMember && profile && (
-          <View style={styles.cardSection}>
-            <Card variant="editorial">
-              <Text style={[styles.cardLabel, { color: Colors.outline }]}>PERSONAL DETAILS</Text>
+        {/* Read-only preview — shown to pending and verified members alike */}
+        {showProfile && profile && (
+          <>
+            <DetailCard title="PERSONAL DETAILS" delay={40}>
               <DetailRow label="Sex" value={SEX_LABEL[profile.sex] ?? profile.sex} />
               <DetailRow
                 label="Marital status"
                 value={MARITAL_LABEL[profile.maritalStatus] ?? profile.maritalStatus}
               />
-              {editing ? (
-                <DateField
-                  label="Date of birth"
-                  value={edob}
-                  onChange={setEdob}
-                  placeholder="Add your birthday"
-                />
-              ) : (
-                <DetailRow
-                  label="Date of birth"
-                  value={profile.dateOfBirth ?? 'Not set'}
-                  muted={!profile.dateOfBirth}
-                />
-              )}
-            </Card>
-          </View>
-        )}
+              <DetailRow label="Date of birth" value={formatDob(profile.dateOfBirth)} muted={!profile.dateOfBirth} />
+              {profile.shortBio ? <DetailRow label="Bio" value={profile.shortBio} /> : null}
+            </DetailCard>
 
-        {/* Member: contact */}
-        {isMember && profile && (
-          <View style={styles.cardSection}>
-            <Card variant="editorial">
-              <Text style={[styles.cardLabel, { color: Colors.outline }]}>CONTACT</Text>
-              {editing ? (
-                <>
-                  <Input label="Phone" value={ephone} onChangeText={setEphone} keyboardType="phone-pad" placeholder="+256 700 000 000" />
-                  <View style={{ height: Spacing[4] }} />
-                  <Input label="Profession" value={eprof} onChangeText={setEprof} autoCapitalize="words" placeholder="e.g. Architect" />
-                </>
-              ) : (
-                <>
-                  <DetailRow label="Phone" value={profile.phone ?? 'Not set'} muted={!profile.phone} />
-                  <DetailRow label="Profession" value={profile.profession ?? 'Not set'} muted={!profile.profession} />
-                </>
-              )}
-            </Card>
-          </View>
-        )}
+            <DetailCard title="CONTACT" delay={80}>
+              <DetailRow label="Phone" value={profile.phone ?? 'Not set'} muted={!profile.phone} />
+              <DetailRow label="Address" value={formatAddress(profile.address)} muted={!profile.address} />
+            </DetailCard>
 
-        {/* Member: clan */}
-        {isMember && profile && (
-          <View style={styles.cardSection}>
-            <Card variant="editorial">
-              <Text style={[styles.cardLabel, { color: Colors.outline }]}>CLAN AFFILIATION</Text>
-              {editing ? (
-                <View style={styles.clanGrid}>
-                  {(clans ?? []).map((clan) => {
-                    const selected = eclan === clan._id;
-                    return (
-                      <Pressable
-                        key={clan._id}
-                        onPress={() => setEclan(selected ? undefined : (clan._id as Id<'clans'>))}
-                        style={[
-                          styles.clanPill,
-                          {
-                            backgroundColor: selected ? Colors.primaryFixedDim : Colors.surfaceLow,
-                            borderColor: selected ? Colors.primary : 'transparent',
-                          },
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                      >
-                        <Text style={[styles.clanText, { color: selected ? Colors.primary : Colors.onSurfaceVariant }]}>
-                          {clan.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ) : profile.clanId ? (
-                <View style={styles.clanRow}>
-                  <Text style={[styles.detailValue, { color: Colors.onSurface }]}>
-                    {clanName ?? 'Selected clan'}
-                  </Text>
-                  {approval && <Badge label={approval.label} variant={approval.variant} />}
-                </View>
-              ) : (
-                <Text style={[styles.detailValue, { color: Colors.outline }]}>
-                  No clan selected
-                </Text>
-              )}
-            </Card>
-          </View>
+            {hasFamily && (
+              <DetailCard title="FAMILY" delay={120}>
+                {isMarried && <DetailRow label="Spouse" value={spouseValue} muted={spouseValue === 'Not provided'} />}
+                {isMarried && profile.anniversaryDate ? (
+                  <DetailRow label="Anniversary" value={formatMsDate(profile.anniversaryDate)} />
+                ) : null}
+                {children.length > 0
+                  ? children.map((c) => (
+                      <DetailRow
+                        key={c._id}
+                        label={`Child — ${c.name}`}
+                        value={SEX_LABEL[c.sex] ?? c.sex}
+                      />
+                    ))
+                  : null}
+                {profile.nextOfKin ? (
+                  <DetailRow
+                    label="Next of kin"
+                    value={`${profile.nextOfKin.fullName} · ${profile.nextOfKin.relationship}`}
+                  />
+                ) : null}
+              </DetailCard>
+            )}
+
+            <DetailCard title="MENTORSHIP" delay={160}>
+              <DetailRow label="Status" value="Completed" />
+              <DetailRow
+                label="Certificate"
+                value={profile.mentorshipProofUrl ? 'Uploaded' : 'Not uploaded'}
+                muted={!profile.mentorshipProofUrl}
+              />
+            </DetailCard>
+
+            {leadership.length > 0 && (
+              <DetailCard title="LEADERSHIP" delay={200}>
+                {leadership.map((e) => (
+                  <DetailRow
+                    key={e._id}
+                    label={LEVEL_LABEL[e.level] ?? e.level}
+                    value={LEAD_STATUS_LABEL[e.status] ?? e.status}
+                  />
+                ))}
+              </DetailCard>
+            )}
+
+            {(departmentName || clanName) && (
+              <DetailCard title="SERVICE & CLAN" delay={240}>
+                {departmentName ? <DetailRow label="Department" value={departmentName} /> : null}
+                {clanName ? <DetailRow label="Clan" value={clanName} /> : null}
+              </DetailCard>
+            )}
+
+            {hasProfession && (
+              <DetailCard title="PROFESSION" delay={280}>
+                {profile.occupation ? <DetailRow label="Occupation" value={profile.occupation} /> : null}
+                {profile.industry ? <DetailRow label="Industry" value={profile.industry} /> : null}
+                {profile.employer ? <DetailRow label="Employer" value={profile.employer} /> : null}
+                {profile.skills && profile.skills.length > 0 ? (
+                  <DetailRow label="Skills" value={profile.skills.join(', ')} />
+                ) : null}
+              </DetailCard>
+            )}
+          </>
         )}
 
         {/* Actions */}
         <View style={styles.actions}>
-          {editing ? (
-            <>
-              <Button label="Save changes" variant="primary" fullWidth loading={saving} onPress={saveEdit} />
-              <View style={{ height: Spacing[3] }} />
-              <Button label="Cancel" variant="ghost" fullWidth onPress={() => setEditing(false)} />
-            </>
-          ) : (
-            <Button label="Sign out" variant="destructive" fullWidth onPress={signOut} />
-          )}
+          <Button label="Sign out" variant="destructive" fullWidth onPress={signOut} />
         </View>
 
         <View style={{ height: Spacing[10] }} />
@@ -361,12 +348,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
-  heroBadge: {
-    marginTop: Spacing[3],
-  },
+  heroBadge: { marginTop: Spacing[3] },
   cardSection: {
     paddingHorizontal: Spacing[5],
     marginTop: Spacing[3],
+  },
+  pendingBanner: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+    alignItems: 'flex-start',
+    borderRadius: 12,
+    padding: Spacing[4],
+  },
+  pendingText: {
+    flex: 1,
+    fontFamily: FontFamily.body,
+    fontSize: 13,
+    lineHeight: 20,
   },
   cardLabel: {
     fontFamily: FontFamily.bodySemiBold,
@@ -388,35 +386,12 @@ const styles = StyleSheet.create({
     lineHeight: 22.4,
     marginTop: 2,
   },
-  visitorText: {
+  bodyText: {
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
   },
-  visitorCta: {
-    marginTop: Spacing[4],
-  },
-  clanRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  clanGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing[2],
-  },
-  clanPill: {
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[2],
-  },
-  clanText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 13,
-    lineHeight: 18,
-  },
+  cta: { marginTop: Spacing[4] },
   actions: {
     paddingHorizontal: Spacing[5],
     marginTop: Spacing[6],
