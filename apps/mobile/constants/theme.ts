@@ -1,9 +1,12 @@
 /**
- * KLT Cyber Church — Sacred Curator Design System
+ * KLT Cyber Church — "Kingdom Radiant" Design System
  *
- * Colors are now in constants/colors.ts (light + dark palettes).
- * Use `useThemeColors()` hook in components for reactive dark mode support.
- * This file exports LightColors as `Colors` for backward compatibility in non-component code.
+ * Colours live in constants/colors.ts. Use the `useThemeColors()` hook in
+ * components. This file exports LightColors as `Colors` for non-component code,
+ * plus typography, spacing, radius, elevation, gradients and motion tokens.
+ *
+ * Fonts: Bricolage Grotesque (display) · Plus Jakarta Sans (UI/body) ·
+ * Spline Sans Mono (amounts, timers, references). See docs/INTERFACE_SPEC.md §1.3.
  */
 
 export { LightColors as Colors, LightColors } from '@/constants/colors';
@@ -12,28 +15,35 @@ export type { ColorPalette } from '@/constants/colors';
 // ─── Typography ────────────────────────────────────────────────
 
 export const FontFamily = {
-  /** Hero text, sermon titles, scripture, section headings (>=18px only) */
-  display: 'Merriweather-Bold',
-  /** All UI text, labels, body copy, forms, navigation */
-  body: 'Inter-Regular',
-  bodyMedium: 'Inter-Medium',
-  bodySemiBold: 'Inter-SemiBold',
-  bodyBold: 'Inter-Bold',
-  /** Giving amounts, countdowns, reference numbers */
-  mono: 'JetBrainsMono-Regular',
-  monoBold: 'JetBrainsMono-Bold',
+  /** Display — greetings, screen/card titles, celebration. Bricolage 800. */
+  display: 'BricolageGrotesque-ExtraBold',
+  /** Section headers (h2). Bricolage 700. */
+  displaySemi: 'BricolageGrotesque-Bold',
+  /** All UI text, labels, body copy, forms, navigation. Plus Jakarta Sans. */
+  body: 'PlusJakartaSans-Regular',
+  bodyMedium: 'PlusJakartaSans-Medium',
+  bodySemiBold: 'PlusJakartaSans-SemiBold',
+  bodyBold: 'PlusJakartaSans-Bold',
+  bodyExtraBold: 'PlusJakartaSans-ExtraBold',
+  /** SCRIPTURE only — italic Jakarta. */
+  italic: 'PlusJakartaSans-Italic',
+  /** Giving amounts, countdowns, reference numbers. */
+  mono: 'SplineSansMono-Medium',
+  monoBold: 'SplineSansMono-SemiBold',
 } as const;
 
-/** Type scale — sizes in px, lineHeight as multiplier */
+/** Type scale — sizes in px, lineHeight as absolute px. */
 export const TypeScale = {
   textXs: { fontSize: 11, lineHeight: 15.4, fontFamily: FontFamily.body },
-  textSm: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.body },
-  textBase: { fontSize: 14, lineHeight: 22.4, fontFamily: FontFamily.body },
-  textMd: { fontSize: 16, lineHeight: 24, fontFamily: FontFamily.bodyMedium },
-  textLg: { fontSize: 20, lineHeight: 26, fontFamily: FontFamily.bodySemiBold },
-  textXl: { fontSize: 24, lineHeight: 28.8, fontFamily: FontFamily.display },
-  text2xl: { fontSize: 32, lineHeight: 35.2, fontFamily: FontFamily.monoBold },
-  textDisplay: { fontSize: 56, lineHeight: 56, fontFamily: FontFamily.display, letterSpacing: -0.5 },
+  textSm: { fontSize: 13, lineHeight: 18, fontFamily: FontFamily.bodyMedium },
+  textBase: { fontSize: 15, lineHeight: 23, fontFamily: FontFamily.body },
+  textMd: { fontSize: 16, lineHeight: 24, fontFamily: FontFamily.bodySemiBold },
+  textLg: { fontSize: 18, lineHeight: 24, fontFamily: FontFamily.displaySemi },
+  textXl: { fontSize: 24, lineHeight: 30, fontFamily: FontFamily.display },
+  text2xl: { fontSize: 32, lineHeight: 38, fontFamily: FontFamily.monoBold },
+  textDisplay: { fontSize: 32, lineHeight: 38, fontFamily: FontFamily.display, letterSpacing: -0.3 },
+  /** Scripture — italic Jakarta, generous leading. */
+  scripture: { fontSize: 15, lineHeight: 26, fontFamily: FontFamily.italic },
 } as const;
 
 // ─── Spacing (8-point grid, all multiples of 4) ───────────────
@@ -52,71 +62,110 @@ export const Spacing = {
   20: 80,
 } as const;
 
-// ─── Roundedness ───────────────────────────────────────────────
+// ─── Roundedness (soft, rounded — nothing sharp) ──────────────
 
 export const Radius = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 20,
+  sm: 10,
+  md: 14,
+  lg: 20,
+  xl: 24,
+  sheet: 28,
   full: 9999,
 } as const;
 
-// ─── Elevation & Depth ────────────────────────────────────────
+// ─── Elevation & Depth (warm blue glow — no hard lines) ───────
 
-/** Ambient shadow for FABs and high-priority modals only */
-export const AmbientShadow = {
-  shadowColor: '#1C1C18',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.04,
-  shadowRadius: 32,
-  elevation: 4,
+/** e1 — list cards, small tiles. */
+export const ShadowE1 = {
+  shadowColor: '#12306E',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.07,
+  shadowRadius: 10,
+  elevation: 2,
 } as const;
 
-/** Upward ambient shadow for bottom nav / sheets */
+/** e2 — heroes, sheets, key cards. Also the default "ambient" lift. */
+export const ShadowE2 = {
+  shadowColor: '#12306E',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.1,
+  shadowRadius: 20,
+  elevation: 5,
+} as const;
+
+/** Gold glow — PRIMARY CTA ONLY. */
+export const GoldGlow = {
+  shadowColor: '#C47F08',
+  shadowOffset: { width: 0, height: 10 },
+  shadowOpacity: 0.45,
+  shadowRadius: 30,
+  elevation: 8,
+} as const;
+
+/** @deprecated Use ShadowE2. Kept so existing imports keep compiling. */
+export const AmbientShadow = ShadowE2;
+
+/** Upward glow for bottom nav / sheets. */
 export const AmbientShadowUp = {
-  shadowColor: '#1C1C18',
+  shadowColor: '#12306E',
   shadowOffset: { width: 0, height: -4 },
-  shadowOpacity: 0.04,
-  shadowRadius: 24,
-  elevation: 4,
+  shadowOpacity: 0.08,
+  shadowRadius: 20,
+  elevation: 5,
 } as const;
 
-// ─── Glass & Gold Presets ──────────────────────────────────────
+// ─── Glass / translucent chrome ───────────────────────────────
 
 export const Glass = {
-  background: 'rgba(252, 249, 242, 0.82)',
+  background: 'rgba(253, 248, 240, 0.94)',
   blurIntensity: 20,
   blurTint: 'light' as const,
 } as const;
 
+// ─── Gradients ────────────────────────────────────────────────
+
+/** Gold-leaf gradient — primary CTAs, active states, avatars. 135deg. */
 export const GoldGradient = {
-  colors: ['#785600', '#986d00'] as const,
+  colors: ['#EDB63C', '#C47F08'] as const,
   start: { x: 0, y: 0 },
   end: { x: 1, y: 1 },
 } as const;
 
 export const GoldGradientHorizontal = {
-  colors: ['#785600', '#B8860B'] as const,
+  colors: ['#EDB63C', '#C47F08'] as const,
   start: { x: 0, y: 0.5 },
   end: { x: 1, y: 0.5 },
+} as const;
+
+/** Heaven gradient — heroes, scripture zones. Deep blue lit from below. */
+export const HeavenGradient = {
+  colors: ['#0C2154', '#12306E', '#2C63D9'] as const,
+  start: { x: 0.1, y: 0 },
+  end: { x: 0.9, y: 1 },
+} as const;
+
+/** Warm gold-on-gold gradient — the giving summary hero. */
+export const GivingGradient = {
+  colors: ['#7A4E04', '#C47F08'] as const,
+  start: { x: 0, y: 0 },
+  end: { x: 0.9, y: 1 },
 } as const;
 
 // ─── Overlay ──────────────────────────────────────────────────
 
 export const Overlay = {
-  scrim: 'rgba(28, 28, 24, 0.45)',
+  scrim: 'rgba(12, 33, 84, 0.55)',
 } as const;
 
 // ─── Animation Durations ──────────────────────────────────────
 
 export const Duration = {
-  fast: 100,
-  normal: 200,
-  slow: 300,
-  sheetIn: 200,
-  sheetOut: 150,
-  tabSwitch: 100,
+  fast: 120,
+  normal: 240,
+  slow: 320,
+  sheetIn: 240,
+  sheetOut: 180,
+  tabSwitch: 120,
   inputFocus: 200,
   floatingLabel: 150,
 } as const;

@@ -28,9 +28,9 @@ export function TopBar({ title, unreadCount = 0, userInitials = 'U' }: TopBarPro
         {/* Left — logo + page title */}
         <View style={styles.leftGroup}>
           <Image
-            source={require('@/assets/images/faviconV2.png')}
+            source={require('@/assets/images/logo-circle.png')}
             style={styles.logoImage}
-            contentFit="cover"
+            contentFit="contain"
           />
           {title && <Text style={[styles.pageTitle, { color: Colors.onSurface }]}>{title}</Text>}
         </View>
@@ -66,9 +66,9 @@ export function TopBar({ title, unreadCount = 0, userInitials = 'U' }: TopBarPro
                 colors={[...GoldGradient.colors]}
                 start={GoldGradient.start}
                 end={GoldGradient.end}
-                style={[styles.avatar, { borderColor: Colors.primary }]}
+                style={styles.avatar}
               >
-                <Text style={styles.avatarText}>{userInitials}</Text>
+                <Text style={[styles.avatarText, { color: Colors.onPrimary }]}>{userInitials}</Text>
               </LinearGradient>
             }
           />
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   pageTitle: {
-    fontFamily: FontFamily.display,
+    fontFamily: FontFamily.displaySemi,
     fontSize: 18,
     lineHeight: 24,
   },
@@ -131,17 +131,15 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: FontFamily.bodyBold,
+    fontFamily: FontFamily.bodyExtraBold,
     fontSize: 12,
-    color: '#FFFFFF',
     lineHeight: 16,
   },
 });
