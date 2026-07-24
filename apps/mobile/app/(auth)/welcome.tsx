@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,8 +7,6 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { FontFamily, Spacing, Radius, HeavenGradient, GoldGradient, GoldGlow } from '@/constants/theme';
-
-const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -39,11 +37,11 @@ export default function WelcomeScreen() {
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Animated.View entering={FadeInDown.duration(600).delay(80)} style={styles.top}>
-          <View style={styles.logoCard}>
+          <View style={styles.logoWrap}>
             <Image
-              source={require('@/assets/images/Klt_Logo-01.png')}
+              source={require('@/assets/images/faviconV2.png')}
               style={styles.logo}
-              contentFit="contain"
+              contentFit="cover"
             />
           </View>
           <Text style={styles.eyebrow}>KLT CYBER CHURCH</Text>
@@ -101,19 +99,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing[8],
   },
-  logoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: Radius.xl,
-    paddingHorizontal: 22,
-    paddingVertical: 18,
+  logoWrap: {
+    borderRadius: 28,
     marginBottom: Spacing[6],
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.3,
-    shadowRadius: 32,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 34,
+    elevation: 12,
   },
-  logo: { width: width * 0.34, height: width * 0.24 },
+  logo: { width: 112, height: 112, borderRadius: 28 },
   eyebrow: {
     fontFamily: FontFamily.bodyBold,
     fontSize: 11.5,
