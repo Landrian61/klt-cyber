@@ -1,8 +1,10 @@
 # KLT Cyber Church App — Interface Specification
-### Design Language: *The Sacred Curator*
+### Design Language: *Kingdom Radiant*
 
 > **Purpose of this document**
-> This file is the authoritative design and interface specification for the KLT Cyber Church mobile application. It governs every screen, component, field, state, and interaction in the base (cross-cutting) layer of the app. All implementation must be derived from this document. The design philosophy is the **High-End Digital Sanctuary** — a premium editorial experience that feels like a curated gallery: authoritative, warm, and profoundly sacred. Where this document is silent, apply the design system rules in Section 1 to fill the gap.
+> This file is the authoritative design and interface specification for the KLT Cyber Church mobile application. It governs every screen, component, field, state, and interaction in the base (cross-cutting) layer of the app. All implementation must be derived from this document. The design philosophy is **Kingdom Radiant** — the app should feel like *dawn breaking over a worship night*: deep heaven-blue depth lit by blazing gold, on a warm cream base that welcomes rather than dazzles. Red is the heartbeat — LIVE, priority, passion. This is a **Pentecostal, Born-Again, Spirit-filled** church; the interface is warm, vibrant, celebratory and alive, never austere or liturgical. Depth comes from light and soft warm shadow, never hard lines. Motion is joyful and gentle. Every word is spoken to family. Where this document is silent, apply the design system rules in Section 1 to fill the gap.
+>
+> **Design source of truth.** The canonical design is the *Kingdom Radiant* system authored in Claude Design (`docs/BRAND_DESIGN_PROMPT.md` → project `a671e013`, file *KLT Design System.dc.html*). Section 1 below is the implementation-facing transcription of that system and is authoritative for all tokens. This document supersedes the previous *"Sacred Curator"* language in full; where older screen sections (2–12) still quote legacy hexes (e.g. `#785600`, `#FCF9F2`), the Section 1 tokens win.
 
 ---
 
@@ -27,61 +29,73 @@
 
 ### 1.1 Creative North Star
 
-> *"The Sacred Curator"*
+> *"Kingdom Radiant" — dawn breaking over a worship night.*
 
-This interface rejects the templated feel of standard mobile applications. It is a high-end, editorial digital sanctuary — where the authority of tradition meets the fluidity of modern technology. Content is curated, not dumped. Whitespace is a design element, not a void. The interface breathes. It is never rushed, never cluttered, never generic.
+This interface rejects both the templated feel of standard mobile apps and the cold solemnity of high-church aesthetics. It is warm, radiant, and alive — the feeling of a living, joyful, Spirit-led worship service: hands raised, "Shalom, Saints!", a congregation that is *glad you showed up*. Premium and refined, always — but through **light, colour, and generosity**, not austerity or silence.
 
-The guiding metaphors are a **cathedral interior** and a **premium editorial magazine** — both share deliberate asymmetry, tonal depth, and a sense that every element has been placed with intention.
+The guiding image is **dawn over a worship night**: deep heaven-blue depth (the night of prayer) giving way to blazing gold (the glory breaking through), grounded on a warm cream base that welcomes rather than dazzles. Red is the heartbeat — passion, the blood, LIVE broadcasts, urgency.
+
+**Explicitly avoid:** cathedral/Catholic/high-church cues (stained glass, incense-grey solemnity, Gothic type, monastic restraint, "quiet museum"); cold clinical minimalism; heavy funereal palettes; and generic "spiritual app" clichés. Reverence here is expressed through **radiance and excellence**, not through hush.
 
 ---
 
 ### 1.2 Colour Palette & Surface Philosophy
 
-The palette is rooted in liturgical tradition, executed with modern technical precision.
+The three sacred KLT colours — **Gold, Red, Blue** (from the Kingdom Life Tabernacle crown logo) — retuned for radiance, over a warm cream base. All pairings below meet WCAG AA at their intended sizes. Token names map 1:1 to `apps/mobile/constants/colors.ts`.
 
 ```
-/* --- Primary: Gold --- */
---color-primary:            #785600   /* Surface tint — text, icons, borders */
---color-primary-brand:      #B8860B   /* Gold brand — gradients, highlights */
---color-primary-container:  #986d00   /* Gradient end point for CTAs */
---color-primary-fixed-dim:  #F5E6C8   /* Active background states */
---color-primary-light:      #FBF3E0   /* Very light gold — badge fills, tinted surfaces */
---color-on-primary:         #FFFFFF   /* Text on primary-filled backgrounds */
+/* --- Primary: Gold (Kingdom & glory) --- */
+--color-primary:            #D98E0B   /* gold.700 — on-cream gold: links, active tab, labels, icons */
+--color-primary-brand:      #E9A820   /* gold.500 — brand highlight, active fills, celebration */
+--color-primary-deep:       #8A5A05   /* gold.900 — strong gold text: amounts & timers on cream */
+--color-primary-container:  #D98E0B   /* gradient base (see gold gradient) */
+--color-primary-fixed-dim:  #FBECC9   /* selected card fill (solid light gold) */
+--color-primary-light:      #FCEFD1   /* light gold tint — badge/icon containers, hero-gradient start */
+--color-gold-tint:          rgba(233,168,32,0.16)  /* translucent badge/selected wash */
+--color-on-primary:         #3A2604   /* SIGNATURE: dark cocoa text ON gold — never white on gold */
+/* Gold gradient (primary CTAs, active states, avatars): 135deg  #F7C64B → #D98E0B */
 
-/* --- Secondary: Crimson --- */
---color-secondary:          #AB3332   /* Urgency, LIVE indicators, high-importance events */
---color-secondary-light:    #F9E5E5   /* Light tint for crimson badges */
+/* --- Secondary: Red (the blood, passion, urgency) --- */
+--color-secondary:          #D64541   /* red.500 — LIVE, priority, unread counts, destructive */
+--color-secondary-dark:     #A32623   /* red.700 — pressed / dark accents */
+--color-secondary-light:    #FBE7E6   /* solid light red — destructive/error tint surfaces */
+--color-red-tint:           rgba(214,69,65,0.12)   /* priority card wash, red badges */
 --color-on-secondary:       #FFFFFF
 
-/* --- Tertiary: Royal Blue --- */
---color-tertiary:           #145DA3   /* Community, study, educational pathways */
---color-tertiary-light:     #E3EEF9   /* Light tint for blue badges */
+/* --- Tertiary: Blue (heaven, the Spirit, community, teaching) --- */
+--color-tertiary:           #2C63D9   /* blue.500 — links, community, teaching, info */
+--color-tertiary-deep:      #12306E   /* blue.700 — heaven-depth heroes, scripture text on cream */
+--color-tertiary-deepest:   #0C2154   /* blue.900 — deepest hero gradient stop */
+--color-tertiary-light:     #E4ECFB   /* solid light blue — category/info badges */
+--color-blue-tint:          rgba(44,99,217,0.12)   /* info states, category badges */
 --color-on-tertiary:        #FFFFFF
+/* Heaven gradient (heroes, scripture zones): 160-175deg  #0C2154 → #12306E → #2C63D9 */
 
-/* --- Surface (Parchment) --- */
---color-surface:            #FCF9F2   /* Page background — warm parchment, never cold white */
---color-surface-low:        #F5F1E8   /* Section backgrounds */
---color-surface-container:  #EDE9DF   /* Interactive card background */
---color-surface-lowest:     #FFFFFF   /* Elevated card — creates parchment depth */
---color-surface-high:       #E3DFD4   /* Hover states, pressed surfaces */
---color-surface-variant:    #EAE5DB   /* Alternate section backgrounds */
---color-surface-bright:     #FDFAF5   /* Highlight surfaces */
+/* --- Surface (Cream — warm, never clinical) --- */
+--color-surface:            #FDF8F0   /* cream.bg — app background */
+--color-surface-low:        #F6EDDE   /* cream.sunken — inset zones, input rests, skeletons */
+--color-surface-container:  #F1E7D6   /* alternate section background */
+--color-surface-lowest:     #FFFFFF   /* lifted cards only, with warm shadow */
+--color-surface-high:       #E8DCC6   /* pressed surfaces, toggle-off track */
+--color-surface-variant:    #F3EADB   /* alternate section background */
+--color-surface-bright:     #FFFDFA   /* highlight surfaces */
 
 /* --- Text --- */
---color-on-surface:         #1C1C18   /* Primary text — warm near-black, never pure #000 */
---color-on-surface-variant: #5C5947   /* Secondary text, labels, captions */
---color-outline:            #8C8470   /* Subtle borders, ghost borders */
---color-outline-variant:    rgba(140, 132, 112, 0.15)  /* Ghost borders in forms */
+--color-on-surface:         #241B10   /* ink — primary text, warm near-black */
+--color-on-surface-variant: #5C4F3D   /* secondary body text */
+--color-outline:            #8A7C68   /* muted — captions, timestamps, placeholders */
+--color-faint:              #B5A88F   /* faint — disabled, subtlest hints */
+--color-outline-variant:    rgba(138,124,104,0.16)  /* ghost borders in forms */
 
-/* --- Semantic --- */
---color-success:            #2E7D32
---color-success-light:      #E8F5E9
---color-warning:            #B8860B
---color-warning-light:      #FBF3E0
---color-error:              #AB3332
---color-error-light:        #F9E5E5
---color-live:               #AB3332
---color-unread:             #785600
+/* --- Semantic (even errors speak warmly) --- */
+--color-success:            #2E8B57   /* confirmed, saved, approved */
+--color-success-light:      #E3F1EA
+--color-warning:            #D98E0B   /* = gold.700 */
+--color-warning-light:      #FCEFD1
+--color-error:              #D64541   /* = red.500 */
+--color-error-light:        #FBE7E6
+--color-live:               #D64541
+--color-unread:             #D64541   /* unread counts are red */
 ```
 
 #### The "No-Line" Rule
@@ -93,64 +107,73 @@ Boundaries are defined exclusively by:
 2. **Tonal Transitions:** Stepping between `--color-surface-variant` and `--color-surface-bright`.
 3. **Ghost Borders (forms only):** `--color-outline-variant` at 15% opacity — a barely-there hint.
 
-The only two permitted hard lines in the entire app:
-- The **2px `--color-primary` bottom border** on a focused input field.
-- The **3px `--color-primary-brand` left accent** on priority announcement cards.
+Boundaries are defined by tonal shifts, whitespace, and **soft warm glow** (Section 1.6) — never by outlines.
 
-#### The "Glass & Gold" Rule
+The only permitted "lines" in the entire app are soft accents, not hard rules:
+- The **gold focus ring** on an active input — an inset `2px #E9A820` glow on a white fill, not a hard border.
+- The **red-tint left wash** on priority announcement cards (`--color-red-tint`, a gradient fade, not a solid stripe).
 
-Floating elements — bottom navigation, modals, bottom sheets — use **Glassmorphism**:
-- Background: `rgba(252, 249, 242, 0.82)`
-- `backdrop-filter: blur(20px)`
-- No hard border. No heavy shadow.
+#### The "Radiance" Rule (replaces Glass & Gold)
 
-Primary CTAs use a **gold leaf gradient**:
-- `background: linear-gradient(135deg, #785600, #986d00)`
-- Simulates the sheen of physical gold leaf.
+Floating chrome — the top bar and bottom navigation — sits on a **warm translucent cream**:
+- Background: `rgba(253, 248, 240, 0.94)`
+- Optional light blur behind (`blur(20px)`); no hard border.
+
+**Heroes and depth zones** (welcome, home theme card, radio player, giving summary, auth headers) use the **heaven gradient** — deep blue lit from below by gold:
+- `background: linear-gradient(165deg, #0C2154, #12306E 55%, #2C63D9 130%)`
+- A radial gold glow anchored bottom/corner: `radial-gradient(100% 80% at 100% 110%, rgba(247,198,75,.55), transparent 60%)`
+- Scripture and hero titles sit in white over this depth.
+
+**Primary CTAs** use the **gold-leaf gradient** with dark cocoa text and a **gold glow** shadow:
+- `background: linear-gradient(135deg, #F7C64B, #D98E0B)`
+- Text `--color-on-primary` (#3A2604). Shadow `0 10px 30px rgba(217,142,11,.45)`.
+- Radius: pill (`--radius-full`). This is the single most recognisable element in the app.
 
 ---
 
 ### 1.3 Typography
 
 ```
-/* --- Font Families --- */
---font-display:  'Playfair Display', Georgia, serif
+/* --- Font Families (all Google Fonts, OFL — bundled as static TTFs) --- */
+--font-display:  'Bricolage Grotesque' (800 ExtraBold / 700 Bold)
   /*
-    For: screen headings, hero text, sermon titles, scripture, section titles.
-    Conveys spiritual authority and intellectual gravitas.
-    Minimum size: 18px. Never use for UI labels, navigation, or form fields.
+    Warm, characterful, alive. For: greetings, screen titles, card titles,
+    section headers, and celebration moments. 800 for heroes/greetings/titles;
+    700 for section headers (h2). Minimum size 16px. Never for body or inputs.
   */
 
---font-body:     'Inter', -apple-system, sans-serif
+--font-body:     'Plus Jakarta Sans' (400/500/600/700/800, + 400 italic)
   /*
-    For: all UI text, labels, body copy, navigation, form fields,
-    notifications, descriptions, captions.
-    Ensures functional clarity.
+    Crisp at small sizes. For: all UI text, labels, body copy, navigation,
+    form fields, captions. The italic is reserved for SCRIPTURE.
   */
 
---font-mono:     'JetBrains Mono', 'Courier New', monospace
+--font-mono:     'Spline Sans Mono' (500 / 600)
   /* For: giving amounts, countdown timers, reference numbers. */
 
 /* --- Type Scale --- */
---text-xs:      11px / 1.4   weight 400   /* Timestamps, helper notes */
---text-sm:      12px / 1.5   weight 400   /* Labels, badge text, captions */
---text-base:    14px / 1.6   weight 400   /* Default body, list items */
---text-md:      16px / 1.5   weight 500   /* Card titles, interactive labels */
---text-lg:      20px / 1.3   weight 600   /* Screen titles (Inter) */
---text-xl:      24px / 1.2   weight 700   /* Hero headings (Playfair Display) */
---text-2xl:     32px / 1.1   weight 700   /* Display amounts (mono), major hero */
---text-display: 3.5rem / 1.0 weight 700   /* Sparingly, letter-spacing -0.02em */
+--text-display:  32 / 38   Bricolage 800  -1%   /* Greetings ("Shalom, Grace") */
+--text-h1:       24 / 30   Bricolage 800         /* Screen / hero titles */
+--text-h2:       18 / 24   Bricolage 700         /* Section headers ("This week at KLT") */
+--text-scripture:15 / 26   Jakarta 400 italic    /* The Word — see rules below */
+--text-md:       16 / 24   Jakarta 500-700       /* Card titles, interactive labels */
+--text-base:     15 / 23   Jakarta 400-600       /* Default body, list items */
+--text-sm:       13 / 18   Jakarta 500           /* Secondary text */
+--text-caption:  12.5/ 17  Jakarta 500           /* Captions, meta, timestamps */
+--text-label:    10.5      Jakarta 800  +20%     /* Uppercase eyebrow labels (gold) */
+--text-mono-lg:  22 / 1.2  Spline 600            /* Amounts, timers */
 
 /* --- Hierarchy Rules --- */
 /*
-  - All headings above 18px → Playfair Display
-  - Everything at or below 18px → Inter
-  - Amounts and timers → JetBrains Mono
-  - Hero/display headings use asymmetrical margin:
-      padding-left: 32px, padding-right: 48px
-    This editorial asymmetry is a signature of the Sacred Curator aesthetic.
-  - Never use Playfair Display for navigation, badges, or form inputs.
-  - Never use two decorative typefaces on the same screen.
+  - Bricolage for greetings, screen/card titles, section headers, celebration.
+  - Jakarta for everything functional (body, labels, nav, inputs, captions).
+  - Mono wherever money, time, or reference numbers appear.
+  - SCRIPTURE gets the most elevated treatment on any screen: italic Jakarta,
+    in white over a heaven-gradient zone (or in --color-tertiary-deep #12306E on
+    cream), always followed by a gold, mono, letter-spaced reference label
+    (e.g. "MATTHEW 16:19 · KJV"). The church quotes KJV — preserve that register.
+  - Respect system font scaling. Never render below 12.5px.
+  - Never use two decorative faces on one screen (Bricolage is the only display face).
 */
 ```
 
@@ -180,33 +203,49 @@ Primary CTAs use a **gold leaf gradient**:
 
 ### 1.5 Roundedness
 
+Kingdom Radiant is a **soft, rounded** system — nothing sharp.
+
 ```
---radius-sm:   4px
---radius-md:   8px
---radius-lg:   12px   /* Standard cards */
---radius-xl:   20px   /* Large cards, sheet tops */
---radius-full: 9999px /* Pills, avatars */
+--radius-sm:   10px  /* Small chips, inner elements */
+--radius-md:   14px  /* Inputs, small buttons, list rows */
+--radius-lg:   20px  /* Standard cards */
+--radius-xl:   24px  /* Heroes, large cards, sheet tops (28px on sheets) */
+--radius-full: 9999px /* Pills, buttons, avatars, filter/segment controls */
 ```
+
+> **Buttons are pills.** All primary/secondary/ghost/destructive buttons and all filter/segment pills use `--radius-full`. Cards use `lg`/`xl`. Inputs use `md`.
 
 ---
 
 ### 1.6 Elevation & Depth (Tonal Layering)
 
-Depth is created by stacking surface tiers. **No Material Design drop shadows.**
+Depth is created by **warm blue-tinted glow** and stacked surface tiers — never hard lines or Material drop shadows. The shadow colour is blue.700 (`rgb(18,48,110)`), which reads as warm light lifting a card off the cream.
 
 ```
 Layering stack (bottom to top):
-  Base page:              --color-surface         #FCF9F2
-  Section containers:     --color-surface-low     #F5F1E8
-  Interactive cards:      --color-surface-lowest  #FFFFFF  ← "lifted parchment"
-  Hover / pressed:        --color-surface-high    #E3DFD4
+  Base page:            --color-surface         #FDF8F0
+  Section containers:   --color-surface-low     #F6EDDE
+  Interactive cards:    --color-surface-lowest  #FFFFFF  ← "lifted" by glow
+  Pressed:              --color-surface-high     #E8DCC6
 ```
 
-**Ambient shadow** (FABs and high-priority modals only):
+**Elevation presets** (shadowColor `#12306E`):
 ```css
-box-shadow: 0 8px 32px rgba(28, 28, 24, 0.04);
-/* 4% opacity of on-surface — a soft glow, never a hard drop shadow */
+--e1:        0 2px 10px rgba(18,48,110,.07);   /* list cards, small tiles */
+--e2:        0 6px 20px rgba(18,48,110,.10);   /* heroes, sheets, key cards */
+--gold-glow: 0 10px 30px rgba(217,142,11,.45); /* PRIMARY CTA ONLY */
 ```
+
+### 1.6b Motion
+
+Joyful and gentle — motion is joy, not noise. Nothing loops loudly. Everything runs at 60fps on the native thread (Reanimated) and honours `prefers-reduced-motion` (→ cross-fade only).
+
+- **Entrances:** 240ms ease-out, 12–14px rise + fade, 40ms stagger per card.
+- **Press:** scale 0.97, ~120ms.
+- **LIVE dot:** 1.2s soft pulse (opacity/scale).
+- **Giving success:** gold checkmark spring (~500ms, slight overshoot) + gentle radial shimmer ring.
+- **Radio waveform:** audio-reactive bars, native-thread.
+- **Skeletons:** warm shimmer sweep over `--color-surface-low`, ~1.4s loop.
 
 ---
 
@@ -214,27 +253,31 @@ box-shadow: 0 8px 32px rgba(28, 28, 24, 0.04);
 
 #### Buttons
 
-**Primary (Gold Leaf CTA)**
-- Background: `linear-gradient(135deg, #785600, #986d00)`
-- Text: white, `--font-body`, `--text-md`, weight 600
-- Height: 52px. Border radius: `--radius-md`. Full width by default.
-- Pressed: gradient darkens, scale 0.98.
-- Disabled: `--color-surface-high` background, `--color-outline` text, non-interactive.
+**Primary (Gold-Leaf CTA)**
+- Background: `linear-gradient(135deg, #F7C64B, #D98E0B)`
+- Text: `--color-on-primary` (#3A2604), `--font-body` weight 800, `--text-md`.
+- Height: 54–56px. Border radius: `--radius-full` (pill). Full width by default.
+- Shadow: `--gold-glow`. Pressed: scale 0.97 + darken ~6%.
+- Loading: label → 3-dot pulse, width locked. Disabled: same gradient at 40% opacity.
 
-**Secondary (Ghost)**
-- Background: transparent
-- Border: 1px solid `rgba(120, 86, 0, 0.20)`
-- Text: `--color-primary`, `--text-md`, weight 600
-- Height: 52px. Border radius: `--radius-md`.
-- Pressed: background `--color-primary-light`.
+**Secondary (Gold Tint)**
+- Background: `--color-gold-tint`. Text: `--color-primary-deep` (#8A5A05), weight 700.
+- Height: 46–52px. Border radius: `--radius-full`. No border.
+
+**Ghost**
+- Background: transparent. Inset ring: `1.5px rgba(36,27,16,.18)` (soft, not a hard rule).
+- Text: `--color-on-surface`, weight 700. Height: 46–52px. Radius: `--radius-full`.
+- Pressed: fill `--color-gold-tint`.
 
 **Destructive**
-- Background: `--color-secondary-light`
-- Border: 1px solid `rgba(171, 51, 50, 0.20)`
-- Text: `--color-secondary`. Height: 52px.
+- Background: solid `--color-secondary` (#D64541). Text: white, weight 700.
+- Height: 46–52px. Radius: `--radius-full`. Pressed: `--color-secondary-dark`.
 
 **Text Link**
-- No background. No border. Text: `--color-primary`, `--text-base`, weight 500, underlined (offset 2px).
+- No background/border. Text: `--color-primary` (or `--color-primary-deep` for emphasis), `--text-sm`/`--text-base`, weight 800.
+
+**Icon Button**
+- 40–44px circle, `--color-surface-lowest` fill with `--e1` glow, icon `--color-on-surface` 18–22px.
 
 **Icon Button**
 - 44px × 44px minimum touch target. Icon 22px centered. Transparent background; `--color-primary-light` at 60% when active.
@@ -1147,5 +1190,6 @@ The only two hard lines permitted in the entire application:
 
 ---
 
-*End of KLT Cyber Church App — Interface Specification v2.0*
-*Design Language: The Sacred Curator — High-End Digital Sanctuary*
+*End of KLT Cyber Church App — Interface Specification v3.0*
+*Design Language: Kingdom Radiant — dawn breaking over a worship night*
+*Fonts: Bricolage Grotesque (display) · Plus Jakarta Sans (UI/body) · Spline Sans Mono (amounts)*

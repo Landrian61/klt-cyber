@@ -51,9 +51,9 @@ export function Input({
     borderColor: error
       ? Colors.error
       : focusProgress.value > 0.5
-        ? Colors.primary
+        ? Colors.primaryBrand
         : 'transparent',
-    borderWidth: 1.5,
+    borderWidth: 2,
   }));
 
   return (
@@ -63,8 +63,8 @@ export function Input({
         {label}
       </Text>
 
-      {/* Input container with subtle background */}
-      <Animated.View style={[styles.inputContainer, { backgroundColor: Colors.surfaceLowest }, focusBorderStyle, error && { borderColor: Colors.error }]}>
+      {/* Cream at rest; lifts to white with a gold ring on focus. */}
+      <Animated.View style={[styles.inputContainer, { backgroundColor: isFocused ? Colors.surfaceLowest : Colors.surfaceLow }, focusBorderStyle, error && { borderColor: Colors.error, backgroundColor: Colors.errorLight }]}>
         <Pressable onPress={() => inputRef.current?.focus()} style={styles.inputRow}>
           {icon && (
             <Ionicons
@@ -124,8 +124,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing[2],
   },
   inputContainer: {
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
+    borderRadius: Radius.md,
+    borderWidth: 2,
     borderColor: 'transparent',
     overflow: 'hidden',
   },

@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   pageTitle: {
-    fontFamily: FontFamily.display,
+    fontFamily: FontFamily.displaySemi,
     fontSize: 18,
     lineHeight: 24,
   },

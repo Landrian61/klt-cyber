@@ -7,7 +7,7 @@ import { useQuery } from 'convex/react';
 import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration, HeavenGradient, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Badge } from '@/components/ui/badge';
 import { ProfileCompletionBanner } from '@/components/profile-completion-banner';
@@ -83,17 +83,32 @@ function ThemeBanner({ themes }: { themes: { annual: Doc<'themes'> | null; month
   return (
     <Animated.View entering={FadeInUp.duration(400).delay(160)} style={styles.section}>
       {annual && (
-        <View style={styles.themeCardContainer}>
-          <Cover uri={annual.coverImageUrl} index={0} imageRadius={Radius.xl} style={styles.themeCardImage}>
-            <View style={styles.themeCardScrim}>
-              <Text style={styles.themeLabel}>{annualYear} CHURCH THEME</Text>
-              <Text style={styles.themeTitle}>{annual.title}</Text>
-              <Text style={styles.themeScripture} numberOfLines={3}>
-                “{annual.scriptureText}”
-              </Text>
-              <Text style={styles.themeScriptureRef}>{annual.scriptureReference}</Text>
+        <View style={[styles.themeCardContainer, ShadowE2]}>
+          <LinearGradient
+            colors={[...HeavenGradient.colors]}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1.3 }}
+            style={styles.themeCardGradient}
+          >
+            {/* Dawn gold-glow rising from the corner */}
+            <LinearGradient
+              colors={['transparent', 'rgba(247,198,75,0.4)']}
+              start={{ x: 0.35, y: 0.4 }}
+              end={{ x: 1.1, y: 1.15 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={styles.themePill}>
+              <Text style={styles.themePillText}>{annualYear} CHURCH THEME</Text>
             </View>
-          </Cover>
+            <Text style={styles.themeTitle}>{annual.title}</Text>
+            <Text style={styles.themeScripture} numberOfLines={5}>
+              “{annual.scriptureText}”
+            </Text>
+            <Text style={styles.themeScriptureRef}>
+              {annual.scriptureReference?.toUpperCase()} · KJV
+            </Text>
+          </LinearGradient>
         </View>
       )}
 
@@ -346,7 +361,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[5],
     marginTop: Spacing[6],
   },
-  sectionTitle: { fontFamily: FontFamily.bodySemiBold, fontSize: 16, lineHeight: 24 },
+  sectionTitle: { fontFamily: FontFamily.displaySemi, fontSize: 18, lineHeight: 24 },
   sectionLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
@@ -360,43 +375,43 @@ const styles = StyleSheet.create({
     gap: Spacing[3],
     marginTop: Spacing[3],
   },
-  // Theme card
+  // Theme card — heaven gradient (dawn over a worship night)
   themeCardContainer: { borderRadius: Radius.xl, overflow: 'hidden' },
-  themeCardImage: { width: '100%', minHeight: 224, justifyContent: 'flex-end' },
-  themeCardScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(28, 28, 24, 0.50)',
-    padding: Spacing[5],
-    justifyContent: 'flex-end',
-    borderRadius: Radius.xl,
+  themeCardGradient: { width: '100%', padding: Spacing[5], paddingVertical: Spacing[6] },
+  themePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F7C64B',
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  themeLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 0.8,
+  themePillText: {
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 10.5,
+    lineHeight: 14,
+    letterSpacing: 1.6,
+    color: '#0C2154',
   },
-  themeTitle: { fontFamily: FontFamily.display, fontSize: 22, lineHeight: 28, color: '#FFFFFF', marginTop: 6 },
+  themeTitle: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 29, color: '#FFFFFF', marginTop: Spacing[3] },
   themeScripture: {
-    fontFamily: FontFamily.display,
-    fontSize: 12,
-    lineHeight: 18,
-    fontStyle: 'italic',
-    color: 'rgba(255,255,255,0.82)',
-    marginTop: Spacing[2],
+    fontFamily: FontFamily.italic,
+    fontSize: 13.5,
+    lineHeight: 22,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: Spacing[3],
   },
   themeScriptureRef: {
-    fontFamily: FontFamily.body,
+    fontFamily: FontFamily.mono,
     fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.70)',
-    marginTop: Spacing[1],
+    lineHeight: 15,
+    letterSpacing: 1.2,
+    color: '#F7C64B',
+    marginTop: Spacing[2],
   },
-  monthlyCard: { borderRadius: Radius.lg, padding: Spacing[4], marginTop: Spacing[3] },
-  monthlyLabel: { fontFamily: FontFamily.bodySemiBold, fontSize: 10, letterSpacing: 0.8, lineHeight: 14 },
-  monthlyTitle: { fontFamily: FontFamily.bodySemiBold, fontSize: 15, lineHeight: 22, marginTop: 4 },
-  monthlyScripture: { fontFamily: FontFamily.display, fontSize: 12, lineHeight: 18, fontStyle: 'italic', marginTop: Spacing[2] },
+  monthlyCard: { borderRadius: Radius.lg, padding: Spacing[4], marginTop: Spacing[3], ...ShadowE2 },
+  monthlyLabel: { fontFamily: FontFamily.bodyExtraBold, fontSize: 10.5, letterSpacing: 1.6, lineHeight: 14 },
+  monthlyTitle: { fontFamily: FontFamily.displaySemi, fontSize: 18, lineHeight: 24, marginTop: 6 },
+  monthlyScripture: { fontFamily: FontFamily.italic, fontSize: 13, lineHeight: 21, marginTop: Spacing[2] },
   monthlyRef: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 15.4, marginTop: Spacing[1] },
   // Program cards
   programCard: { width: 200, height: 160, borderRadius: Radius.lg, overflow: 'hidden' },

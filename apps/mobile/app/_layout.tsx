@@ -79,13 +79,18 @@ function RootLayoutInner() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    'Merriweather-Bold': require('../assets/fonts/Merriweather-Bold.ttf'),
-    'Inter-Regular': require('../assets/fonts/Inter-Regular.ttf'),
-    'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
-    'Inter-SemiBold': require('../assets/fonts/Inter-SemiBold.ttf'),
-    'Inter-Bold': require('../assets/fonts/Inter-Bold.ttf'),
-    'JetBrainsMono-Regular': require('../assets/fonts/JetBrainsMono-Regular.ttf'),
-    'JetBrainsMono-Bold': require('../assets/fonts/JetBrainsMono-Bold.ttf'),
+    // Kingdom Radiant — Bricolage Grotesque (display), Plus Jakarta Sans
+    // (UI/body), Spline Sans Mono (amounts). All Google Fonts, OFL.
+    'BricolageGrotesque-Bold': require('../assets/fonts/BricolageGrotesque-Bold.ttf'),
+    'BricolageGrotesque-ExtraBold': require('../assets/fonts/BricolageGrotesque-ExtraBold.ttf'),
+    'PlusJakartaSans-Regular': require('../assets/fonts/PlusJakartaSans-Regular.ttf'),
+    'PlusJakartaSans-Medium': require('../assets/fonts/PlusJakartaSans-Medium.ttf'),
+    'PlusJakartaSans-SemiBold': require('../assets/fonts/PlusJakartaSans-SemiBold.ttf'),
+    'PlusJakartaSans-Bold': require('../assets/fonts/PlusJakartaSans-Bold.ttf'),
+    'PlusJakartaSans-ExtraBold': require('../assets/fonts/PlusJakartaSans-ExtraBold.ttf'),
+    'PlusJakartaSans-Italic': require('../assets/fonts/PlusJakartaSans-Italic.ttf'),
+    'SplineSansMono-Medium': require('../assets/fonts/SplineSansMono-Medium.ttf'),
+    'SplineSansMono-SemiBold': require('../assets/fonts/SplineSansMono-SemiBold.ttf'),
   });
 
   useEffect(() => {
