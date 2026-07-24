@@ -55,11 +55,11 @@ The three sacred KLT colours — **Gold, Red, Blue** (from the Kingdom Life Tabe
 --color-on-primary:         #3A2604   /* SIGNATURE: dark cocoa text ON gold — never white on gold */
 /* Gold gradient (primary CTAs, active states, avatars): 135deg  #F7C64B → #D98E0B */
 
-/* --- Secondary: Red (the blood, passion, urgency) --- */
---color-secondary:          #D64541   /* red.500 — LIVE, priority, unread counts, destructive */
---color-secondary-dark:     #A32623   /* red.700 — pressed / dark accents */
---color-secondary-light:    #FBE7E6   /* solid light red — destructive/error tint surfaces */
---color-red-tint:           rgba(214,69,65,0.12)   /* priority card wash, red badges */
+/* --- Secondary: Red (the blood, passion, urgency) — the KLT logo red --- */
+--color-secondary:          #C10810   /* red.500 — LIVE, priority, unread counts, destructive */
+--color-secondary-dark:     #8F060C   /* red.700 — pressed / dark accents */
+--color-secondary-light:    #FAE3E2   /* solid light red — destructive/error tint surfaces */
+--color-red-tint:           rgba(193,8,16,0.12)   /* priority card wash, red badges */
 --color-on-secondary:       #FFFFFF
 
 /* --- Tertiary: Blue (heaven, the Spirit, community, teaching) --- */
@@ -92,10 +92,10 @@ The three sacred KLT colours — **Gold, Red, Blue** (from the Kingdom Life Tabe
 --color-success-light:      #E3F1EA
 --color-warning:            #D98E0B   /* = gold.700 */
 --color-warning-light:      #FCEFD1
---color-error:              #D64541   /* = red.500 */
---color-error-light:        #FBE7E6
---color-live:               #D64541
---color-unread:             #D64541   /* unread counts are red */
+--color-error:              #C10810   /* = red.500 */
+--color-error-light:        #FAE3E2
+--color-live:               #C10810
+--color-unread:             #C10810   /* unread counts are red */
 ```
 
 #### The "No-Line" Rule

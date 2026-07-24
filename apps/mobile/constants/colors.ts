@@ -27,11 +27,11 @@ export const LightColors = {
   goldGlowShadow: 'rgba(217, 142, 11, 0.45)', // primary CTA glow
   onPrimary: '#3A2604', // SIGNATURE: dark cocoa text ON gold — never white on gold
 
-  // ─── Secondary: Red (the blood, passion, urgency) ─────────────────
-  secondary: '#D64541', // red.500 — LIVE, priority, unread, destructive
-  secondaryDark: '#A32623', // red.700 — pressed / dark accents
-  secondaryLight: '#FBE7E6', // solid light red — destructive/error tint surfaces
-  redTint: 'rgba(214, 69, 65, 0.12)', // priority card wash, red badges
+  // ─── Secondary: Red (the blood, passion, urgency) — the KLT logo red ──
+  secondary: '#C10810', // red.500 — LIVE, priority, unread, destructive
+  secondaryDark: '#8F060C', // red.700 — pressed / dark accents
+  secondaryLight: '#FAE3E2', // solid light red — destructive/error tint surfaces
+  redTint: 'rgba(193, 8, 16, 0.12)', // priority card wash, red badges
   onSecondary: '#FFFFFF',
 
   // ─── Tertiary: Blue (heaven, the Spirit, community, teaching) ──────
@@ -63,10 +63,10 @@ export const LightColors = {
   successLight: '#E3F1EA',
   warning: '#D98E0B',
   warningLight: '#FCEFD1',
-  error: '#D64541',
-  errorLight: '#FBE7E6',
-  live: '#D64541',
-  unread: '#D64541',
+  error: '#C10810',
+  errorLight: '#FAE3E2',
+  live: '#C10810',
+  unread: '#C10810',
 
   // ─── System ───────────────────────────────────────────────────────
   glassBackground: 'rgba(253, 248, 240, 0.94)', // warm translucent chrome

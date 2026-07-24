@@ -39,9 +39,9 @@ export default function WelcomeScreen() {
         <Animated.View entering={FadeInDown.duration(600).delay(80)} style={styles.top}>
           <View style={styles.logoWrap}>
             <Image
-              source={require('@/assets/images/faviconV2.png')}
+              source={require('@/assets/images/logo-circle.png')}
               style={styles.logo}
-              contentFit="cover"
+              contentFit="contain"
             />
           </View>
           <Text style={styles.eyebrow}>KLT CYBER CHURCH</Text>

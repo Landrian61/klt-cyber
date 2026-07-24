@@ -28,9 +28,9 @@ export function TopBar({ title, unreadCount = 0, userInitials = 'U' }: TopBarPro
         {/* Left — logo + page title */}
         <View style={styles.leftGroup}>
           <Image
-            source={require('@/assets/images/faviconV2.png')}
+            source={require('@/assets/images/logo-circle.png')}
             style={styles.logoImage}
-            contentFit="cover"
+            contentFit="contain"
           />
           {title && <Text style={[styles.pageTitle, { color: Colors.onSurface }]}>{title}</Text>}
         </View>

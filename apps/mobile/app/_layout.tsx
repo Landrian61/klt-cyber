@@ -36,9 +36,9 @@ function RootLayoutInner() {
     return (
       <View style={[styles.loading, { backgroundColor: colors.surface }]}>
         <Image
-          source={require('@/assets/images/faviconV2.png')}
+          source={require('@/assets/images/logo-circle.png')}
           style={styles.loadingLogo}
-          contentFit="cover"
+          contentFit="contain"
         />
         <ActivityIndicator size="small" color={colors.primary} />
         <StatusBar style={isDark ? 'light' : 'dark'} />
