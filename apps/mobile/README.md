@@ -60,24 +60,24 @@ contexts/               React Context providers (Theme, Giving flow)
 constants/              Design tokens (colours, typography, spacing, shadows)
 hooks/                  Custom hooks (useThemeColors, useColorScheme)
 lib/                    Convex client & Better Auth wiring
-assets/                 Fonts (Merriweather, Inter, JetBrains Mono) & images
+assets/                 Fonts (Bricolage Grotesque, Plus Jakarta Sans, Spline Sans Mono) & images
 app.json                Expo app config
 eas.json                EAS Build profiles
 metro.config.js         Monorepo-aware Metro config
 ```
 
-## Design System — "Sacred Curator"
+## Design System — "Kingdom Radiant"
 
-A bespoke design language inspired by cathedral interiors and premium editorial aesthetics. [`docs/INTERFACE_SPEC.md`](../../docs/INTERFACE_SPEC.md) is authoritative — all UI must derive from it.
+Dawn breaking over a worship night: deep heaven-blue depth, blazing gold glory, red heartbeat, on a warm cream base — Pentecostal warmth, not cathedral solemnity. [`docs/INTERFACE_SPEC.md`](../../docs/INTERFACE_SPEC.md) is authoritative — all UI must derive from it.
 
-**Palette (light / dark):** Gold `#785600`/`#C49A2C` (primary) · Crimson `#AB3332`/`#E05A59` (secondary) · Royal Blue `#145DA3`/`#4A8FD4` (tertiary) · Parchment `#FCF9F2`/`#141413` (surface).
+**Palette:** Gold `#D98E0B` (primary / on-cream) + `#E9A820` brand · Red `#C10810` (secondary — the KLT logo red: LIVE, priority, active nav) · Blue `#12306E`/`#2C63D9` (tertiary — heroes, community) · Cream `#FDF8F0` (surface).
 
-**Typography:** Merriweather (display) · Inter (body/UI) · JetBrains Mono (amounts, timers, references).
+**Typography:** Bricolage Grotesque (display) · Plus Jakarta Sans (body/UI) · Spline Sans Mono (amounts, timers, references).
 
 **Core rules:**
-- **Warm Parchment** — `#FCF9F2` base, never cold white.
-- **No-Line Rule** — no 1px borders; depth via tonal background shifts.
-- **Glass & Gold** — floating elements blur + translucent parchment; primary CTAs use gold gradients.
+- **Warm Cream** — `#FDF8F0` base, never cold white.
+- **No-Line Rule** — no hard borders; depth via warm blue-glow shadow and tonal shifts.
+- **Radiance** — heaven-gradient heroes; primary CTAs use a gold gradient with dark-cocoa text and a gold glow; buttons/pills are fully rounded.
 - **8-Point Grid** — spacing in multiples of 4px.
 - **Haptics & Spring Physics** — every interaction gives tactile feedback; animations use spring dynamics.
 

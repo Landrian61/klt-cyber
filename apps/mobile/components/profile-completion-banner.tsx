@@ -70,23 +70,30 @@ export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBanner
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
           />
-          {/* Scrim keeps white text legible over any photo. */}
+          {/* Heaven-blue scrim keeps white text legible; gold glow for warmth. */}
           <LinearGradient
-            colors={['rgba(120,86,0,0.72)', 'rgba(28,28,24,0.82)']}
+            colors={['rgba(12,33,84,0.62)', 'rgba(12,33,84,0.9)']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            end={{ x: 0.6, y: 1 }}
             style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(247,198,75,0.4)']}
+            start={{ x: 0.4, y: 0.4 }}
+            end={{ x: 1.15, y: 1.1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
           />
           <View style={styles.heroContent}>
             <View style={styles.heroHead}>
               <View style={styles.heroIcon}>
-                <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                <Ionicons name="sparkles" size={20} color="#F7C64B" />
               </View>
               <Text style={styles.heroLabel}>KLT CHURCH FAMILY</Text>
             </View>
-            <Text style={styles.heroTitle}>Become part of the family</Text>
+            <Text style={styles.heroTitle}>There&apos;s room for you in the family</Text>
             <Text style={styles.heroBody}>
-              Complete your member profile to connect, grow and serve with the church.
+              Complete your member profile and belong — grow, connect, and serve with the church.
             </Text>
             <Pressable
               onPress={go}
@@ -94,7 +101,7 @@ export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBanner
               accessibilityRole="button"
               accessibilityLabel="Complete your profile"
             >
-              <Text style={[styles.ctaLabel, { color: Colors.primary }]}>Complete your profile</Text>
+              <Text style={[styles.ctaLabel, { color: Colors.primary }]}>Become a member</Text>
               <Ionicons name="arrow-forward" size={18} color={Colors.primary} />
             </Pressable>
           </View>
@@ -157,7 +164,7 @@ const styles = StyleSheet.create({
   },
   cta: {
     height: 48,
-    borderRadius: Radius.md,
+    borderRadius: Radius.full,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -262,9 +262,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   memberInitials: {
-    fontFamily: FontFamily.bodyBold,
+    fontFamily: FontFamily.bodyExtraBold,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: '#3A2604',
   },
   memberInfo: {
     flex: 1,

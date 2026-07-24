@@ -1,12 +1,13 @@
-import { ScrollView, View, Text, Pressable, ImageBackground, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeInUp, useSharedValue, useAnimatedStyle, withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration, HeavenGradient, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -86,26 +87,33 @@ function UpdatesScreen() {
 
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Hero Banner */}
+      {/* Hero Banner — heaven gradient */}
       <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.heroSection}>
-        <ImageBackground
-          source={require('@/assets/images/updates.jpg')}
-          resizeMode="cover"
-          style={styles.heroImage}
-          imageStyle={{ borderRadius: Radius.xl }}
-        >
-          <View style={styles.heroScrim}>
+        <View style={[styles.heroContainer, ShadowE2]}>
+          <LinearGradient
+            colors={[...HeavenGradient.colors]}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1.2 }}
+            style={styles.heroGrad}
+          >
+            <LinearGradient
+              colors={['transparent', 'rgba(247,198,75,0.4)']}
+              start={{ x: 0.4, y: 0.3 }}
+              end={{ x: 1.15, y: 1.1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
             <Text style={styles.heroLabel}>WEEKLY</Text>
             <Text style={styles.heroTitle}>KLT Announcements</Text>
-            <Text style={styles.heroDate}>Week of 29 March 2026</Text>
-          </View>
-        </ImageBackground>
+            <Text style={styles.heroDate}>Week of 29 March 2026 · Shalom, Saints!</Text>
+          </LinearGradient>
+        </View>
       </Animated.View>
 
       {/* Pinned Announcements */}
       {pinned.length > 0 && (
         <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: Colors.outline }]}>PINNED</Text>
+          <Text style={[styles.sectionLabel, { color: Colors.onSurface }]}>Pinned</Text>
           {pinned.map((item) => (
             <Pressable
               key={item.id}
@@ -131,7 +139,7 @@ function UpdatesScreen() {
 
       {/* All Announcements */}
       <Animated.View entering={FadeInUp.duration(400).delay(320)} style={[styles.section, { marginTop: Spacing[6] }]}>
-        <Text style={[styles.sectionLabel, { color: Colors.outline }]}>ALL ANNOUNCEMENTS</Text>
+        <Text style={[styles.sectionLabel, { color: Colors.onSurface }]}>All announcements</Text>
       </Animated.View>
       {regular.map((item, index) => (
         <View key={item.id} style={styles.announcementPad}>
@@ -166,48 +174,45 @@ const styles = StyleSheet.create({
     marginTop: Spacing[5],
   },
   sectionLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    letterSpacing: 0.6,
+    fontFamily: FontFamily.displaySemi,
+    fontSize: 18,
+    lineHeight: 24,
     marginBottom: Spacing[3],
   },
-  // Hero banner
+  // Hero banner — heaven gradient
   heroSection: {
     paddingHorizontal: Spacing[5],
     marginTop: Spacing[3],
   },
-  heroImage: {
-    width: '100%',
-    minHeight: 170,
-    justifyContent: 'flex-end',
-  },
-  heroScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(28, 28, 24, 0.50)',
+  heroContainer: {
     borderRadius: Radius.xl,
+    overflow: 'hidden',
+  },
+  heroGrad: {
+    width: '100%',
+    minHeight: 150,
     padding: Spacing[5],
     justifyContent: 'flex-end',
   },
   heroLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.60)',
-    letterSpacing: 0.8,
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 10.5,
+    lineHeight: 15,
+    color: '#F7C64B',
+    letterSpacing: 1.6,
   },
   heroTitle: {
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 30,
     color: '#FFFFFF',
-    marginTop: 4,
+    marginTop: 6,
   },
   heroDate: {
     fontFamily: FontFamily.body,
-    fontSize: 12,
+    fontSize: 12.5,
     lineHeight: 18,
-    color: 'rgba(255,255,255,0.60)',
+    color: 'rgba(255,255,255,0.8)',
     marginTop: Spacing[1],
   },
   // Pinned

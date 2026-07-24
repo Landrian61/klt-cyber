@@ -22,11 +22,11 @@ import {
 // card that has no cover image (keeps the parchment page from showing a bare
 // dark scrim). Picked deterministically per card index so a list reads varied.
 const COVER_GRADIENTS: [string, string][] = [
-  ['#785600', '#B8860B'],
-  ['#AB3332', '#785600'],
-  ['#145DA3', '#2E7EC7'],
-  ['#785600', '#145DA3'],
-  ['#AB3332', '#D4605F'],
+  ['#12306E', '#2C63D9'], // heaven blue
+  ['#C10810', '#8A5A05'], // red → gold
+  ['#8A5A05', '#D98E0B'], // gold
+  ['#0C2154', '#12306E'], // deep blue
+  ['#C10810', '#7A0509'], // deep red
 ];
 
 function gradientFor(index: number): [string, string] {

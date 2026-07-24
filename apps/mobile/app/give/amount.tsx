@@ -115,7 +115,7 @@ export default function AmountScreen() {
         <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.amountSection}>
           <Pressable onPress={() => inputRef.current?.focus()} style={styles.amountTouchable}>
             <Text style={[styles.amountCurrency, { color: Colors.outline }]}>UGX</Text>
-            <Text style={[styles.amountValue, { color: Colors.onSurface }]}>
+            <Text style={[styles.amountValue, { color: amount === 0 ? Colors.faint : Colors.primaryDeep }]}>
               {formatAmount(amount)}
             </Text>
           </Pressable>

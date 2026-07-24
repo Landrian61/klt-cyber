@@ -44,10 +44,10 @@ export function MemberGate({ children, featureLabel }: MemberGateProps) {
         <View style={[styles.iconCircle, { backgroundColor: Colors.primaryLight }]}>
           <Ionicons name="hourglass-outline" size={34} color={Colors.primary} />
         </View>
-        <Text style={[styles.title, { color: Colors.onSurface }]}>Almost there</Text>
+        <Text style={[styles.title, { color: Colors.onSurface }]}>Almost home</Text>
         <Text style={[styles.body, { color: Colors.onSurfaceVariant }]}>
-          Your profile is with a church admin for verification. You&apos;ll unlock{' '}
-          {featureLabel ?? 'this space'} once it&apos;s approved.
+          Your profile is with the elders for verification. You&apos;ll unlock{' '}
+          {featureLabel ?? 'this space'} the moment it&apos;s approved — stay blessed.
         </Text>
         <View style={styles.cta}>
           <Button
@@ -66,10 +66,10 @@ export function MemberGate({ children, featureLabel }: MemberGateProps) {
       <View style={[styles.iconCircle, { backgroundColor: Colors.primaryLight }]}>
         <Ionicons name="sparkles-outline" size={34} color={Colors.primary} />
       </View>
-      <Text style={[styles.title, { color: Colors.onSurface }]}>Join the KLT family</Text>
+      <Text style={[styles.title, { color: Colors.onSurface }]}>There&apos;s room for you</Text>
       <Text style={[styles.body, { color: Colors.onSurfaceVariant }]}>
-        Complete your member profile to unlock {featureLabel ?? 'this space'} and grow,
-        connect, and serve with the church.
+        This part of the house is for the family — and there&apos;s room for you. Complete your
+        member profile to unlock {featureLabel ?? 'this space'} and come in.
       </Text>
       <View style={styles.cta}>
         <Button
