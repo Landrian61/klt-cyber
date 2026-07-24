@@ -70,7 +70,7 @@ metro.config.js         Monorepo-aware Metro config
 
 Dawn breaking over a worship night: deep heaven-blue depth, blazing gold glory, red heartbeat, on a warm cream base — Pentecostal warmth, not cathedral solemnity. [`docs/INTERFACE_SPEC.md`](../../docs/INTERFACE_SPEC.md) is authoritative — all UI must derive from it.
 
-**Palette:** Gold `#D98E0B` (primary / on-cream) + `#E9A820` brand · Red `#C10810` (secondary — the KLT logo red: LIVE, priority, active nav) · Blue `#12306E`/`#2C63D9` (tertiary — heroes, community) · Cream `#FDF8F0` (surface).
+**Palette:** Gold `#C47F08` (primary / on-cream) + `#DD9814` brand · Red `#C10810` (secondary — the KLT logo red: LIVE, priority, active nav) · Blue `#12306E`/`#2C63D9` (tertiary — heroes, community) · Cream `#FDF8F0` (surface).
 
 **Typography:** Bricolage Grotesque (display) · Plus Jakarta Sans (body/UI) · Spline Sans Mono (amounts, timers, references).
 

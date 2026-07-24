@@ -51,9 +51,9 @@ export function Input({
     borderColor: error
       ? Colors.error
       : focusProgress.value > 0.5
-        ? Colors.primaryBrand
+        ? Colors.primary
         : 'transparent',
-    borderWidth: 2,
+    borderWidth: 1.5,
   }));
 
   return (
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     borderRadius: Radius.md,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: 'transparent',
     overflow: 'hidden',
   },

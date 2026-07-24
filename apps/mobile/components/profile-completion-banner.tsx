@@ -87,7 +87,7 @@ export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBanner
           <View style={styles.heroContent}>
             <View style={styles.heroHead}>
               <View style={styles.heroIcon}>
-                <Ionicons name="sparkles" size={20} color="#F7C64B" />
+                <Ionicons name="sparkles" size={20} color="#EDB63C" />
               </View>
               <Text style={styles.heroLabel}>KLT CHURCH FAMILY</Text>
             </View>

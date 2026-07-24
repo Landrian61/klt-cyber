@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
@@ -23,6 +24,7 @@ export default function WelcomeScreen() {
       end={{ x: 0.8, y: 1 }}
       style={styles.fill}
     >
+      <StatusBar style="light" />
       {/* Gold dawn-glow rising from below */}
       <LinearGradient
         colors={['transparent', 'rgba(233,168,32,0.28)', 'rgba(247,198,75,0.6)']}
@@ -113,7 +115,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyBold,
     fontSize: 11.5,
     letterSpacing: 3,
-    color: '#F7C64B',
+    color: '#EDB63C',
     marginBottom: Spacing[3],
   },
   title: {
@@ -172,6 +174,6 @@ const styles = StyleSheet.create({
   },
   guestLink: {
     fontFamily: FontFamily.bodyBold,
-    color: '#F7C64B',
+    color: '#EDB63C',
   },
 });

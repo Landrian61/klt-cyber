@@ -95,7 +95,7 @@ export const ShadowE2 = {
 
 /** Gold glow — PRIMARY CTA ONLY. */
 export const GoldGlow = {
-  shadowColor: '#D98E0B',
+  shadowColor: '#C47F08',
   shadowOffset: { width: 0, height: 10 },
   shadowOpacity: 0.45,
   shadowRadius: 30,
@@ -126,13 +126,13 @@ export const Glass = {
 
 /** Gold-leaf gradient — primary CTAs, active states, avatars. 135deg. */
 export const GoldGradient = {
-  colors: ['#F7C64B', '#D98E0B'] as const,
+  colors: ['#EDB63C', '#C47F08'] as const,
   start: { x: 0, y: 0 },
   end: { x: 1, y: 1 },
 } as const;
 
 export const GoldGradientHorizontal = {
-  colors: ['#F7C64B', '#D98E0B'] as const,
+  colors: ['#EDB63C', '#C47F08'] as const,
   start: { x: 0, y: 0.5 },
   end: { x: 1, y: 0.5 },
 } as const;
@@ -146,7 +146,7 @@ export const HeavenGradient = {
 
 /** Warm gold-on-gold gradient — the giving summary hero. */
 export const GivingGradient = {
-  colors: ['#8A5A05', '#D98E0B'] as const,
+  colors: ['#7A4E04', '#C47F08'] as const,
   start: { x: 0, y: 0 },
   end: { x: 0.9, y: 1 },
 } as const;

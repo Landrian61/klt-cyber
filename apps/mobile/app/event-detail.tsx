@@ -3,6 +3,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
@@ -31,6 +32,7 @@ export default function EventDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface }]}>
+      <StatusBar style="light" />
       {/* Hero Image */}
       <ImageBackground
         source={event.image}

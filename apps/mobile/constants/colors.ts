@@ -17,14 +17,14 @@ export type ColorPalette = {
 
 export const LightColors = {
   // ─── Primary: Gold (Kingdom & glory) ──────────────────────────────
-  primary: '#D98E0B', // gold.700 — on-cream gold: links, active tab, labels, icons
-  primaryBrand: '#E9A820', // gold.500 — brand highlight, active fills, celebration
-  primaryDeep: '#8A5A05', // gold.900 — strong gold text: amounts & timers on cream
-  primaryContainer: '#D98E0B', // gradient base
+  primary: '#C47F08', // gold.700 — deep on-cream gold: links, active tab, labels, icons
+  primaryBrand: '#DD9814', // gold.500 — brand highlight, active fills, celebration
+  primaryDeep: '#7A4E04', // gold.900 — strong gold text: amounts & timers on cream
+  primaryContainer: '#C47F08', // gradient base
   primaryFixedDim: '#FBECC9', // selected card fill (solid light gold)
   primaryLight: '#FCEFD1', // light gold tint — badge/icon containers, hero-gradient start
-  goldTint: 'rgba(233, 168, 32, 0.16)', // translucent badge/selected wash
-  goldGlowShadow: 'rgba(217, 142, 11, 0.45)', // primary CTA glow
+  goldTint: 'rgba(221, 152, 20, 0.16)', // translucent badge/selected wash
+  goldGlowShadow: 'rgba(196, 127, 8, 0.45)', // primary CTA glow
   onPrimary: '#3A2604', // SIGNATURE: dark cocoa text ON gold — never white on gold
 
   // ─── Secondary: Red (the blood, passion, urgency) — the KLT logo red ──
@@ -61,7 +61,7 @@ export const LightColors = {
   // ─── Semantic (even errors speak warmly) ──────────────────────────
   success: '#2E8B57',
   successLight: '#E3F1EA',
-  warning: '#D98E0B',
+  warning: '#C47F08',
   warningLight: '#FCEFD1',
   error: '#C10810',
   errorLight: '#FAE3E2',

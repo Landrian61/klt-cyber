@@ -45,15 +45,15 @@ The three sacred KLT colours — **Gold, Red, Blue** (from the Kingdom Life Tabe
 
 ```
 /* --- Primary: Gold (Kingdom & glory) --- */
---color-primary:            #D98E0B   /* gold.700 — on-cream gold: links, active tab, labels, icons */
---color-primary-brand:      #E9A820   /* gold.500 — brand highlight, active fills, celebration */
---color-primary-deep:       #8A5A05   /* gold.900 — strong gold text: amounts & timers on cream */
---color-primary-container:  #D98E0B   /* gradient base (see gold gradient) */
+--color-primary:            #C47F08   /* gold.700 — deep on-cream gold: links, active tab, labels, icons */
+--color-primary-brand:      #DD9814   /* gold.500 — brand highlight, active fills, celebration */
+--color-primary-deep:       #7A4E04   /* gold.900 — strong gold text: amounts & timers on cream */
+--color-primary-container:  #C47F08   /* gradient base (see gold gradient) */
 --color-primary-fixed-dim:  #FBECC9   /* selected card fill (solid light gold) */
 --color-primary-light:      #FCEFD1   /* light gold tint — badge/icon containers, hero-gradient start */
---color-gold-tint:          rgba(233,168,32,0.16)  /* translucent badge/selected wash */
+--color-gold-tint:          rgba(221,152,20,0.16)  /* translucent badge/selected wash */
 --color-on-primary:         #3A2604   /* SIGNATURE: dark cocoa text ON gold — never white on gold */
-/* Gold gradient (primary CTAs, active states, avatars): 135deg  #F7C64B → #D98E0B */
+/* Gold gradient (primary CTAs, active states, avatars): 135deg  #EDB63C → #C47F08 */
 
 /* --- Secondary: Red (the blood, passion, urgency) — the KLT logo red --- */
 --color-secondary:          #C10810   /* red.500 — LIVE, priority, unread counts, destructive */
@@ -90,7 +90,7 @@ The three sacred KLT colours — **Gold, Red, Blue** (from the Kingdom Life Tabe
 /* --- Semantic (even errors speak warmly) --- */
 --color-success:            #2E8B57   /* confirmed, saved, approved */
 --color-success-light:      #E3F1EA
---color-warning:            #D98E0B   /* = gold.700 */
+--color-warning:            #C47F08   /* = gold.700 */
 --color-warning-light:      #FCEFD1
 --color-error:              #C10810   /* = red.500 */
 --color-error-light:        #FAE3E2
@@ -110,7 +110,7 @@ Boundaries are defined exclusively by:
 Boundaries are defined by tonal shifts, whitespace, and **soft warm glow** (Section 1.6) — never by outlines.
 
 The only permitted "lines" in the entire app are soft accents, not hard rules:
-- The **gold focus ring** on an active input — an inset `2px #E9A820` glow on a white fill, not a hard border.
+- The **gold focus ring** on an active input — a crisp `1.5px #C47F08` hairline on a white fill, not a heavy border.
 - The **red-tint left wash** on priority announcement cards (`--color-red-tint`, a gradient fade, not a solid stripe).
 
 #### The "Radiance" Rule (replaces Glass & Gold)
@@ -125,8 +125,8 @@ Floating chrome — the top bar and bottom navigation — sits on a **warm trans
 - Scripture and hero titles sit in white over this depth.
 
 **Primary CTAs** use the **gold-leaf gradient** with dark cocoa text and a **gold glow** shadow:
-- `background: linear-gradient(135deg, #F7C64B, #D98E0B)`
-- Text `--color-on-primary` (#3A2604). Shadow `0 10px 30px rgba(217,142,11,.45)`.
+- `background: linear-gradient(135deg, #EDB63C, #C47F08)`
+- Text `--color-on-primary` (#3A2604). Shadow `0 10px 30px rgba(196,127,8,.45)`.
 - Radius: pill (`--radius-full`). This is the single most recognisable element in the app.
 
 ---
@@ -254,14 +254,14 @@ Joyful and gentle — motion is joy, not noise. Nothing loops loudly. Everything
 #### Buttons
 
 **Primary (Gold-Leaf CTA)**
-- Background: `linear-gradient(135deg, #F7C64B, #D98E0B)`
+- Background: `linear-gradient(135deg, #EDB63C, #C47F08)`
 - Text: `--color-on-primary` (#3A2604), `--font-body` weight 800, `--text-md`.
 - Height: 54–56px. Border radius: `--radius-full` (pill). Full width by default.
 - Shadow: `--gold-glow`. Pressed: scale 0.97 + darken ~6%.
 - Loading: label → 3-dot pulse, width locked. Disabled: same gradient at 40% opacity.
 
 **Secondary (Gold Tint)**
-- Background: `--color-gold-tint`. Text: `--color-primary-deep` (#8A5A05), weight 700.
+- Background: `--color-gold-tint`. Text: `--color-primary-deep` (#7A4E04), weight 700.
 - Height: 46–52px. Border radius: `--radius-full`. No border.
 
 **Ghost**

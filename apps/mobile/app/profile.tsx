@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
@@ -148,6 +149,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface }]}>
+      <StatusBar style="light" />
       <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing[10] }}>
         {/* Heaven-blue header */}
         <LinearGradient
@@ -223,7 +225,7 @@ export default function ProfileScreen() {
               <Text
                 style={[
                   styles.rolePillText,
-                  { color: rolePill.tone === 'gold' ? '#F7C64B' : '#FFFFFF' },
+                  { color: rolePill.tone === 'gold' ? '#EDB63C' : '#FFFFFF' },
                 ]}
               >
                 {rolePill.label}

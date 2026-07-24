@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyExtraBold,
     fontSize: 10.5,
     lineHeight: 15,
-    color: '#F7C64B',
+    color: '#EDB63C',
     letterSpacing: 1.6,
   },
   heroTitle: {
