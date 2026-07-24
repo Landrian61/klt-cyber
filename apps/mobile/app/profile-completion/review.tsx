@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation } from 'convex/react';
@@ -189,15 +189,27 @@ function EditPill({ onPress }: { onPress: () => void }) {
   );
 }
 
-function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+function Row({ label, value, muted, topDivider }: { label: string; value: string; muted?: boolean; topDivider?: boolean }) {
   const Colors = useThemeColors();
   return (
-    <View style={styles.row}>
-      <Text style={[styles.rowLabel, { color: Colors.outline }]}>{label.toUpperCase()}</Text>
-      <Text style={[styles.rowValue, { color: muted ? Colors.outline : Colors.onSurface }]}>
+    <View style={[styles.row, topDivider && { borderTopWidth: 1, borderTopColor: Colors.outlineVariant }]}>
+      <Text style={[styles.rowLabel, { color: Colors.outline }]}>{label}</Text>
+      <Text style={[styles.rowValue, { color: muted ? Colors.faint : Colors.onSurface }]} numberOfLines={2}>
         {value}
       </Text>
     </View>
+  );
+}
+
+/** Injects between-row dividers, skipping nulls so conditional rows stay clean. */
+function RowGroup({ children }: { children: ReactNode }) {
+  const items = Children.toArray(children).filter(Boolean);
+  return (
+    <>
+      {items.map((child, i) =>
+        isValidElement<{ topDivider?: boolean }>(child) ? cloneElement(child, { topDivider: i > 0 }) : child,
+      )}
+    </>
   );
 }
 
@@ -222,10 +234,10 @@ function Section({
     >
       <Card variant="editorial">
         <View style={styles.sectionHead}>
-          <Text style={[styles.sectionLabel, { color: Colors.outline }]}>{title}</Text>
+          <Text style={[styles.sectionLabel, { color: Colors.primary }]}>{title}</Text>
           <EditPill onPress={() => router.push({ pathname: editPath, params: { returnTo: '1' } })} />
         </View>
-        {children}
+        <RowGroup>{children}</RowGroup>
       </Card>
     </Animated.View>
   );
@@ -446,10 +458,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing[3],
   },
   sectionLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    letterSpacing: 0.5,
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 1.4,
   },
   editPill: {
     flexDirection: 'row',
@@ -464,18 +476,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  row: { marginBottom: Spacing[3] },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    gap: Spacing[4],
+  },
   rowLabel: {
     fontFamily: FontFamily.body,
-    fontSize: 11,
-    lineHeight: 15.4,
-    letterSpacing: 0.5,
+    fontSize: 15,
+    lineHeight: 20,
   },
   rowValue: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 14,
-    lineHeight: 22.4,
-    marginTop: 2,
+    flex: 1,
+    fontFamily: FontFamily.bodyBold,
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'right',
   },
   error: {
     fontFamily: FontFamily.body,

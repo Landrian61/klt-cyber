@@ -1,21 +1,21 @@
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import {
-  ScrollView, View, Text, StyleSheet, ActivityIndicator,
+  View, Text, StyleSheet, ActivityIndicator, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
+import * as Haptics from 'expo-haptics';
 import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
 
 import {
-  FontFamily, Spacing, GoldGradient, AmbientShadow,
+  FontFamily, Spacing, Radius, GoldGradient, HeavenGradient, ShadowE1, ShadowE2,
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
-import { Badge, type BadgeVariant } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { authClient } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { useMyAccount } from '@/hooks/use-my-account';
@@ -54,31 +54,42 @@ function formatAddress(a?: {
   return [a.line1, a.city, a.district, a.country].filter(Boolean).join(', ');
 }
 
-function DetailRow({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+/** A label-left / value-right row; a hairline divider is drawn above all but the first. */
+function DetailRow({ label, value, muted, topDivider }: { label: string; value: string; muted?: boolean; topDivider?: boolean }) {
   const Colors = useThemeColors();
   return (
-    <View style={styles.detailRow}>
-      <Text style={[styles.detailLabel, { color: Colors.outline }]}>{label.toUpperCase()}</Text>
-      <Text style={[styles.detailValue, { color: muted ? Colors.outline : Colors.onSurface }]}>
+    <View style={[styles.detailRow, topDivider && { borderTopWidth: 1, borderTopColor: Colors.outlineVariant }]}>
+      <Text style={[styles.detailLabel, { color: Colors.outline }]}>{label}</Text>
+      <Text style={[styles.detailValue, { color: muted ? Colors.faint : Colors.onSurface }]} numberOfLines={2}>
         {value}
       </Text>
     </View>
   );
 }
 
-/** A titled detail card with a staggered, UI-thread entrance. */
-function DetailCard({ title, delay, children }: { title: string; delay: number; children: React.ReactNode }) {
+/** Injects between-row dividers, skipping nulls so conditional rows stay clean. */
+function RowGroup({ children }: { children: ReactNode }) {
+  const items = Children.toArray(children).filter(Boolean);
+  return (
+    <>
+      {items.map((child, i) =>
+        isValidElement<{ topDivider?: boolean }>(child) ? cloneElement(child, { topDivider: i > 0 }) : child,
+      )}
+    </>
+  );
+}
+
+/** A titled white card with a gold uppercase label and a staggered entrance. */
+function DetailCard({ title, delay, children }: { title: string; delay: number; children: ReactNode }) {
   const Colors = useThemeColors();
   const reduceMotion = useReducedMotion();
   return (
     <Animated.View
       entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(delay)}
-      style={styles.cardSection}
+      style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}
     >
-      <Card variant="editorial">
-        <Text style={[styles.cardLabel, { color: Colors.outline }]}>{title}</Text>
-        {children}
-      </Card>
+      <Text style={[styles.cardLabel, { color: Colors.primary }]}>{title}</Text>
+      <RowGroup>{children}</RowGroup>
     </Animated.View>
   );
 }
@@ -86,34 +97,38 @@ function DetailCard({ title, delay, children }: { title: string; delay: number; 
 export default function ProfileScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const { user, profile, isMember, isVisitor, isPending, isLoading } = useMyAccount();
-  // Richer profile (children + leadership) for the read-only preview. Resolves
-  // null for visitors with no profile; undefined while loading.
   const myProfile = useQuery(api.profile.getMyProfile);
   const clans = useQuery(api.clans.listClans);
   const departments = useQuery(api.departments.listActiveDepartments);
 
   const signOut = async () => {
-    // Clears the secure-store session; the root auth gate redirects to (auth).
     await authClient.signOut();
+  };
+
+  const onEditTap = () => {
+    // Member profile editing is not yet a dedicated screen; give tactile
+    // feedback so the affordance feels alive until that flow ships.
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.safe, styles.center, { backgroundColor: Colors.surface }]}>
+      <View style={[styles.center, { backgroundColor: Colors.surface }]}>
         <ActivityIndicator size="small" color={Colors.primary} />
-      </SafeAreaView>
+      </View>
     );
   }
 
   const displayName = getDisplayName(user) || 'Welcome';
   const initials = getInitials(user);
-  const roleBadge: { label: string; variant: BadgeVariant } = isMember
-    ? { label: 'Member', variant: 'member' }
+  const rolePill: { label: string; tone: 'gold' | 'light' } = isMember
+    ? { label: 'MEMBER', tone: 'gold' }
     : isPending
-      ? { label: 'Pending review', variant: 'pending' }
-      : { label: 'Visitor', variant: 'visitor' };
+      ? { label: 'PENDING REVIEW', tone: 'gold' }
+      : { label: 'VISITOR', tone: 'light' };
 
   const clanName = clans?.find((c) => c._id === profile?.clanId)?.name;
   const departmentName = departments?.find((d) => d._id === profile?.departmentId)?.name;
@@ -129,51 +144,99 @@ export default function ProfileScreen() {
       ? 'Linked church member'
       : 'Not provided';
   const hasFamily = isMarried || children.length > 0 || !!profile?.nextOfKin;
-
-  // The full read-only preview is shown to anyone who has submitted — pending or
-  // verified. (The gate flags remain role-based: pending users aren't members.)
   const showProfile = !!profile;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top']}>
-      <View style={styles.headerBar}>
-        <Button
-          variant="icon"
-          onPress={() => router.back()}
-          accessibilityLabel="Go back"
-          icon={<Ionicons name="arrow-back" size={24} color={Colors.onSurface} />}
-        />
-      </View>
+    <View style={[styles.container, { backgroundColor: Colors.surface }]}>
+      <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing[10] }}>
+        {/* Heaven-blue header */}
+        <LinearGradient
+          colors={[...HeavenGradient.colors]}
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={[styles.hero, { paddingTop: insets.top + Spacing[2] }]}
+        >
+          <LinearGradient
+            colors={['transparent', 'rgba(247,198,75,0.35)']}
+            start={{ x: 0.4, y: 0.5 }}
+            end={{ x: 1.15, y: 1.1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Hero */}
-        <LinearGradient colors={[Colors.primaryLight, Colors.surface]} style={styles.heroGradient}>
-          {user?.profilePictureUrl ? (
-            <Image source={{ uri: user.profilePictureUrl }} style={styles.avatarImage} contentFit="cover" />
-          ) : (
-            <LinearGradient
-              colors={[...GoldGradient.colors]}
-              start={GoldGradient.start}
-              end={GoldGradient.end}
-              style={[styles.avatar, AmbientShadow]}
+          <View style={styles.headerRow}>
+            <Pressable
+              onPress={() => router.back()}
+              style={styles.circleBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
             >
-              <Text style={styles.avatarText}>{initials}</Text>
-            </LinearGradient>
-          )}
-          <Text style={[styles.heroName, { color: Colors.onSurface }]}>{displayName}</Text>
-          {!!user?.email && (
-            <Text style={[styles.heroEmail, { color: Colors.onSurfaceVariant }]}>{user.email}</Text>
-          )}
-          <View style={styles.heroBadge}>
-            <Badge label={roleBadge.label} variant={roleBadge.variant} />
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+            </Pressable>
+            <Text style={styles.headerTitle}>My Profile</Text>
+            <View style={{ flex: 1 }} />
+            <Pressable
+              onPress={onEditTap}
+              style={styles.circleBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Edit profile"
+            >
+              <Ionicons name="pencil" size={18} color="#FFFFFF" />
+            </Pressable>
+          </View>
+
+          <View style={styles.heroCenter}>
+            <View style={styles.avatarWrap}>
+              {user?.profilePictureUrl ? (
+                <Image source={{ uri: user.profilePictureUrl }} style={styles.avatar} contentFit="cover" />
+              ) : (
+                <LinearGradient
+                  colors={[...GoldGradient.colors]}
+                  start={GoldGradient.start}
+                  end={GoldGradient.end}
+                  style={[styles.avatar, ShadowE2]}
+                >
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </LinearGradient>
+              )}
+              <Pressable
+                onPress={onEditTap}
+                style={[styles.cameraBadge, { backgroundColor: Colors.surfaceLowest }]}
+                accessibilityRole="button"
+                accessibilityLabel="Change photo"
+              >
+                <Ionicons name="camera" size={15} color={Colors.primary} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.heroName}>{displayName}</Text>
+            {!!user?.email && <Text style={styles.heroEmail}>{user.email}</Text>}
+
+            <View
+              style={[
+                styles.rolePill,
+                rolePill.tone === 'gold'
+                  ? { backgroundColor: 'rgba(247,198,75,0.22)' }
+                  : { backgroundColor: 'rgba(255,255,255,0.16)' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.rolePillText,
+                  { color: rolePill.tone === 'gold' ? '#F7C64B' : '#FFFFFF' },
+                ]}
+              >
+                {rolePill.label}
+              </Text>
+            </View>
           </View>
         </LinearGradient>
 
-        {/* Visitor: prompt to complete profile */}
-        {isVisitor && !isPending && (
-          <View style={styles.cardSection}>
-            <Card variant="editorial">
-              <Text style={[styles.cardLabel, { color: Colors.outline }]}>MEMBER PROFILE</Text>
+        <View style={styles.body}>
+          {/* Visitor: prompt to complete profile */}
+          {isVisitor && !isPending && (
+            <View style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}>
+              <Text style={[styles.cardLabel, { color: Colors.primary }]}>MEMBER PROFILE</Text>
               <Text style={[styles.bodyText, { color: Colors.onSurfaceVariant }]}>
                 You&apos;re not yet part of the KLT Church family. Complete your member profile —
                 it takes a few minutes and unlocks the full community.
@@ -186,179 +249,230 @@ export default function ProfileScreen() {
                   onPress={() => router.push('/profile-completion' as any)}
                 />
               </View>
-            </Card>
-          </View>
-        )}
+            </View>
+          )}
 
-        {/* Pending: a status note above the read-only preview below */}
-        {isPending && (
-          <View style={styles.cardSection}>
-            <View style={[styles.pendingBanner, { backgroundColor: Colors.primaryLight }]}>
-              <Ionicons name="hourglass-outline" size={20} color={Colors.primary} />
-              <Text style={[styles.pendingText, { color: Colors.onSurface }]}>
+          {/* Pending: a status note above the read-only preview */}
+          {isPending && (
+            <View style={[styles.pendingBanner, { backgroundColor: Colors.blueTint }]}>
+              <Ionicons name="hourglass-outline" size={20} color={Colors.tertiaryDeep} />
+              <Text style={[styles.pendingText, { color: Colors.tertiaryDeep }]}>
                 Your profile is under review. Here&apos;s everything you submitted — a church admin
                 will verify it, and you&apos;ll gain full member access once it&apos;s approved.
               </Text>
             </View>
+          )}
+
+          {/* Read-only preview — shown to pending and verified members alike */}
+          {showProfile && profile && (
+            <>
+              <DetailCard title="PERSONAL DETAILS" delay={40}>
+                <DetailRow label="Full name" value={displayName} />
+                <DetailRow label="Sex" value={SEX_LABEL[profile.sex] ?? profile.sex} />
+                <DetailRow label="Marital status" value={MARITAL_LABEL[profile.maritalStatus] ?? profile.maritalStatus} />
+                <DetailRow label="Date of birth" value={formatDob(profile.dateOfBirth)} muted={!profile.dateOfBirth} />
+                {profile.shortBio ? <DetailRow label="Bio" value={profile.shortBio} /> : null}
+              </DetailCard>
+
+              <DetailCard title="CONTACT" delay={80}>
+                <DetailRow label="Phone" value={profile.phone ?? 'Not set'} muted={!profile.phone} />
+                <DetailRow label="Email" value={user?.email ?? 'Not set'} muted={!user?.email} />
+                <DetailRow label="Address" value={formatAddress(profile.address)} muted={!profile.address} />
+              </DetailCard>
+
+              {hasFamily && (
+                <DetailCard title="FAMILY" delay={120}>
+                  {isMarried ? <DetailRow label="Spouse" value={spouseValue} muted={spouseValue === 'Not provided'} /> : null}
+                  {isMarried && profile.anniversaryDate ? (
+                    <DetailRow label="Anniversary" value={formatMsDate(profile.anniversaryDate)} />
+                  ) : null}
+                  {children.map((c) => (
+                    <DetailRow key={c._id} label={`Child — ${c.name}`} value={SEX_LABEL[c.sex] ?? c.sex} />
+                  ))}
+                  {profile.nextOfKin ? (
+                    <DetailRow
+                      label="Next of kin"
+                      value={`${profile.nextOfKin.fullName} · ${profile.nextOfKin.relationship}`}
+                    />
+                  ) : null}
+                </DetailCard>
+              )}
+
+              <DetailCard title="SERVICE & CLAN" delay={160}>
+                <DetailRow label="Clan" value={clanName ?? 'Not set'} muted={!clanName} />
+                <DetailRow label="Serving in" value={departmentName ?? 'Not set'} muted={!departmentName} />
+                <DetailRow label="Mentorship" value="Completed" />
+              </DetailCard>
+
+              {leadership.length > 0 && (
+                <DetailCard title="LEADERSHIP" delay={200}>
+                  {leadership.map((e) => (
+                    <DetailRow key={e._id} label={LEVEL_LABEL[e.level] ?? e.level} value={LEAD_STATUS_LABEL[e.status] ?? e.status} />
+                  ))}
+                </DetailCard>
+              )}
+
+              {hasProfession && (
+                <DetailCard title="PROFESSION" delay={240}>
+                  {profile.occupation ? <DetailRow label="Occupation" value={profile.occupation} /> : null}
+                  {profile.industry ? <DetailRow label="Industry" value={profile.industry} /> : null}
+                  {profile.employer ? <DetailRow label="Employer" value={profile.employer} /> : null}
+                  {profile.skills && profile.skills.length > 0 ? (
+                    <DetailRow label="Skills" value={profile.skills.join(', ')} />
+                  ) : null}
+                </DetailCard>
+              )}
+            </>
+          )}
+
+          {/* Actions */}
+          <View style={styles.actions}>
+            <Button label="Sign out" variant="destructive" fullWidth onPress={signOut} />
           </View>
-        )}
-
-        {/* Read-only preview — shown to pending and verified members alike */}
-        {showProfile && profile && (
-          <>
-            <DetailCard title="PERSONAL DETAILS" delay={40}>
-              <DetailRow label="Sex" value={SEX_LABEL[profile.sex] ?? profile.sex} />
-              <DetailRow
-                label="Marital status"
-                value={MARITAL_LABEL[profile.maritalStatus] ?? profile.maritalStatus}
-              />
-              <DetailRow label="Date of birth" value={formatDob(profile.dateOfBirth)} muted={!profile.dateOfBirth} />
-              {profile.shortBio ? <DetailRow label="Bio" value={profile.shortBio} /> : null}
-            </DetailCard>
-
-            <DetailCard title="CONTACT" delay={80}>
-              <DetailRow label="Phone" value={profile.phone ?? 'Not set'} muted={!profile.phone} />
-              <DetailRow label="Address" value={formatAddress(profile.address)} muted={!profile.address} />
-            </DetailCard>
-
-            {hasFamily && (
-              <DetailCard title="FAMILY" delay={120}>
-                {isMarried && <DetailRow label="Spouse" value={spouseValue} muted={spouseValue === 'Not provided'} />}
-                {isMarried && profile.anniversaryDate ? (
-                  <DetailRow label="Anniversary" value={formatMsDate(profile.anniversaryDate)} />
-                ) : null}
-                {children.length > 0
-                  ? children.map((c) => (
-                      <DetailRow
-                        key={c._id}
-                        label={`Child — ${c.name}`}
-                        value={SEX_LABEL[c.sex] ?? c.sex}
-                      />
-                    ))
-                  : null}
-                {profile.nextOfKin ? (
-                  <DetailRow
-                    label="Next of kin"
-                    value={`${profile.nextOfKin.fullName} · ${profile.nextOfKin.relationship}`}
-                  />
-                ) : null}
-              </DetailCard>
-            )}
-
-            <DetailCard title="MENTORSHIP" delay={160}>
-              <DetailRow label="Status" value="Completed" />
-              <DetailRow
-                label="Certificate"
-                value={profile.mentorshipProofUrl ? 'Uploaded' : 'Not uploaded'}
-                muted={!profile.mentorshipProofUrl}
-              />
-            </DetailCard>
-
-            {leadership.length > 0 && (
-              <DetailCard title="LEADERSHIP" delay={200}>
-                {leadership.map((e) => (
-                  <DetailRow
-                    key={e._id}
-                    label={LEVEL_LABEL[e.level] ?? e.level}
-                    value={LEAD_STATUS_LABEL[e.status] ?? e.status}
-                  />
-                ))}
-              </DetailCard>
-            )}
-
-            {(departmentName || clanName) && (
-              <DetailCard title="SERVICE & CLAN" delay={240}>
-                {departmentName ? <DetailRow label="Department" value={departmentName} /> : null}
-                {clanName ? <DetailRow label="Clan" value={clanName} /> : null}
-              </DetailCard>
-            )}
-
-            {hasProfession && (
-              <DetailCard title="PROFESSION" delay={280}>
-                {profile.occupation ? <DetailRow label="Occupation" value={profile.occupation} /> : null}
-                {profile.industry ? <DetailRow label="Industry" value={profile.industry} /> : null}
-                {profile.employer ? <DetailRow label="Employer" value={profile.employer} /> : null}
-                {profile.skills && profile.skills.length > 0 ? (
-                  <DetailRow label="Skills" value={profile.skills.join(', ')} />
-                ) : null}
-              </DetailCard>
-            )}
-          </>
-        )}
-
-        {/* Actions */}
-        <View style={styles.actions}>
-          <Button label="Sign out" variant="destructive" fullWidth onPress={signOut} />
         </View>
-
-        <View style={{ height: Spacing[10] }} />
-      </ScrollView>
-    </SafeAreaView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  headerBar: {
+  container: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  // Hero
+  hero: {
+    paddingHorizontal: Spacing[5],
+    paddingBottom: Spacing[8],
+  },
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     minHeight: 44,
-    paddingHorizontal: Spacing[2],
   },
-  heroGradient: {
-    height: 220,
+  circleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: Spacing[2],
+  },
+  headerTitle: {
+    fontFamily: FontFamily.displaySemi,
+    fontSize: 20,
+    lineHeight: 26,
+    color: '#FFFFFF',
+    marginLeft: Spacing[3],
+  },
+  heroCenter: {
+    alignItems: 'center',
+    marginTop: Spacing[5],
+  },
+  avatarWrap: {
+    width: 128,
+    height: 128,
   },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
+    width: 128,
+    height: 128,
+    borderRadius: 64,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
   },
   avatarText: {
     fontFamily: FontFamily.display,
-    fontSize: 28,
-    color: '#FFFFFF',
+    fontSize: 40,
+    color: '#3A2604',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    right: 2,
+    bottom: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...ShadowE2,
   },
   heroName: {
     fontFamily: FontFamily.display,
-    fontSize: 24,
-    lineHeight: 28.8,
+    fontSize: 28,
+    lineHeight: 34,
+    color: '#FFFFFF',
+    marginTop: Spacing[4],
     textAlign: 'center',
-    marginTop: Spacing[3],
   },
   heroEmail: {
     fontFamily: FontFamily.body,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14.5,
+    lineHeight: 20,
+    color: 'rgba(255,255,255,0.72)',
+    marginTop: 4,
     textAlign: 'center',
-    marginTop: 2,
   },
-  heroBadge: { marginTop: Spacing[3] },
-  cardSection: {
+  rolePill: {
+    borderRadius: Radius.full,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    marginTop: Spacing[4],
+  },
+  rolePillText: {
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 11,
+    letterSpacing: 1,
+  },
+
+  // Body
+  body: {
     paddingHorizontal: Spacing[5],
-    marginTop: Spacing[3],
+    marginTop: Spacing[5],
   },
+  card: {
+    borderRadius: Radius.lg,
+    padding: Spacing[5],
+    marginBottom: Spacing[4],
+  },
+  cardLabel: {
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 1.4,
+    marginBottom: Spacing[1],
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    gap: Spacing[4],
+  },
+  detailLabel: {
+    fontFamily: FontFamily.body,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  detailValue: {
+    flex: 1,
+    fontFamily: FontFamily.bodyBold,
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'right',
+  },
+  bodyText: {
+    fontFamily: FontFamily.body,
+    fontSize: 14,
+    lineHeight: 22.4,
+    marginTop: Spacing[2],
+  },
+  cta: { marginTop: Spacing[4] },
   pendingBanner: {
     flexDirection: 'row',
     gap: Spacing[3],
     alignItems: 'flex-start',
-    borderRadius: 12,
+    borderRadius: Radius.lg,
     padding: Spacing[4],
+    marginBottom: Spacing[4],
   },
   pendingText: {
     flex: 1,
@@ -366,34 +480,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
-  cardLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    letterSpacing: 0.5,
-    marginBottom: Spacing[3],
-  },
-  detailRow: { marginBottom: Spacing[3] },
-  detailLabel: {
-    fontFamily: FontFamily.body,
-    fontSize: 11,
-    lineHeight: 15.4,
-    letterSpacing: 0.5,
-  },
-  detailValue: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 14,
-    lineHeight: 22.4,
-    marginTop: 2,
-  },
-  bodyText: {
-    fontFamily: FontFamily.body,
-    fontSize: 14,
-    lineHeight: 22.4,
-  },
-  cta: { marginTop: Spacing[4] },
   actions: {
-    paddingHorizontal: Spacing[5],
-    marginTop: Spacing[6],
+    marginTop: Spacing[2],
   },
 });
