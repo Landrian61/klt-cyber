@@ -38,8 +38,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/faviconV2.png",
-          "imageWidth": 180,
+          "image": "./assets/images/logo-circle.png",
+          "imageWidth": 170,
           "resizeMode": "contain",
           "backgroundColor": "#FDF8F0"
         }

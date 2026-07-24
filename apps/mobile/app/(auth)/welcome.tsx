@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[8],
   },
   logoWrap: {
-    borderRadius: 28,
+    borderRadius: 56,
     marginBottom: Spacing[6],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     shadowRadius: 34,
     elevation: 12,
   },
-  logo: { width: 112, height: 112, borderRadius: 28 },
+  logo: { width: 112, height: 112, borderRadius: 56 },
   eyebrow: {
     fontFamily: FontFamily.bodyBold,
     fontSize: 11.5,
