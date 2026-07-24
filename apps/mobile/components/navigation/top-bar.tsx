@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FontFamily, Spacing, GoldGradient } from '@/constants/theme';
+import { FontFamily, Spacing, GoldGradient, ShadowE1 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 
@@ -66,9 +66,9 @@ export function TopBar({ title, unreadCount = 0, userInitials = 'U' }: TopBarPro
                 colors={[...GoldGradient.colors]}
                 start={GoldGradient.start}
                 end={GoldGradient.end}
-                style={[styles.avatar, { borderColor: Colors.primary }]}
+                style={[styles.avatar, ShadowE1]}
               >
-                <Text style={styles.avatarText}>{userInitials}</Text>
+                <Text style={[styles.avatarText, { color: Colors.onPrimary }]}>{userInitials}</Text>
               </LinearGradient>
             }
           />
@@ -131,17 +131,15 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: FontFamily.bodyBold,
+    fontFamily: FontFamily.bodyExtraBold,
     fontSize: 12,
-    color: '#FFFFFF',
     lineHeight: 16,
   },
 });
