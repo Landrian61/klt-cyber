@@ -410,7 +410,7 @@ Persistent across all five main tab screens.
 **Each item:**
 - Icon: 24px centered.
 - Label: `--text-xs`, `--font-body`, weight 500, 4px below icon.
-- **Active:** icon and label `--color-primary`. A 2px × 24px gold top ribbon above the item.
+- **Active:** icon and label `--color-secondary` (red — the heartbeat marks where you are), with a small red dot beneath.
 - **Inactive:** icon and label `--color-outline`.
 - Touch target: full column width × full bar height.
 

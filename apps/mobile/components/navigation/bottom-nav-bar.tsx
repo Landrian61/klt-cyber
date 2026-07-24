@@ -89,20 +89,20 @@ function TabButton({
         <Ionicons
           name={isHighlighted ? tab.iconActive : tab.icon}
           size={22}
-          color={isHighlighted ? Colors.primary : Colors.outline}
+          color={isHighlighted ? Colors.secondary : Colors.outline}
         />
       </Animated.View>
 
       <Text style={[
         styles.label,
-        { color: isHighlighted ? Colors.primary : Colors.outline },
+        { color: isHighlighted ? Colors.secondary : Colors.outline },
       ]}>
         {tab.label}
       </Text>
 
       {/* Active dot indicator */}
       {tab.key !== 'more' && (
-        <Animated.View style={[styles.activeDot, { backgroundColor: Colors.primary }, dotStyle]} />
+        <Animated.View style={[styles.activeDot, { backgroundColor: Colors.secondary }, dotStyle]} />
       )}
     </Pressable>
   );
