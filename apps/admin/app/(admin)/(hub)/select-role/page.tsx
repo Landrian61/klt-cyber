@@ -8,10 +8,11 @@ import { Heading } from "@/components/ui/Heading";
 // Extend as new roleTypes ship (docs/DATA_MODEL.md, Increment 2).
 const ROLE_LABELS: Record<string, string> = {
   system_admin: "System Administrator",
+  church_admin: "Church Admin",
 };
-
 function rolePrefix(roleType: string, clanId?: Id<"clans">) {
   if (roleType === "system_admin") return "/system-admin";
+  if (roleType === "church_admin") return "/church-admin";
   if (roleType === "clan_elder") return `/elder/${clanId}`;
   return "/select-role";
 }
@@ -31,10 +32,11 @@ export default async function SelectRolePage() {
     ...new Set(
       activeRoles
         .filter((role) => role.roleType === "clan_elder" && role.clanId)
-        .map((role) => role.clanId as Id<"clans">)
+        .map((role) => role.clanId as Id<"clans">),
     ),
   ];
-  const clans = clanIds.length > 0 ? await fetchAuthQuery(api.clans.listClans) : [];
+  const clans =
+    clanIds.length > 0 ? await fetchAuthQuery(api.clans.listClans) : [];
   const clanNameById = new Map(clans.map((clan) => [clan._id, clan.name]));
 
   const displayName = user.firstName ?? user.email;
