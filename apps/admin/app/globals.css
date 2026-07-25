@@ -6,14 +6,23 @@
   (e.g. bg-parchment, text-primary, font-display, rounded-lg). We expose the
   spec's palette and typography under semantic names — no raw hex in components.
 */
+
+
 @theme {
-  /* --- Primary: Gold --- */
-  --color-primary: #785600; /* surface tint — text, icons */
-  --color-primary-container: #986d00; /* gradient end point for CTAs */
-  --color-primary-dim: #f5e6c8; /* active background states (primary-fixed-dim) */
-  --color-primary-light: #fbf3e0; /* very light gold — badge fills, tinted surfaces */
-  --color-on-primary: #ffffff; /* text on primary-filled backgrounds */
-  --color-brand: #b8860b; /* gold brand — gradients, highlights, accents */
+  --color-background: var(--color-parchment);
+--color-card: var(--color-surface-lowest);
+--color-card-foreground: var(--color-on-surface);
+--color-border: var(--color-outline);
+--color-muted: var(--color-surface-low);
+--color-muted-foreground: var(--color-on-surface-variant);
+--color-destructive: var(--color-error);
+ --color-primary: #785600;
+--color-primary-container: #986d00;
+--color-primary-dim: #f5e6c8;
+--color-primary-light: #fbf3e0;
+--color-on-primary: #ffffff;
+--color-brand: #b8860b;
+
 
   /* --- Secondary: Crimson --- */
   --color-crimson: #ab3332;
@@ -100,4 +109,23 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+[data-section="church-admin"] {
+  --font-display: var(--font-manrope), -apple-system, sans-serif;
+
+  --color-background: #f8f9fa;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1a1a;
+  --color-border: #e2e4e7;
+  --color-muted: #f1f2f4;
+  --color-muted-foreground: #6b7280;
+
+  --color-primary: #002366;
+  --color-primary-container: #143c7a;
+  --color-primary-light: #e6ebf5;
+  --color-on-primary: #ffffff;
+
+  --color-brand: #d4af37;
+  --color-destructive: #b22222;
 }
