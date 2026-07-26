@@ -1,0 +1,100 @@
+name: Build (preview APK)
+
+# Manual, on-demand native build — NOT part of the staging pipeline.
+#
+# deploy-staging.yml ships OTA JS updates (eas update) on every push to main.
+# Those only refresh an ALREADY-installed app; they cannot install the app on a
+# new phone, and they never carry native/app.json changes (splash, icons,
+# permissions, new native deps, SDK bumps).
+#
+# Run THIS workflow when you need an installable binary to hand to testers:
+#   Actions tab → "Build (preview APK)" → Run workflow → pick platform/profile.
+#
+# It runs `eas build` on Expo's servers and prints an install page/QR link
+# (internal distribution) you can share from the Expo dashboard (expo.dev).
+#
+# Notes:
+#   - `preview` profile (eas.json) = internal-distribution APK on the staging
+#     channel, with the staging Convex URL baked in. A tester who installs it
+#     then auto-receives the OTA updates from deploy-staging.yml on relaunch.
+#   - Android credentials (keystore) are generated & stored by EAS on first
+#     build. iOS needs an Apple Developer account + registered devices and is
+#     not wired up yet, so leave platform on `android` for now.
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        type: choice
+        default: android
+        options:
+          - android
+          - ios
+          - all
+      profile:
+        description: EAS build profile (eas.json)
+        type: choice
+        default: preview
+        options:
+          - preview
+          - development
+          - production
+      wait:
+        description: Wait for the build to finish (prints the install link in the run logs)
+        type: boolean
+        default: true
+
+# One build at a time per branch; never cancel an in-flight build.
+concurrency:
+  group: build-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: EAS Build (${{ inputs.profile }} · ${{ inputs.platform }})
+    runs-on: ubuntu-latest
+    steps:
+      # Fail fast if the token is missing before doing any real work.
+      - name: Check for EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "Missing EXPO_TOKEN secret. Add it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          # Matches deploy-staging.yml / eas.json: pnpm 11 needs Node >= 22.13.
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      # Install eas-cli with npm (not pnpm): the action's install runs outside
+      # the workspace config, so pnpm v11 aborts on a build script. Same reason
+      # as deploy-staging.yml.
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Env (EXPO_PUBLIC_*) comes from the selected eas.json build profile, so
+      # unlike `eas update` we do NOT inject it here. --non-interactive lets EAS
+      # auto-manage Android credentials in CI.
+      - name: Run EAS Build
+        working-directory: apps/mobile
+        run: |
+          eas build \
+            --profile ${{ inputs.profile }} \
+            --platform ${{ inputs.platform }} \
+            --non-interactive \
+            ${{ inputs.wait && '--wait' || '--no-wait' }}
