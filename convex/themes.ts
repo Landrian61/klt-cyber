@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { canManageContent, logActivity } from "./lib/authz";
+import { resolveMediaUrl } from "./lib/media";
 
 // Themes — annual & monthly. "Current" is derived from the validity period, not
 // a stored toggle: the current theme for a scope is the row whose period spans
@@ -39,7 +40,14 @@ export const getCurrentThemes = query({
       currentForScope(ctx, "annual", now),
       currentForScope(ctx, "monthly", now),
     ]);
-    return { annual, monthly };
+    return {
+      annual: annual
+        ? { ...annual, coverImageUrl: await resolveMediaUrl(annual.coverImageUrl) }
+        : null,
+      monthly: monthly
+        ? { ...monthly, coverImageUrl: await resolveMediaUrl(monthly.coverImageUrl) }
+        : null,
+    };
   },
 });
 

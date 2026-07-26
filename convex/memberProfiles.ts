@@ -3,6 +3,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { canManageChurchAdmin, logActivity, requireUser } from "./lib/authz";
+import { resolveMediaUrl } from "./lib/media";
 
 // The mobile 7-step profile-submission wizard and its Church Admin
 // verification workflow. See docs/DATA_MODEL.md, Increment 4. Supersedes
@@ -32,6 +33,12 @@ const nextOfKinValidator = v.object({
   relationship: v.string(),
   phone: v.string(),
 });
+const addressValidator = v.object({
+  line1: v.string(),
+  city: v.optional(v.string()),
+  district: v.optional(v.string()),
+  country: v.optional(v.string()),
+});
 const leadershipLevelValidator = v.union(
   v.literal("level_1"),
   v.literal("level_2"),
@@ -55,6 +62,7 @@ const profileEditableFields = {
   shortBio: v.optional(v.string()),
   photoUrl: v.optional(v.string()),
   joinDate: v.optional(v.number()),
+  address: v.optional(addressValidator),
   spouseUserId: v.optional(v.id("users")),
   spouseNameUnlinked: v.optional(v.string()),
   anniversaryDate: v.optional(v.number()),
@@ -80,6 +88,7 @@ const profileEditsPatchValidator = v.object({
   shortBio: v.optional(v.string()),
   photoUrl: v.optional(v.string()),
   joinDate: v.optional(v.number()),
+  address: v.optional(addressValidator),
   spouseUserId: v.optional(v.id("users")),
   spouseNameUnlinked: v.optional(v.string()),
   anniversaryDate: v.optional(v.number()),
@@ -123,7 +132,21 @@ async function withChildrenAndLeadership(
       .withIndex("by_userId", (q) => q.eq("userId", profile.userId))
       .collect(),
   ]);
-  return { ...profile, children, leadershipProgress };
+  // Resolve the uploaded photo + proof KEYS to signed URLs so a reviewing admin
+  // sees the actual images. (photoUrl may be a Google account URL — passed
+  // through; proofs are always R2 keys.)
+  return {
+    ...profile,
+    photoUrl: await resolveMediaUrl(profile.photoUrl),
+    mentorshipProofUrl: await resolveMediaUrl(profile.mentorshipProofUrl),
+    children,
+    leadershipProgress: await Promise.all(
+      leadershipProgress.map(async (lp) => ({
+        ...lp,
+        proofUrl: await resolveMediaUrl(lp.proofUrl),
+      }))
+    ),
+  };
 }
 
 // ── Mutations ─────────────────────────────────────────────────────────────────

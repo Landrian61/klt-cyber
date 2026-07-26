@@ -856,6 +856,12 @@ memberProfiles: defineTable({
   shortBio: v.optional(v.string()),
   photoUrl: v.optional(v.string()),
   joinDate: v.optional(v.number()),  // self-reported; distinct from this record's own createdAt
+  address: v.optional(v.object({     // self-reported; line1 essential, rest refine for grouping
+    line1: v.string(),               // village/zone, plot & street
+    city: v.optional(v.string()),
+    district: v.optional(v.string()),
+    country: v.optional(v.string()),
+  })),
 
   // Family — Step 2
   spouseUserId: v.optional(v.id("users")),       // linked via search, only if spouse is registered
@@ -1008,6 +1014,11 @@ upload to R2, get back a URL, attach it to the relevant mutation. Worth building
 shared utility (client requests an upload URL, uploads directly to R2, submits the resulting URL)
 rather than three separate implementations — mobile needs it for certificates this week, web
 needs it for facility images around the same time.
+
+> Built. The shared gateway is `convex/uploads.ts` (backed by the `@convex-dev/r2`
+> component); the durable value stored on documents is the object **key**, resolved to a
+> short-lived signed URL at display time. Provisioning, environment setup, and usage across
+> backend / mobile / admin are documented in [STORAGE.md](./STORAGE.md).
 
 ## Access control
 

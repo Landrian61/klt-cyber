@@ -6,6 +6,7 @@ import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Doc, type Id } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Sheet } from "@/components/ui/Sheet";
@@ -222,8 +223,12 @@ export function ThemesManager() {
           <Field label="Scripture text" htmlFor="theme-text">
             <Textarea id="theme-text" rows={4} value={form.scriptureText} onChange={(e) => set("scriptureText", e.target.value)} placeholder="And I will give unto thee the keys…" />
           </Field>
-          <Field label="Cover image URL" htmlFor="theme-cover" hint="Paste an image URL (optional).">
-            <Input id="theme-cover" value={form.coverImageUrl} onChange={(e) => set("coverImageUrl", e.target.value)} placeholder="https://…" />
+          <Field label="Cover image" hint="Upload the banner members see (optional).">
+            <ImageUpload
+              value={form.coverImageUrl || undefined}
+              onChange={(value) => set("coverImageUrl", value ?? "")}
+              disabled={busy}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Period start" htmlFor="theme-start">

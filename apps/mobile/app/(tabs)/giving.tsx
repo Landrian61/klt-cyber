@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, ImageBackground, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeInUp, useSharedValue, useAnimatedStyle, withTiming,
@@ -8,7 +9,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 
 import {
-  FontFamily, Spacing, Radius, Duration,
+  FontFamily, Spacing, Radius, Duration, GivingGradient, ShadowE2,
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
@@ -107,18 +108,25 @@ export default function GivingTabScreen() {
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
       {/* Summary Hero Card */}
       <Animated.View entering={FadeInUp.duration(400).delay(100)} style={[styles.section, { marginTop: Spacing[3] }]}>
-        <View style={styles.heroContainer}>
-          <ImageBackground
-            source={require('@/assets/images/tithe-and-offering.png')}
-            resizeMode="cover"
-            style={styles.heroImage}
-            imageStyle={{ borderRadius: Radius.xl }}
+        <View style={[styles.heroContainer, ShadowE2]}>
+          <LinearGradient
+            colors={[...GivingGradient.colors]}
+            start={GivingGradient.start}
+            end={GivingGradient.end}
+            style={styles.heroGrad}
           >
-            <View style={styles.heroScrim}>
-              <Text style={styles.heroLabel}>YOUR GIVING THIS MONTH</Text>
-              <Text style={styles.heroAmount}>UGX 250,000</Text>
-            </View>
-          </ImageBackground>
+            {/* Radiant gold glow from the corner */}
+            <LinearGradient
+              colors={['transparent', 'rgba(247,198,75,0.55)']}
+              start={{ x: 0.4, y: -0.1 }}
+              end={{ x: 1.1, y: 0.95 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <Text style={styles.heroLabel}>YOUR GIVING THIS MONTH</Text>
+            <Text style={styles.heroAmount}>UGX 250,000</Text>
+            <Text style={styles.heroSub}>Given as worship, received with joy.</Text>
+          </LinearGradient>
         </View>
       </Animated.View>
 
@@ -196,40 +204,40 @@ const styles = StyleSheet.create({
     marginTop: Spacing[5],
   },
   sectionTitle: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 16,
+    fontFamily: FontFamily.displaySemi,
+    fontSize: 18,
     lineHeight: 24,
     marginBottom: Spacing[3],
   },
-  // Hero
+  // Hero — gold-on-gold gradient
   heroContainer: {
     borderRadius: Radius.xl,
     overflow: 'hidden',
   },
-  heroImage: {
+  heroGrad: {
     width: '100%',
-    minHeight: 160,
-    justifyContent: 'flex-end',
-  },
-  heroScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(28, 28, 24, 0.50)',
-    borderRadius: Radius.xl,
     padding: Spacing[5],
-    justifyContent: 'flex-end',
+    paddingVertical: Spacing[6],
   },
   heroLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 0.8,
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 10.5,
+    lineHeight: 15,
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 1.6,
   },
   heroAmount: {
     fontFamily: FontFamily.monoBold,
     fontSize: 32,
-    lineHeight: 35.2,
+    lineHeight: 38,
     color: '#FFFFFF',
+    marginTop: Spacing[2],
+  },
+  heroSub: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.85)',
     marginTop: Spacing[2],
   },
   categoryGrid: {

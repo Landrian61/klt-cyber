@@ -3,31 +3,41 @@ import { api } from '@/lib/api';
 
 /**
  * App-wide auth/membership state, sourced from the reactive Convex query
- * `getMyAccount` (PR 8). Returns the base user, their member profile (or null
- * for a visitor), and their active role assignments.
+ * `getMyAccount`. Returns the base user, their member profile (or null), and
+ * their active role assignments.
  *
- * Membership is detected by `profile !== null` (equivalently
- * `user.role === 'member'`); the two move together atomically when
- * `completeProfile` runs, so the query updates the whole app at once.
+ * Membership is keyed off `user.role`, NOT `profile !== null`: since the
+ * Increment-4 wizard (docs/Profile-completion-mobile.md), a `memberProfiles`
+ * row exists in `pending_verification` before the user is a member — the role
+ * only flips to `member` once a church admin verifies it. So a submitted-but-
+ * unverified user is `isPending`, not `isMember`, and stays gated out of
+ * member-only surfaces until approved.
  */
 export function useMyAccount() {
   const account = useQuery(api.profile.getMyAccount);
 
   const isLoading = account === undefined;
-  const isMember = !!account && account.profile !== null;
-  const isVisitor = !!account && account.profile === null;
+  const role = account?.user.role;
+  const profile = account?.profile ?? null;
+
+  const isMember = role === 'member';
+  const isPending =
+    !isMember && profile?.profileStatus === 'pending_verification';
+  const isVisitor = !!account && !isMember;
 
   return {
     /** `{ user, profile, activeRoles }` while loaded, else `undefined`. */
     account,
     /** True until the query first resolves. */
     isLoading,
-    /** True when the user has completed their member profile. */
+    /** True when the user has been verified as a member. */
     isMember,
-    /** True when the user is signed in but has not completed a profile. */
+    /** True when signed in but not yet a verified member (includes pending). */
     isVisitor,
+    /** True when a profile has been submitted and is awaiting verification. */
+    isPending,
     user: account?.user,
-    profile: account?.profile ?? null,
+    profile,
     activeRoles: account?.activeRoles ?? [],
   };
 }

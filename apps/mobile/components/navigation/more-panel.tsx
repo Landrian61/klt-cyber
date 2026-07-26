@@ -78,11 +78,11 @@ export function MorePanel({ isOpen, onClose }: MorePanelProps) {
             style={styles.gridItem}
             accessibilityLabel={item.label}
           >
-            <View style={[styles.iconCircle, { backgroundColor: Colors.primaryLight }]}>
-              <Ionicons name={item.icon} size={22} color={Colors.primary} />
+            <View style={[styles.iconCircle, { backgroundColor: Colors.redTint }]}>
+              <Ionicons name={item.icon} size={22} color={Colors.secondary} />
               {item.locked && (
-                <View style={[styles.lockBadge, { backgroundColor: Colors.primaryLight, borderColor: Colors.surfaceLowest }]}>
-                  <Ionicons name="lock-closed" size={6} color={Colors.primary} />
+                <View style={[styles.lockBadge, { backgroundColor: Colors.redTint, borderColor: Colors.surfaceLowest }]}>
+                  <Ionicons name="lock-closed" size={6} color={Colors.secondary} />
                 </View>
               )}
             </View>

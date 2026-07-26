@@ -17,4 +17,14 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   }
+
+  // ── Direct R2 access (optional) ──────────────────────────────────────────
+  // The admin app normally reaches storage through the Convex R2 component
+  // (convex/uploads.ts) — no binding needed. Add a binding ONLY if the Worker
+  // must read/write R2 objects at the edge itself (e.g. streaming large media).
+  // The bucket must already exist, or `wrangler deploy` fails. See docs/STORAGE.md.
+  //
+  // "r2_buckets": [
+  //   { "binding": "MEDIA_BUCKET", "bucket_name": "klt-cyber-media" }
+  // ]
 }

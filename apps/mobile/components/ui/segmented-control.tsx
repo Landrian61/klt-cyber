@@ -20,21 +20,27 @@ export function SegmentedControl({ options, selectedIndex, onChange }: Segmented
   const Colors = useThemeColors();
   const segmentWidth = useSharedValue(0);
   const translateX = useSharedValue(0);
+  // Nothing is chosen until the user taps: a negative index shows *no* selected
+  // segment (indicator hidden) so a required control doesn't look pre-filled.
+  const indicatorOpacity = useSharedValue(selectedIndex < 0 ? 0 : 1);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = (e.nativeEvent.layout.width - 8) / options.length; // subtract padding
     segmentWidth.value = width;
-    translateX.value = width * selectedIndex;
+    translateX.value = width * Math.max(selectedIndex, 0);
+    indicatorOpacity.value = selectedIndex < 0 ? 0 : 1;
   };
 
   const handlePress = (index: number) => {
     translateX.value = withTiming(segmentWidth.value * index, { duration: Duration.normal });
+    indicatorOpacity.value = withTiming(1, { duration: Duration.normal });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onChange(index);
   };
 
   const animatedIndicatorStyle = useAnimatedStyle(() => ({
     width: segmentWidth.value,
+    opacity: indicatorOpacity.value,
     transform: [{ translateX: translateX.value }],
   }));
 
