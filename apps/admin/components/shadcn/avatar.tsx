@@ -4,23 +4,38 @@ import * as AvatarPrimitive from "@radix-ui/react-avatar";
 import { cn } from "@/lib/utils";
 
 type AvatarSize = "sm" | "md" | "lg" | "xl";
+type AvatarVariant = "sunken" | "gradient";
 
 export interface AvatarProps {
   name?: string | null;
   email?: string;
   src?: string | null;
   size?: AvatarSize;
+  /**
+   * `sunken` (default) — the pale gold disc used in tables/lists.
+   * `gradient` — the gold-leaf gradient disc with white initials, matching the
+   * mobile app's profile avatar.
+   */
+  variant?: AvatarVariant;
   className?: string;
 }
 
-// Initials avatar on Radix Avatar (image load states handled for free): a
-// sunken gold circle with gold initials — tonal, no border. Same public API as
-// the legacy component for a clean swap.
 const sizes: Record<AvatarSize, string> = {
   sm: "h-7 w-7 text-xs",
   md: "h-9 w-9 text-sm",
   lg: "h-12 w-12 text-base",
   xl: "h-[72px] w-[72px] text-xl",
+};
+
+const variantRoot: Record<AvatarVariant, string> = {
+  sunken: "bg-primary-dim",
+  gradient:
+    "bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))] shadow-[0_2px_10px_rgba(196,127,8,0.35)]",
+};
+
+const variantFallback: Record<AvatarVariant, string> = {
+  sunken: "text-primary",
+  gradient: "text-white",
 };
 
 function initialsOf(name?: string | null, email?: string): string {
@@ -35,12 +50,20 @@ function initialsOf(name?: string | null, email?: string): string {
   return "?";
 }
 
-function Avatar({ name, email, src, size = "md", className }: AvatarProps) {
+function Avatar({
+  name,
+  email,
+  src,
+  size = "md",
+  variant = "sunken",
+  className,
+}: AvatarProps) {
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
       className={cn(
-        "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full bg-primary-dim",
+        "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full",
+        variantRoot[variant],
         sizes[size],
         className,
       )}
@@ -54,7 +77,10 @@ function Avatar({ name, email, src, size = "md", className }: AvatarProps) {
       )}
       <AvatarPrimitive.Fallback
         delayMs={src ? 300 : 0}
-        className="flex h-full w-full items-center justify-center font-body font-semibold text-primary"
+        className={cn(
+          "flex h-full w-full items-center justify-center font-body font-semibold",
+          variantFallback[variant],
+        )}
       >
         {initialsOf(name, email)}
       </AvatarPrimitive.Fallback>

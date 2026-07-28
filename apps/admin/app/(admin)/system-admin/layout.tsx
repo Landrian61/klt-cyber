@@ -37,7 +37,8 @@ export default async function SystemAdminLayout({
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <SystemAdminSidebar />
-      <SidebarInset>
+      {/* Deeper warm-parchment page so the white cards and glass top bar lift. */}
+      <SidebarInset className="bg-surface-low">
         <SystemAdminTopBar
           name={fullName}
           email={user.email}
