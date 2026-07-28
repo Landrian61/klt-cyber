@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { authClient } from "@/lib/auth";
-import { Avatar } from "@/components/ui/Avatar";
-import { Button } from "@/components/ui/Button";
+import { Avatar } from "@/components/shadcn/avatar";
+import { Button } from "@/components/shadcn/button";
 
 // Top bar spanning the content column (right of the sidebar). Floating chrome
 // per the Glass & Gold rule: lifted-parchment glass with an ambient shadow —

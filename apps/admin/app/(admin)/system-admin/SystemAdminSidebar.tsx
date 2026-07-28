@@ -118,14 +118,19 @@ export function SystemAdminSidebar() {
         className="flex h-16 shrink-0 items-center justify-center gap-2.5 lg:justify-start lg:px-4"
       >
         <Image
-          src="/klt-logo.png"
+          src="/logo-circle.png"
           alt="KLT Cyber Church"
-          width={32}
-          height={32}
-          className="h-8 w-8 shrink-0 rounded-md object-cover"
+          width={36}
+          height={36}
+          className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-primary/20"
         />
-        <span className="hidden min-w-0 truncate font-body text-sm font-semibold text-on-surface lg:block">
-          Admin Portal
+        <span className="hidden min-w-0 flex-col leading-tight lg:flex">
+          <span className="truncate font-body text-sm font-semibold text-on-surface">
+            KLT Cyber Church
+          </span>
+          <span className="truncate font-body text-[11px] uppercase tracking-[0.16em] text-primary">
+            Admin Portal
+          </span>
         </span>
       </Link>
 
@@ -147,12 +152,18 @@ export function SystemAdminSidebar() {
                   aria-label={item.label}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex h-10 items-center justify-center gap-3 rounded-md font-body text-sm font-medium transition-colors lg:justify-start lg:px-3",
+                    "relative flex h-10 items-center justify-center gap-3 rounded-md font-body text-sm transition-colors lg:justify-start lg:px-3",
                     active
-                      ? "bg-primary-dim text-primary"
-                      : "text-on-surface-variant hover:bg-surface-high",
+                      ? "bg-primary-dim font-semibold text-primary"
+                      : "font-medium text-on-surface-variant hover:bg-surface-high",
                   )}
                 >
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                    />
+                  )}
                   {item.icon}
                   <span className="hidden lg:inline">{item.label}</span>
                 </Link>

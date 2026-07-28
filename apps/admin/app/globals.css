@@ -8,13 +8,14 @@
   spec's palette and typography under semantic names — no raw hex in components.
 */
 @theme {
-  /* --- Primary: Gold --- */
-  --color-primary: #785600; /* surface tint — text, icons */
-  --color-primary-container: #986d00; /* gradient end point for CTAs */
-  --color-primary-dim: #f5e6c8; /* active background states (primary-fixed-dim) */
-  --color-primary-light: #fbf3e0; /* very light gold — badge fills, tinted surfaces */
+  /* --- Primary: Gold (deepened to the Kingdom Radiant palette, matching the
+         mobile app's #C47F08 family — refreshes every gold admin surface) --- */
+  --color-primary: #c47f08; /* surface tint — text, icons */
+  --color-primary-container: #9a6305; /* deeper gradient end point for CTAs */
+  --color-primary-dim: #f3e4c0; /* active background states (primary-fixed-dim) */
+  --color-primary-light: #fbf1da; /* very light gold — badge fills, tinted surfaces */
   --color-on-primary: #ffffff; /* text on primary-filled backgrounds */
-  --color-brand: #b8860b; /* gold brand — gradients, highlights, accents */
+  --color-brand: #dd9814; /* gold brand — gradients, highlights, accents */
 
   /* --- Secondary: Crimson --- */
   --color-crimson: #ab3332;
@@ -41,8 +42,8 @@
   /* --- Semantic --- */
   --color-success: #2e7d32;
   --color-success-light: #e8f5e9;
-  --color-warning: #b8860b;
-  --color-warning-light: #fbf3e0;
+  --color-warning: #c47f08;
+  --color-warning-light: #fbf1da;
   --color-error: #ab3332;
   --color-error-light: #f9e5e5;
 
