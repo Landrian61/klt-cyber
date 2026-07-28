@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/shadcn/card";
 import { Heading } from "@/components/ui/Heading";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/shadcn/button";
 
 // Public: reached either after middleware kicks out a 0-role signed-in user,
 // or by direct/signed-out navigation. Handles both — the sign-out action only

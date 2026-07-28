@@ -3,12 +3,18 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api, type Id } from "@/lib/api";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/shadcn/card";
+import { Button } from "@/components/shadcn/button";
 import { ActionButton } from "@/components/ui/ActionButton";
-import { Modal } from "@/components/ui/Modal";
-import { Label } from "@/components/ui/Label";
-import { Textarea } from "@/components/ui/Textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shadcn/dialog";
+import { Field } from "@/components/shadcn/field";
+import { Textarea } from "@/components/shadcn/textarea";
 import { displayName } from "@/lib/format";
 import { CardHeading, errorMessage, type UserDetail } from "./shared";
 
@@ -60,7 +66,7 @@ export function AccountActionsCard({
   }
 
   return (
-    <Card>
+    <Card className="p-6">
       <CardHeading>Account actions</CardHeading>
 
       <div className="mt-4">
@@ -80,12 +86,44 @@ export function AccountActionsCard({
         </p>
       </div>
 
-      <Modal
+      <Dialog
         open={confirmOpen}
-        onClose={close}
-        title={suspended ? `Reactivate ${name}?` : `Suspend ${name}?`}
-        footer={
-          <>
+        onOpenChange={(next) => {
+          if (!next) close();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {suspended ? `Reactivate ${name}?` : `Suspend ${name}?`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {suspended ? (
+              <p className="font-body text-sm text-on-surface-variant">
+                {name} will be able to sign in again immediately. This is
+                recorded in the activity log.
+              </p>
+            ) : (
+              <>
+                <p className="font-body text-sm text-on-surface-variant">
+                  {name} will no longer be able to sign in. Their profile and
+                  records are kept, and the account can be reactivated at any
+                  time. This is recorded in the activity log.
+                </p>
+                <Field label="Reason (optional)" htmlFor="suspend-note">
+                  <Textarea
+                    id="suspend-note"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Why is this account being suspended?"
+                  />
+                </Field>
+              </>
+            )}
+            {error && <p className="font-body text-sm text-error">{error}</p>}
+          </div>
+          <DialogFooter>
             <Button variant="ghost" size="sm" onClick={close}>
               Cancel
             </Button>
@@ -97,36 +135,9 @@ export function AccountActionsCard({
             >
               {suspended ? "Reactivate" : "Suspend"}
             </ActionButton>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          {suspended ? (
-            <p className="font-body text-sm text-on-surface-variant">
-              {name} will be able to sign in again immediately. This is
-              recorded in the activity log.
-            </p>
-          ) : (
-            <>
-              <p className="font-body text-sm text-on-surface-variant">
-                {name} will no longer be able to sign in. Their profile and
-                records are kept, and the account can be reactivated at any
-                time. This is recorded in the activity log.
-              </p>
-              <div>
-                <Label htmlFor="suspend-note">Reason (optional)</Label>
-                <Textarea
-                  id="suspend-note"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Why is this account being suspended?"
-                />
-              </div>
-            </>
-          )}
-          {error && <p className="font-body text-sm text-error">{error}</p>}
-        </div>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

@@ -4,14 +4,25 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Doc, type Id } from "@/lib/api";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/shadcn/button";
+import { Input } from "@/components/shadcn/input";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { Textarea } from "@/components/ui/Textarea";
-import { Select } from "@/components/ui/Select";
-import { Sheet } from "@/components/ui/Sheet";
-import { Badge } from "@/components/ui/Badge";
-import type { BadgeVariant } from "@/components/ui/Badge";
+import { Textarea } from "@/components/shadcn/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shadcn/sheet";
+import { Badge, type BadgeVariant } from "@/components/shadcn/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   Field,
@@ -217,20 +228,18 @@ export function AnnouncementsManager() {
 
       <Sheet
         open={open}
-        onClose={() => !busy && setOpen(false)}
-        title={editing ? "Edit announcement" : "New announcement"}
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => !busy && setOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" loading={busy} onClick={submit}>
-              {editing ? "Save" : "Create"}
-            </Button>
-          </>
-        }
+        onOpenChange={(next) => {
+          if (!next && !busy) setOpen(false);
+        }}
       >
-        <div className="space-y-5">
+        <SheetContent side="right" className="gap-0">
+          <SheetHeader className="pr-8">
+            <SheetTitle>
+              {editing ? "Edit announcement" : "New announcement"}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-5 flex-1 overflow-y-auto">
+            <div className="space-y-5">
           <Field label="Title" htmlFor="ann-title">
             <Input id="ann-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Water Baptism this Saturday" />
           </Field>
@@ -243,15 +252,18 @@ export function AnnouncementsManager() {
             </Field>
             <Field label="Priority" htmlFor="ann-priority">
               <Select
-                id="ann-priority"
                 value={form.priority}
                 onValueChange={(value) => set("priority", value as Priority)}
-                options={[
-                  { value: "low", label: "Low" },
-                  { value: "normal", label: "Normal" },
-                  { value: "high", label: "High" },
-                ]}
-              />
+              >
+                <SelectTrigger id="ann-priority">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
             </Field>
           </div>
           <Field label="Cover image" hint="Upload the image members see (optional).">
@@ -311,8 +323,22 @@ export function AnnouncementsManager() {
               Use the Publish / Disable / Archive actions on the list to change status.
             </p>
           )}
-          {error && <p className="font-body text-sm text-error">{error}</p>}
-        </div>
+              {error && <p className="font-body text-sm text-error">{error}</p>}
+            </div>
+          </div>
+          <SheetFooter className="mt-5 flex-row items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => !busy && setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" loading={busy} onClick={submit}>
+              {editing ? "Save" : "Create"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
       </Sheet>
     </div>
   );

@@ -4,13 +4,25 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Doc, type Id } from "@/lib/api";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/shadcn/button";
+import { Input } from "@/components/shadcn/input";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { Textarea } from "@/components/ui/Textarea";
-import { Select } from "@/components/ui/Select";
-import { Sheet } from "@/components/ui/Sheet";
-import { Badge } from "@/components/ui/Badge";
+import { Textarea } from "@/components/shadcn/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shadcn/sheet";
+import { Badge } from "@/components/shadcn/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   Field,
@@ -177,20 +189,16 @@ export function ProgramsManager() {
 
       <Sheet
         open={open}
-        onClose={() => !busy && setOpen(false)}
-        title={editing ? "Edit program" : "New program"}
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => !busy && setOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" loading={busy} onClick={submit}>
-              {editing ? "Save" : "Create"}
-            </Button>
-          </>
-        }
+        onOpenChange={(next) => {
+          if (!next && !busy) setOpen(false);
+        }}
       >
-        <div className="space-y-5">
+        <SheetContent side="right" className="gap-0">
+          <SheetHeader className="pr-8">
+            <SheetTitle>{editing ? "Edit program" : "New program"}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5 flex-1 overflow-y-auto">
+            <div className="space-y-5">
           <Field label="Title" htmlFor="program-title">
             <Input id="program-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Sunday Service" />
           </Field>
@@ -199,7 +207,21 @@ export function ProgramsManager() {
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Day of week" htmlFor="program-day">
-              <Select id="program-day" value={form.dayOfWeek} onValueChange={(value) => set("dayOfWeek", value)} options={DAY_OPTIONS} />
+              <Select
+                value={form.dayOfWeek}
+                onValueChange={(value) => set("dayOfWeek", value)}
+              >
+                <SelectTrigger id="program-day">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DAY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="Time" htmlFor="program-time" hint="Church-local (Africa/Kampala).">
               <Input id="program-time" type="time" value={form.time} onChange={(e) => set("time", e.target.value)} />
@@ -215,9 +237,23 @@ export function ProgramsManager() {
               disabled={busy}
             />
           </Field>
-          <CheckboxField id="program-active" label="Active (visible to members)" checked={form.active} onChange={(value) => set("active", value)} />
-          {error && <p className="font-body text-sm text-error">{error}</p>}
-        </div>
+              <CheckboxField id="program-active" label="Active (visible to members)" checked={form.active} onChange={(value) => set("active", value)} />
+              {error && <p className="font-body text-sm text-error">{error}</p>}
+            </div>
+          </div>
+          <SheetFooter className="mt-5 flex-row items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => !busy && setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" loading={busy} onClick={submit}>
+              {editing ? "Save" : "Create"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
       </Sheet>
     </div>
   );

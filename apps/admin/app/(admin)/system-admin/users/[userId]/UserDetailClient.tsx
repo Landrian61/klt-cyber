@@ -4,10 +4,10 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Id } from "@/lib/api";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/shadcn/card";
 import { Heading } from "@/components/ui/Heading";
-import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
+import { Avatar } from "@/components/shadcn/avatar";
+import { Badge } from "@/components/shadcn/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { displayName, formatDate, formatRelativeTime } from "@/lib/format";
 import { describeActivity } from "@/lib/activity";
@@ -88,7 +88,7 @@ function HeaderCard({ detail }: { detail: UserDetail }) {
   const name = displayName(user);
 
   return (
-    <Card className="flex gap-5">
+    <Card className="flex flex-row gap-5 p-6">
       <Avatar
         size="xl"
         name={name}
@@ -125,7 +125,7 @@ function BioCard({ detail }: { detail: UserDetail }) {
   const { profile } = detail;
 
   return (
-    <Card>
+    <Card className="p-6">
       <CardHeading>Bio</CardHeading>
       {profile === null ? (
         <p className="mt-4 font-body text-sm text-on-surface-variant">
@@ -208,7 +208,7 @@ function ageFromParts(day: number, month: number, year: number): number | null {
 
 function ChildrenCard({ records }: { records: UserDetail["children"] }) {
   return (
-    <Card>
+    <Card className="p-6">
       <CardHeading>Children</CardHeading>
       <div className="mt-3">
         {records.map((child) => (
@@ -246,7 +246,7 @@ function ActivityCard({
   const entries = detail.recentActivity.slice(0, 15);
 
   return (
-    <Card>
+    <Card className="p-6">
       <CardHeading>Recent activity</CardHeading>
       {entries.length === 0 ? (
         <p className="mt-4 font-body text-sm text-on-surface-variant">
@@ -293,7 +293,7 @@ function DetailSkeleton() {
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           {/* Header */}
-          <Card className="flex gap-5">
+          <Card className="flex flex-row gap-5 p-6">
             <div className="h-[72px] w-[72px] shrink-0 animate-pulse rounded-full bg-surface-low" />
             <div className="flex-1 space-y-3">
               <Pulse className="h-7 w-56" />
@@ -304,7 +304,7 @@ function DetailSkeleton() {
           </Card>
 
           {/* Bio */}
-          <Card>
+          <Card className="p-6">
             <Pulse className="h-5 w-14" />
             <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4">
               {Array.from({ length: 6 }).map((_, index) => (
@@ -317,7 +317,7 @@ function DetailSkeleton() {
           </Card>
 
           {/* Activity */}
-          <Card>
+          <Card className="p-6">
             <Pulse className="h-5 w-32" />
             <div className="mt-4 space-y-3">
               {Array.from({ length: 4 }).map((_, index) => (
@@ -328,7 +328,7 @@ function DetailSkeleton() {
         </div>
 
         <div className="space-y-6">
-          <Card>
+          <Card className="p-6">
             <Pulse className="h-5 w-16" />
             <div className="mt-4 space-y-3">
               <Pulse className="h-4 w-full" />
@@ -336,7 +336,7 @@ function DetailSkeleton() {
               <Pulse className="h-9 w-full" />
             </div>
           </Card>
-          <Card>
+          <Card className="p-6">
             <Pulse className="h-5 w-32" />
             <div className="mt-4 space-y-3">
               <Pulse className="h-8 w-40" />
