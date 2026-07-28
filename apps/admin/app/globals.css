@@ -109,7 +109,7 @@
   */
   --color-sidebar: #0c2154; /* base (a gradient overlay sits on top in AppSidebar) */
   --color-sidebar-foreground: rgba(255, 255, 255, 0.72);
-  --color-sidebar-primary: #c47f08; /* deep gold */
+  --color-sidebar-primary: #dd9814; /* brand gold — active nav + "Admin Portal" */
   --color-sidebar-primary-foreground: #ffffff;
   --color-sidebar-accent: rgba(255, 255, 255, 0.1); /* hover / active surface */
   --color-sidebar-accent-foreground: #ffffff;
