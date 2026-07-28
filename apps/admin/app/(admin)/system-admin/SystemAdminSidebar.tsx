@@ -1,10 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const STORAGE_KEY = "klt-admin-sidebar-collapsed";
 
 // Full-height sidebar for the system_admin portal — the familiar admin shell:
 // brand up top, modules in the middle, the way out of the role at the bottom.
@@ -108,14 +112,46 @@ const NAV_ITEMS: NavItem[] = [
 
 export function SystemAdminSidebar() {
   const pathname = usePathname();
+  // Deterministic default (expanded) so SSR and first client render match; the
+  // saved preference — or a collapsed default on smaller screens — is applied
+  // in an effect and animates via the width transition. No hydration flash.
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored !== null) setCollapsed(stored === "1");
+    else if (!window.matchMedia("(min-width: 1024px)").matches) setCollapsed(true);
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      const next = !c;
+      window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      return next;
+    });
+  }
+
+  // Shared row shape — centered icons when collapsed, left-aligned when open.
+  const row = cn(
+    "relative flex h-10 items-center gap-3 rounded-md font-body text-sm transition-colors",
+    collapsed ? "justify-center" : "justify-start px-3",
+  );
 
   return (
-    <aside className="sticky top-0 flex h-dvh w-16 shrink-0 flex-col bg-[linear-gradient(165deg,var(--color-heaven-deep)_0%,var(--color-heaven)_50%,var(--color-heaven-bright)_100%)] lg:w-60">
+    <aside
+      className={cn(
+        "sticky top-0 flex h-dvh shrink-0 flex-col bg-[linear-gradient(165deg,var(--color-heaven-deep)_0%,var(--color-heaven)_50%,var(--color-heaven-bright)_100%)] transition-[width] duration-200 ease-out",
+        collapsed ? "w-16" : "w-60",
+      )}
+    >
       {/* ── Brand: the KLT mark (shared with the mobile app), not the full
              wordmark — the mark carries the identity, the caption the context. */}
       <Link
         href="/system-admin"
-        className="flex h-16 shrink-0 items-center justify-center gap-2.5 lg:justify-start lg:px-4"
+        className={cn(
+          "flex h-16 shrink-0 items-center gap-2.5",
+          collapsed ? "justify-center" : "justify-start px-4",
+        )}
       >
         <Image
           src="/logo-circle.png"
@@ -124,21 +160,28 @@ export function SystemAdminSidebar() {
           height={36}
           className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-white/15"
         />
-        <span className="hidden min-w-0 flex-col leading-tight lg:flex">
-          <span className="truncate font-body text-sm font-semibold text-white">
-            KLT Cyber Church
+        {!collapsed && (
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate font-body text-sm font-semibold text-white">
+              KLT Cyber Church
+            </span>
+            <span className="truncate font-body text-[11px] uppercase tracking-[0.16em] text-gold-radiant">
+              Admin Portal
+            </span>
           </span>
-          <span className="truncate font-body text-[11px] uppercase tracking-[0.16em] text-gold-radiant">
-            Admin Portal
-          </span>
-        </span>
+        )}
       </Link>
 
       {/* ── Modules ───────────────────────────────────────────────────────── */}
-      <nav aria-label="Admin modules" className="min-h-0 flex-1 overflow-y-auto px-2 pt-4 lg:px-3">
-        <p className="hidden px-3 pb-2 font-body text-xs font-semibold uppercase tracking-wide text-white/45 lg:block">
-          Modules
-        </p>
+      <nav
+        aria-label="Admin modules"
+        className={cn("min-h-0 flex-1 overflow-y-auto pt-4", collapsed ? "px-2" : "px-3")}
+      >
+        {!collapsed && (
+          <p className="px-3 pb-2 font-body text-xs font-semibold uppercase tracking-wide text-white/45">
+            Modules
+          </p>
+        )}
         <ul className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
             const active = item.exact
@@ -152,7 +195,7 @@ export function SystemAdminSidebar() {
                   aria-label={item.label}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex h-10 items-center justify-center gap-3 rounded-md font-body text-sm transition-colors lg:justify-start lg:px-3",
+                    row,
                     active
                       ? "bg-white/10 font-semibold text-gold-radiant"
                       : "font-medium text-white/65 hover:bg-white/10 hover:text-white",
@@ -165,7 +208,7 @@ export function SystemAdminSidebar() {
                     />
                   )}
                   {item.icon}
-                  <span className="hidden lg:inline">{item.label}</span>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
                 </Link>
               </li>
             );
@@ -173,13 +216,40 @@ export function SystemAdminSidebar() {
         </ul>
       </nav>
 
-      {/* ── Footer: the way out of this role ──────────────────────────────── */}
-      <div className="shrink-0 px-2 pb-4 pt-2 lg:px-3">
+      {/* ── Footer: collapse toggle + the way out of this role ────────────── */}
+      <div
+        className={cn(
+          "flex shrink-0 flex-col gap-1 pb-4 pt-2",
+          collapsed ? "px-2" : "px-3",
+        )}
+      >
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-pressed={collapsed}
+          className={cn(
+            row,
+            "font-medium text-white/55 hover:bg-white/10 hover:text-white",
+          )}
+        >
+          {collapsed ? (
+            <ChevronsRight className={iconClass} aria-hidden="true" />
+          ) : (
+            <ChevronsLeft className={iconClass} aria-hidden="true" />
+          )}
+          {!collapsed && <span className="truncate">Collapse</span>}
+        </button>
+
         <Link
           href="/select-role"
           title="Switch role"
           aria-label="Switch role"
-          className="flex h-10 items-center justify-center gap-3 rounded-md font-body text-sm font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white lg:justify-start lg:px-3"
+          className={cn(
+            row,
+            "font-medium text-white/65 hover:bg-white/10 hover:text-white",
+          )}
         >
           <svg
             className={iconClass}
@@ -194,7 +264,7 @@ export function SystemAdminSidebar() {
             <path d="M7 8h13l-3.5-3.5" />
             <path d="M17 16H4l3.5 3.5" />
           </svg>
-          <span className="hidden lg:inline">Switch role</span>
+          {!collapsed && <span className="truncate">Switch role</span>}
         </Link>
       </div>
     </aside>
