@@ -110,7 +110,7 @@ export function SystemAdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="sticky top-0 flex h-dvh w-16 shrink-0 flex-col bg-surface-low lg:w-60">
+    <aside className="sticky top-0 flex h-dvh w-16 shrink-0 flex-col bg-[linear-gradient(165deg,var(--color-heaven-deep)_0%,var(--color-heaven)_50%,var(--color-heaven-bright)_100%)] lg:w-60">
       {/* ── Brand: the KLT mark (shared with the mobile app), not the full
              wordmark — the mark carries the identity, the caption the context. */}
       <Link
@@ -122,13 +122,13 @@ export function SystemAdminSidebar() {
           alt="KLT Cyber Church"
           width={36}
           height={36}
-          className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-primary/20"
+          className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-white/15"
         />
         <span className="hidden min-w-0 flex-col leading-tight lg:flex">
-          <span className="truncate font-body text-sm font-semibold text-on-surface">
+          <span className="truncate font-body text-sm font-semibold text-white">
             KLT Cyber Church
           </span>
-          <span className="truncate font-body text-[11px] uppercase tracking-[0.16em] text-primary">
+          <span className="truncate font-body text-[11px] uppercase tracking-[0.16em] text-gold-radiant">
             Admin Portal
           </span>
         </span>
@@ -136,7 +136,7 @@ export function SystemAdminSidebar() {
 
       {/* ── Modules ───────────────────────────────────────────────────────── */}
       <nav aria-label="Admin modules" className="min-h-0 flex-1 overflow-y-auto px-2 pt-4 lg:px-3">
-        <p className="hidden px-3 pb-2 font-body text-xs font-semibold uppercase tracking-wide text-outline lg:block">
+        <p className="hidden px-3 pb-2 font-body text-xs font-semibold uppercase tracking-wide text-white/45 lg:block">
           Modules
         </p>
         <ul className="flex flex-col gap-1">
@@ -154,14 +154,14 @@ export function SystemAdminSidebar() {
                   className={cn(
                     "relative flex h-10 items-center justify-center gap-3 rounded-md font-body text-sm transition-colors lg:justify-start lg:px-3",
                     active
-                      ? "bg-primary-dim font-semibold text-primary"
-                      : "font-medium text-on-surface-variant hover:bg-surface-high",
+                      ? "bg-white/10 font-semibold text-gold-radiant"
+                      : "font-medium text-white/65 hover:bg-white/10 hover:text-white",
                   )}
                 >
                   {active && (
                     <span
                       aria-hidden="true"
-                      className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                      className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-radiant"
                     />
                   )}
                   {item.icon}
@@ -179,7 +179,7 @@ export function SystemAdminSidebar() {
           href="/select-role"
           title="Switch role"
           aria-label="Switch role"
-          className="flex h-10 items-center justify-center gap-3 rounded-md font-body text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-high lg:justify-start lg:px-3"
+          className="flex h-10 items-center justify-center gap-3 rounded-md font-body text-sm font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white lg:justify-start lg:px-3"
         >
           <svg
             className={iconClass}
