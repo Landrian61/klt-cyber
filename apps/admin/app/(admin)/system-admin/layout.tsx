@@ -1,14 +1,16 @@
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "@/lib/api";
+import { SidebarInset, SidebarProvider } from "@/components/shadcn/sidebar";
 import { SystemAdminSidebar } from "./SystemAdminSidebar";
 import { SystemAdminTopBar } from "./SystemAdminTopBar";
 
-// Role-scoped shell for the system_admin URL prefix (docs/DATA_MODEL.md's
-// URL-scoped role context pattern): full-height sidebar on the left, top bar
-// spanning the content column. Server-verifies the active role on every
-// render — the middleware invariant only proves ≥1 role, not which one.
+// Role-scoped shell for the system_admin URL prefix. shadcn SidebarProvider owns
+// the collapse state; we seed its initial value from the sidebar_state cookie so
+// the server renders the correct width with no flash. Server-verifies the active
+// role on every render — middleware only proves ≥1 role, not which one.
 export default async function SystemAdminLayout({
   children,
 }: {
@@ -18,7 +20,9 @@ export default async function SystemAdminLayout({
   if (!account) redirect("/sign-in");
 
   const { user, activeRoles } = account;
-  const isSystemAdmin = activeRoles.some((role) => role.roleType === "system_admin");
+  const isSystemAdmin = activeRoles.some(
+    (role) => role.roleType === "system_admin",
+  );
 
   if (!isSystemAdmin) {
     redirect(activeRoles.length > 0 ? "/select-role" : "/unauthorized");
@@ -27,19 +31,22 @@ export default async function SystemAdminLayout({
   const fullName =
     `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || null;
 
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
+
   return (
-    <div className="flex min-h-dvh bg-parchment">
+    <SidebarProvider defaultOpen={defaultOpen}>
       <SystemAdminSidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <SidebarInset>
         <SystemAdminTopBar
           name={fullName}
           email={user.email}
           avatarUrl={user.profilePictureUrl ?? null}
         />
-        <main className="w-full min-w-0 flex-1 px-6 py-8 lg:px-10">
+        <div className="w-full min-w-0 flex-1 px-6 py-8 lg:px-10">
           {children}
-        </main>
-      </div>
-    </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

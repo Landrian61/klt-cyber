@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { authClient } from "@/lib/auth";
 import { Avatar } from "@/components/shadcn/avatar";
 import { Button } from "@/components/shadcn/button";
+import { SidebarTrigger } from "@/components/shadcn/sidebar";
 
 // Top bar spanning the content column (right of the sidebar). Floating chrome
 // per the Glass & Gold rule: lifted-parchment glass with an ambient shadow —
@@ -52,9 +53,12 @@ export function SystemAdminTopBar({
 
   return (
     <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 bg-surface-lowest/85 px-6 shadow-[0_8px_32px_rgba(28,28,24,0.06)] backdrop-blur-xl lg:px-10">
-      <p className="min-w-0 truncate font-body text-base font-semibold text-on-surface lg:hidden">
-        {moduleTitle(pathname)}
-      </p>
+      <div className="flex min-w-0 items-center gap-2">
+        <SidebarTrigger className="-ml-1 text-on-surface-variant hover:bg-surface-low hover:text-primary" />
+        <p className="min-w-0 truncate font-body text-base font-semibold text-on-surface lg:hidden">
+          {moduleTitle(pathname)}
+        </p>
+      </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-4">
         <span className="flex items-center gap-2.5">

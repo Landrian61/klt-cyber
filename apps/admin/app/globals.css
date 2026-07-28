@@ -101,6 +101,21 @@
   --color-input: var(--color-surface-high);
   --color-ring: var(--color-primary);
 
+  /*
+    --- shadcn sidebar contract (the dark heaven-blue admin rail) ---
+    The Sidebar primitive styles itself against these. Our rail is dark, so the
+    foreground is light and the active/hover accents are translucent white; the
+    deep-gold active TEXT is applied per-item in AppSidebar.
+  */
+  --color-sidebar: #0c2154; /* base (a gradient overlay sits on top in AppSidebar) */
+  --color-sidebar-foreground: rgba(255, 255, 255, 0.72);
+  --color-sidebar-primary: #c47f08; /* deep gold */
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: rgba(255, 255, 255, 0.1); /* hover / active surface */
+  --color-sidebar-accent-foreground: #ffffff;
+  --color-sidebar-border: rgba(255, 255, 255, 0.12);
+  --color-sidebar-ring: #edb63c;
+
   /* shadcn radius base (components read rounded-md/lg from these). */
   --radius: 8px;
 }
