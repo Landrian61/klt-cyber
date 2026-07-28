@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Label } from "@/components/ui/Label";
+import { Label } from "@/components/shadcn/label";
 
 // Shared helpers for the content-management screens. Content timestamps are
 // stored as unix ms; the forms edit them through native date / datetime-local
