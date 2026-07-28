@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
   The Sacred Curator — design tokens (from docs/INTERFACE_SPEC.md §1.2–1.3).
@@ -55,6 +56,52 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 20px;
+
+  /*
+    --- Kingdom Radiant: immersive brand scenes (landing / auth / role) ---
+    The deep heaven-blue + radiant-gold system the mobile app adopted for its
+    welcome & splash. Used ONLY on the full-bleed brand canvases — the parchment
+    admin surfaces above are untouched. Mirrors mobile HeavenGradient + the
+    deepened gold (#C47F08 family). Exposed as tokens so components stay hex-free.
+  */
+  --color-heaven-deep: #0c2154; /* darkest navy — canvas base */
+  --color-heaven: #12306e; /* mid royal */
+  --color-heaven-bright: #2c63d9; /* brightest royal — gradient tail */
+  --color-gold-radiant: #edb63c; /* dawn gold — eyebrows, shimmer highlight */
+  --color-gold-rich: #c47f08; /* deepened primary gold — CTA gradient start */
+  --color-gold-deep: #7a4e04; /* gold shadow — CTA gradient end */
+  --color-gold-ink: #3a2604; /* text on gold fills */
+
+  /*
+    --- shadcn/ui semantic contract, mapped onto Sacred Curator ---
+    shadcn components style themselves against a fixed set of semantic tokens
+    (background/foreground/card/primary/muted/…). Rather than let the CLI bolt
+    on its own oklch palette, we bind that contract to our existing parchment +
+    gold tokens, so every shadcn primitive inherits the design language for
+    free. Borders resolve to tonal surface steps (honouring the no-line rule),
+    and the focus ring is gold.
+  */
+  --color-background: var(--color-parchment);
+  --color-foreground: var(--color-on-surface);
+  --color-card: var(--color-surface-lowest);
+  --color-card-foreground: var(--color-on-surface);
+  --color-popover: var(--color-surface-lowest);
+  --color-popover-foreground: var(--color-on-surface);
+  --color-primary-foreground: var(--color-on-primary);
+  --color-secondary: var(--color-surface-low);
+  --color-secondary-foreground: var(--color-on-surface);
+  --color-muted: var(--color-surface-low);
+  --color-muted-foreground: var(--color-on-surface-variant);
+  --color-accent: var(--color-primary-light);
+  --color-accent-foreground: var(--color-primary);
+  --color-destructive: var(--color-crimson);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--color-surface-high);
+  --color-input: var(--color-surface-high);
+  --color-ring: var(--color-primary);
+
+  /* shadcn radius base (components read rounded-md/lg from these). */
+  --radius: 8px;
 }
 
 /*
@@ -100,4 +147,63 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/*
+  Kingdom Radiant motion primitives. anime.js drives the entrance/particle
+  choreography imperatively (see components/motion + components/brand); these
+  CSS utilities cover the always-on, GPU-cheap ambient effects. The reduced-
+  motion block above freezes them to their first frame automatically.
+*/
+
+/* Living gold on the hero wordmark — a slow light-sweep across gilt letters. */
+@keyframes kr-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+.kr-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-gold-deep) 0%,
+    var(--color-gold-radiant) 30%,
+    #fff6df 50%,
+    var(--color-gold-radiant) 70%,
+    var(--color-gold-deep) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: kr-shimmer 7s linear infinite;
+  /*
+    background-clip:text paints only within the box, so on a tight line-height
+    the gradient stops at the baseline and glyph descenders (g, y, p) read as
+    "cut". Extend the paint box downward, then cancel the layout shift with an
+    equal negative margin so surrounding text keeps its rhythm. inline-block is
+    needed for the padding to take effect on the split word span.
+  */
+  display: inline-block;
+  padding-bottom: 0.18em;
+  margin-bottom: -0.18em;
+}
+
+/* Slow breathing halo — applied to the concentric rings behind the wordmark. */
+@keyframes kr-halo {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.06);
+    opacity: 0.85;
+  }
+}
+.kr-halo {
+  animation: kr-halo 9s ease-in-out infinite;
 }
