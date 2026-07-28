@@ -79,8 +79,10 @@ export function SystemAdminTopBar({
           <Bell className="h-5 w-5" aria-hidden="true" />
         </button>
 
-        {/* Account menu */}
-        <DropdownMenu>
+        {/* Account menu — modal={false} avoids Radix's body scroll-lock, which
+            would add scrollbar-compensation padding and jitter the fixed
+            sidebar/content on open. */}
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"

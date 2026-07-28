@@ -1,26 +1,31 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter, JetBrains_Mono } from "next/font/google";
+import {
+  Bricolage_Grotesque,
+  Plus_Jakarta_Sans,
+  Spline_Sans_Mono,
+} from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { getToken } from "@/lib/auth-server";
 
-// Sacred Curator typography (INTERFACE_SPEC §1.3). Each exposes a CSS variable
-// consumed by the Tailwind @theme tokens in globals.css.
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  display: "swap",
-});
-
-const inter = Inter({
-  variable: "--font-inter",
+// Typography shared with the mobile app for a cohesive brand: Bricolage
+// Grotesque (display), Plus Jakarta Sans (all UI/body), Spline Sans Mono
+// (amounts/counts). Each exposes a CSS variable consumed by the Tailwind @theme
+// tokens in globals.css. Loaded as variable fonts (full weight range).
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const splineMono = Spline_Sans_Mono({
+  variable: "--font-spline-mono",
   subsets: ["latin"],
   display: "swap",
 });
@@ -42,7 +47,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${bricolage.variable} ${jakarta.variable} ${splineMono.variable}`}
       suppressHydrationWarning
     >
       {/*

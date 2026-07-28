@@ -47,10 +47,10 @@
   --color-error: #ab3332;
   --color-error-light: #f9e5e5;
 
-  /* --- Font families (wired to next/font CSS variables in layout.tsx) --- */
-  --font-display: var(--font-playfair), Georgia, serif;
-  --font-body: var(--font-inter), -apple-system, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), "Courier New", monospace;
+  /* --- Font families (shared with mobile; wired to next/font vars in layout.tsx) --- */
+  --font-display: var(--font-bricolage), "Segoe UI", system-ui, sans-serif;
+  --font-body: var(--font-jakarta), -apple-system, system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), "Courier New", monospace;
 
   /* --- Radii (§1.5) --- */
   --radius-sm: 4px;

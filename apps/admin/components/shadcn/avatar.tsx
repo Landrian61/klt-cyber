@@ -12,9 +12,9 @@ export interface AvatarProps {
   src?: string | null;
   size?: AvatarSize;
   /**
-   * `sunken` (default) — the pale gold disc used in tables/lists.
-   * `gradient` — the gold-leaf gradient disc with white initials, matching the
-   * mobile app's profile avatar.
+   * `gradient` (default) — the gold-leaf gradient disc with ink-brown initials,
+   * matching the mobile app's avatar. Used everywhere for one consistent look.
+   * `sunken` — legacy pale gold disc, kept for rare low-emphasis cases.
    */
   variant?: AvatarVariant;
   className?: string;
@@ -55,7 +55,7 @@ function Avatar({
   email,
   src,
   size = "md",
-  variant = "sunken",
+  variant = "gradient",
   className,
 }: AvatarProps) {
   return (
@@ -78,7 +78,7 @@ function Avatar({
       <AvatarPrimitive.Fallback
         delayMs={src ? 300 : 0}
         className={cn(
-          "flex h-full w-full items-center justify-center font-body font-semibold",
+          "flex h-full w-full items-center justify-center font-body font-extrabold",
           variantFallback[variant],
         )}
       >
