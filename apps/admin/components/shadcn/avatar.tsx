@@ -35,7 +35,7 @@ const variantRoot: Record<AvatarVariant, string> = {
 
 const variantFallback: Record<AvatarVariant, string> = {
   sunken: "text-primary",
-  gradient: "text-white",
+  gradient: "text-gold-ink",
 };
 
 function initialsOf(name?: string | null, email?: string): string {
