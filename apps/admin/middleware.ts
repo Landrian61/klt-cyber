@@ -59,6 +59,12 @@ export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = getSessionCookie(request);
 
+  // Public landing page: the front door, open to everyone (signed in or out).
+  // Its CTAs hand off to /sign-in and /sign-up, which do their own routing.
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
   // Public: users may land here signed in (post role-check) or signed out
   // (direct navigation). The page itself adapts to both.
   if (pathname === "/unauthorized") {

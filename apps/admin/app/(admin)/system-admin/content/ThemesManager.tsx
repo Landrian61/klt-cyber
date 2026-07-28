@@ -4,14 +4,33 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Doc, type Id } from "@/lib/api";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/shadcn/button";
+import { Input } from "@/components/shadcn/input";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { Textarea } from "@/components/ui/Textarea";
-import { Select } from "@/components/ui/Select";
-import { Sheet } from "@/components/ui/Sheet";
-import { Modal } from "@/components/ui/Modal";
-import { Badge } from "@/components/ui/Badge";
+import { Textarea } from "@/components/shadcn/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shadcn/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shadcn/dialog";
+import { Badge } from "@/components/shadcn/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   Field,
@@ -189,30 +208,29 @@ export function ThemesManager() {
 
       <Sheet
         open={open}
-        onClose={() => !busy && setOpen(false)}
-        title={editing ? "Edit theme" : "New theme"}
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => !busy && setOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" loading={busy} onClick={submit}>
-              {editing ? "Save" : "Create"}
-            </Button>
-          </>
-        }
+        onOpenChange={(next) => {
+          if (!next && !busy) setOpen(false);
+        }}
       >
-        <div className="space-y-5">
+        <SheetContent side="right" className="gap-0">
+          <SheetHeader className="pr-8">
+            <SheetTitle>{editing ? "Edit theme" : "New theme"}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5 flex-1 overflow-y-auto">
+            <div className="space-y-5">
           <Field label="Scope" htmlFor="theme-scope">
             <Select
-              id="theme-scope"
               value={form.scope}
               onValueChange={(value) => set("scope", value as Scope)}
-              options={[
-                { value: "annual", label: "Annual" },
-                { value: "monthly", label: "Monthly" },
-              ]}
-            />
+            >
+              <SelectTrigger id="theme-scope">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="annual">Annual</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Title" htmlFor="theme-title">
             <Input id="theme-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="The Year of Kingdom Leadership" />
@@ -238,29 +256,52 @@ export function ThemesManager() {
               <Input id="theme-end" type="date" value={form.periodEnd} onChange={(e) => set("periodEnd", e.target.value)} />
             </Field>
           </div>
-          {error && <p className="font-body text-sm text-error">{error}</p>}
-        </div>
+              {error && <p className="font-body text-sm text-error">{error}</p>}
+            </div>
+          </div>
+          <SheetFooter className="mt-5 flex-row items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => !busy && setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" loading={busy} onClick={submit}>
+              {editing ? "Save" : "Create"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
       </Sheet>
 
-      <Modal
+      <Dialog
         open={confirmDelete !== null}
-        onClose={() => !busy && setConfirmDelete(null)}
-        title="Delete theme?"
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => !busy && setConfirmDelete(null)}>
+        onOpenChange={(next) => {
+          if (!next && !busy) setConfirmDelete(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete theme?</DialogTitle>
+            <DialogDescription>
+              “{confirmDelete?.title}” will be permanently removed. This cannot
+              be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => !busy && setConfirmDelete(null)}
+            >
               Cancel
             </Button>
             <Button size="sm" loading={busy} onClick={doDelete}>
               Delete
             </Button>
-          </>
-        }
-      >
-        <p className="font-body text-sm text-on-surface-variant">
-          “{confirmDelete?.title}” will be permanently removed. This cannot be undone.
-        </p>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { signInInputSchema } from "@klt-cyber/shared";
 import { authClient } from "@/lib/auth";
-import { Card } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Heading";
-import { Label } from "@/components/ui/Label";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/shadcn/card";
+import { Input } from "@/components/shadcn/input";
+import { Button } from "@/components/shadcn/button";
+import { Field } from "@/components/shadcn/field";
 import { GoogleButton } from "@/components/ui/GoogleButton";
+import { Stagger } from "@/components/motion/Stagger";
+import { TextReveal } from "@/components/motion/TextReveal";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -64,83 +65,87 @@ export default function SignInPage() {
     });
     if (error) {
       setGoogleLoading(false);
-      setFormError(
-        error.message ?? "Google sign-in is unavailable right now.",
-      );
+      setFormError(error.message ?? "Google sign-in is unavailable right now.");
     }
     // On success the browser is redirected to Google — no further action.
   }
 
   return (
     <Card className="p-8">
-      <Heading as="h1" size="xl">
-        Welcome back
-      </Heading>
-      <p className="mt-1.5 font-body text-base text-on-surface-variant">
-        Sign in to continue
-      </p>
+      <TextReveal
+        as="h1"
+        text="Welcome back"
+        stagger={70}
+        className="font-display text-2xl font-bold tracking-tight text-on-surface"
+      />
 
-      <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email address</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={!!fieldErrors.email}
-            placeholder="you@example.com"
-          />
-          {fieldErrors.email && (
-            <p className="font-body text-xs text-error">
-              Please enter a valid email address.
+      <Stagger delay={260} gap={64}>
+        <p className="mt-1.5 font-body text-base text-muted-foreground">
+          Sign in to continue your stewardship.
+        </p>
+
+        <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
+          <Field
+            label="Email address"
+            htmlFor="email"
+            error={
+              fieldErrors.email && "Please enter a valid email address."
+            }
+          >
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={!!fieldErrors.email}
+              placeholder="you@example.com"
+            />
+          </Field>
+
+          <Field
+            label="Password"
+            htmlFor="password"
+            error={fieldErrors.password && "Please enter your password."}
+          >
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={!!fieldErrors.password}
+              placeholder="Enter your password"
+            />
+          </Field>
+
+          <Button type="submit" loading={loading} className="w-full">
+            Sign in
+          </Button>
+
+          {formError && (
+            <p className="text-center font-body text-sm text-destructive">
+              {formError}
             </p>
           )}
-        </div>
+        </form>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={!!fieldErrors.password}
-            placeholder="Enter your password"
-          />
-          {fieldErrors.password && (
-            <p className="font-body text-xs text-error">
-              Please enter your password.
-            </p>
-          )}
-        </div>
+        <Divider />
 
-        <Button type="submit" loading={loading} className="w-full">
-          Sign in
-        </Button>
+        <GoogleButton onClick={handleGoogle} disabled={googleLoading}>
+          {googleLoading ? "Connecting…" : "Continue with Google"}
+        </GoogleButton>
 
-        {formError && (
-          <p className="text-center font-body text-sm text-error">{formError}</p>
-        )}
-      </form>
-
-      <Divider />
-
-      <GoogleButton onClick={handleGoogle} disabled={googleLoading}>
-        {googleLoading ? "Connecting…" : "Continue with Google"}
-      </GoogleButton>
-
-      <p className="mt-7 text-center font-body text-sm text-on-surface-variant">
-        New here?{" "}
-        <Link
-          href="/sign-up"
-          className="font-medium text-primary underline underline-offset-2"
-        >
-          Create an account
-        </Link>
-      </p>
+        <p className="mt-7 text-center font-body text-sm text-muted-foreground">
+          New here?{" "}
+          <Link
+            href="/sign-up"
+            className="font-medium text-primary underline underline-offset-2"
+          >
+            Create an account
+          </Link>
+        </p>
+      </Stagger>
     </Card>
   );
 }
