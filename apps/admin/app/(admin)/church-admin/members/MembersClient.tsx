@@ -1,16 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
-import { Card, Input, Badge } from "../ui";
+import { Card, Input, Select, Button } from "../ui";
+import { downloadCsv } from "../csv";
 
-const ROLE_LABELS: Record<string, string> = {
-  system_admin: "System Admin",
-  church_admin: "Church Admin",
-  clan_elder: "Clan Elder",
-};
+const PAGE_SIZE = 10;
 
 function fullName(p: {
   firstName: string;
@@ -22,14 +19,63 @@ function fullName(p: {
 
 export function MembersClient() {
   const members = useAuthQuery(api.memberProfiles.listVerifiedMembersWithRoles);
+  const departments = useAuthQuery(api.departments.listActiveDepartments);
   const [search, setSearch] = useState("");
+  const [departmentId, setDepartmentId] = useState("all");
+  const [page, setPage] = useState(1);
+
+  const departmentNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    departments?.forEach((d) => map.set(d._id, d.name));
+    return map;
+  }, [departments]);
 
   const filtered = useMemo(() => {
     if (!members) return undefined;
     const q = search.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter((m) => fullName(m.profile).toLowerCase().includes(q));
-  }, [members, search]);
+    return members.filter((m) => {
+      const matchesSearch = !q || fullName(m.profile).toLowerCase().includes(q);
+      const matchesDepartment =
+        departmentId === "all" || m.profile.departmentId === departmentId;
+      return matchesSearch && matchesDepartment;
+    });
+  }, [members, search, departmentId]);
+
+  const totalPages = filtered
+    ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+    : 1;
+  const clampedPage = Math.min(page, totalPages);
+  const paginated = filtered?.slice(
+    (clampedPage - 1) * PAGE_SIZE,
+    clampedPage * PAGE_SIZE,
+  );
+
+  function updateSearch(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
+
+  function updateDepartment(value: string) {
+    setDepartmentId(value);
+    setPage(1);
+  }
+
+  function handleExport() {
+    if (!filtered) return;
+    downloadCsv(
+      "members.csv",
+      ["Name", "Phone", "Occupation", "Department", "Joined"],
+      filtered.map(({ profile }) => [
+        fullName(profile),
+        profile.phone ?? "",
+        profile.occupation ?? "",
+        profile.departmentId
+          ? (departmentNameById.get(profile.departmentId) ?? "")
+          : "",
+        profile.joinDate ? new Date(profile.joinDate).toLocaleDateString() : "",
+      ]),
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -37,19 +83,38 @@ export function MembersClient() {
         <div>
           <h2 className="font-display text-2xl font-semibold">Members</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Verified members. Roles shown are administrative assignments only
-            (System Admin, Church Admin, Clan Elder) — most members won&apos;t
-            have one.
+            Verified members.
           </p>
         </div>
-        <div className="relative w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+        <div className="flex items-center gap-3">
+          <div className="relative w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name…"
+              value={search}
+              onChange={(e) => updateSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select
+            value={departmentId}
+            onValueChange={updateDepartment}
+            className="w-48"
+            options={[
+              { value: "all", label: "All departments" },
+              ...(departments?.map((d) => ({ value: d._id, label: d.name })) ??
+                []),
+            ]}
           />
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={!filtered || filtered.length === 0}
+            className="gap-1.5"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
         </div>
       </div>
 
@@ -60,8 +125,8 @@ export function MembersClient() {
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Phone</th>
               <th className="px-4 py-3 font-medium">Occupation</th>
+              <th className="px-4 py-3 font-medium">Department</th>
               <th className="px-4 py-3 font-medium">Joined</th>
-              <th className="px-4 py-3 font-medium">Admin Roles</th>
             </tr>
           </thead>
           <tbody>
@@ -74,18 +139,18 @@ export function MembersClient() {
                 </tr>
               ))}
 
-            {filtered?.length === 0 && (
+            {paginated?.length === 0 && (
               <tr>
                 <td
                   colSpan={5}
                   className="px-4 py-12 text-center text-sm text-muted-foreground"
                 >
-                  No verified members match your search.
+                  No verified members match your filters.
                 </td>
               </tr>
             )}
 
-            {filtered?.map(({ profile, activeRoles }) => (
+            {paginated?.map(({ profile }) => (
               <tr
                 key={profile._id}
                 className="border-b border-border last:border-0"
@@ -93,28 +158,53 @@ export function MembersClient() {
                 <td className="px-4 py-3 font-medium">{fullName(profile)}</td>
                 <td className="px-4 py-3">{profile.phone ?? "—"}</td>
                 <td className="px-4 py-3">{profile.occupation ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {profile.departmentId
+                    ? (departmentNameById.get(profile.departmentId) ?? "—")
+                    : "—"}
+                </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {profile.joinDate
                     ? new Date(profile.joinDate).toLocaleDateString()
                     : "—"}
                 </td>
-                <td className="px-4 py-3">
-                  {activeRoles.length === 0 ? (
-                    <span className="text-muted-foreground">—</span>
-                  ) : (
-                    <div className="flex flex-wrap gap-1">
-                      {activeRoles.map((role) => (
-                        <Badge key={role._id} variant="secondary">
-                          {ROLE_LABELS[role.roleType] ?? role.roleType}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        {filtered && filtered.length > 0 && (
+          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm text-muted-foreground">
+            <p>
+              Showing {(clampedPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(clampedPage * PAGE_SIZE, filtered.length)} of{" "}
+              {filtered.length} results
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={clampedPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="px-2 text-foreground">
+                Page {clampedPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={clampedPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
