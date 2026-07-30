@@ -1,10 +1,11 @@
+import { useState } from "react";
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
-  SelectHTMLAttributes,
   HTMLAttributes,
   ReactNode,
 } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Plain-Tailwind primitives for Church Admin, built directly against the
@@ -121,24 +122,68 @@ export function Input({
 }
 
 // ---------------------------------------------------------------------------
-// Select — plain native <select>, styled. No compound-component API to
-// mismatch against; value/onChange work exactly like any other input.
+// Select — custom dropdown, not a native <select>. Native <select>'s open
+// popup is rendered by the OS/browser and can't be restyled with CSS — only
+// the closed trigger can be. This gives full control over both states.
 // ---------------------------------------------------------------------------
 export function Select({
+  value,
+  onValueChange,
+  options,
+  placeholder = "Select…",
   className,
-  children,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement>) {
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value);
+
   return (
-    <select
-      className={cn(
-        "h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition-colors focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/20 disabled:cursor-not-allowed disabled:opacity-50",
-        className,
+    <div className={cn("relative", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-11 w-full items-center justify-between rounded-lg border border-border bg-background px-3 text-left text-sm outline-none transition-colors focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/20"
+      >
+        <span className={selected ? "" : "text-muted-foreground"}>
+          {selected?.label ?? placeholder}
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </button>
+
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-lg">
+            {options.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => {
+                  onValueChange(o.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "block w-full rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted",
+                  o.value === value &&
+                    "bg-[var(--color-primary-light)] text-[var(--color-primary)]",
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
-      {...props}
-    >
-      {children}
-    </select>
+    </div>
   );
 }
 

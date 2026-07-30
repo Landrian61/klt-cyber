@@ -260,13 +260,12 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
                 </label>
                 <Select
                   value={form.sex}
-                  onChange={(e) =>
-                    set("sex", e.target.value as EditableFields["sex"])
-                  }
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </Select>
+                  onValueChange={(v) => set("sex", v as EditableFields["sex"])}
+                  options={[
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                  ]}
+                />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -275,18 +274,16 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
                 </label>
                 <Select
                   value={form.maritalStatus}
-                  onChange={(e) =>
-                    set(
-                      "maritalStatus",
-                      e.target.value as EditableFields["maritalStatus"],
-                    )
+                  onValueChange={(v) =>
+                    set("maritalStatus", v as EditableFields["maritalStatus"])
                   }
-                >
-                  <option value="single">Single</option>
-                  <option value="married">Married</option>
-                  <option value="widowed">Widowed</option>
-                  <option value="divorced">Divorced</option>
-                </Select>
+                  options={[
+                    { value: "single", label: "Single" },
+                    { value: "married", label: "Married" },
+                    { value: "widowed", label: "Widowed" },
+                    { value: "divorced", label: "Divorced" },
+                  ]}
+                />
               </div>
 
               <div className="h-px bg-border" />
