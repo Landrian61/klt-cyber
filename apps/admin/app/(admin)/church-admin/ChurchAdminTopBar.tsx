@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Bell, Settings } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
@@ -24,14 +25,13 @@ export function ChurchAdminTopBar() {
         >
           <Bell className="h-4.5 w-4.5" />
         </button>
-        <button
-          type="button"
-          disabled
-          className="rounded-full p-2 text-muted-foreground opacity-50"
-          aria-label="Settings (not yet available)"
+        <Link
+          href="/church-admin/settings"
+          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Settings"
         >
           <Settings className="h-4.5 w-4.5" />
-        </button>
+        </Link>
 
         {name ? (
           <div className="flex items-center gap-3">
