@@ -7,15 +7,25 @@
   (e.g. bg-parchment, text-primary, font-display, rounded-lg). We expose the
   spec's palette and typography under semantic names — no raw hex in components.
 */
+
+
 @theme {
+  --color-background: var(--color-parchment);
+  --color-card: var(--color-surface-lowest);
+  --color-card-foreground: var(--color-on-surface);
+  --color-border: var(--color-outline);
+  --color-muted: var(--color-surface-low);
+  --color-muted-foreground: var(--color-on-surface-variant);
+  --color-destructive: var(--color-error);
+
   /* --- Primary: Gold (deepened to the Kingdom Radiant palette, matching the
-         mobile app's #C47F08 family — refreshes every gold admin surface) --- */
-  --color-primary: #c47f08; /* surface tint — text, icons */
-  --color-primary-container: #9a6305; /* deeper gradient end point for CTAs */
-  --color-primary-dim: #f3e4c0; /* active background states (primary-fixed-dim) */
-  --color-primary-light: #fbf1da; /* very light gold — badge fills, tinted surfaces */
-  --color-on-primary: #ffffff; /* text on primary-filled backgrounds */
-  --color-brand: #dd9814; /* gold brand — gradients, highlights, accents */
+         mobile app's #C47F08 family - refreshes every gold admin surface) --- */
+  --color-primary: #c47f08;
+  --color-primary-container: #9a6305;
+  --color-primary-dim: #f3e4c0;
+  --color-primary-light: #fbf1da;
+  --color-on-primary: #ffffff;
+  --color-brand: #dd9814;
 
   /* --- Secondary: Crimson --- */
   --color-crimson: #ab3332;
@@ -165,6 +175,25 @@ body {
   }
 }
 
+[data-section="church-admin"] {
+  --font-display: var(--font-manrope), -apple-system, sans-serif;
+
+  --color-background: #f8f9fa;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1a1a;
+  --color-border: #e2e4e7;
+  --color-muted: #f1f2f4;
+  --color-muted-foreground: #6b7280;
+
+  --color-primary: #002366;
+  --color-primary-container: #143c7a;
+  --color-primary-light: #e6ebf5;
+  --color-on-primary: #ffffff;
+
+  --color-brand: #d4af37;
+  --color-destructive: #b22222;
+}
+
 /*
   Kingdom Radiant motion primitives. anime.js drives the entrance/particle
   choreography imperatively (see components/motion + components/brand); these
@@ -172,7 +201,7 @@ body {
   motion block above freezes them to their first frame automatically.
 */
 
-/* Living gold on the hero wordmark — a slow light-sweep across gilt letters. */
+/* Living gold on the hero wordmark - a slow light-sweep across gilt letters. */
 @keyframes kr-shimmer {
   0% {
     background-position: 0% 50%;
@@ -196,19 +225,11 @@ body {
   -webkit-text-fill-color: transparent;
   color: transparent;
   animation: kr-shimmer 7s linear infinite;
-  /*
-    background-clip:text paints only within the box, so on a tight line-height
-    the gradient stops at the baseline and glyph descenders (g, y, p) read as
-    "cut". Extend the paint box downward, then cancel the layout shift with an
-    equal negative margin so surrounding text keeps its rhythm. inline-block is
-    needed for the padding to take effect on the split word span.
-  */
   display: inline-block;
   padding-bottom: 0.18em;
   margin-bottom: -0.18em;
 }
 
-/* Slow breathing halo — applied to the concentric rings behind the wordmark. */
 @keyframes kr-halo {
   0%,
   100% {

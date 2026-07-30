@@ -6,10 +6,12 @@ import { SelectRoleClient, type RoleChoice } from "./SelectRoleClient";
 // Extend as new roleTypes ship (docs/DATA_MODEL.md, Increment 2).
 const ROLE_LABELS: Record<string, string> = {
   system_admin: "System Administrator",
+  church_admin: "Church Admin",
 };
 
 function rolePrefix(roleType: string, clanId?: Id<"clans">) {
   if (roleType === "system_admin") return "/system-admin";
+  if (roleType === "church_admin") return "/church-admin";
   if (roleType === "clan_elder") return `/elder/${clanId}`;
   return "/select-role";
 }

@@ -3,10 +3,12 @@ import {
   Bricolage_Grotesque,
   Plus_Jakarta_Sans,
   Spline_Sans_Mono,
+  Manrope,
 } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { getToken } from "@/lib/auth-server";
+import { cn } from "@/lib/utils";
 
 // Typography shared with the mobile app for a cohesive brand: Bricolage
 // Grotesque (display), Plus Jakarta Sans (all UI/body), Spline Sans Mono
@@ -30,6 +32,15 @@ const splineMono = Spline_Sans_Mono({
   display: "swap",
 });
 
+// Church Admin heading font — scoped via [data-section="church-admin"] in
+// globals.css, so this never overrides system-admin's Playfair headings.
+const manrope = Manrope({
+  variable: "--font-manrope",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "KLT Cyber — Admin",
   description: "Administration console for KLT Cyber Church.",
@@ -40,23 +51,19 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read the session token server-side so the Convex client is authenticated
-  // on first paint (avoids an unauthenticated flash). Undefined when signed out.
   const token = await getToken();
 
   return (
     <html
       lang="en"
-      className={`${bricolage.variable} ${jakarta.variable} ${splineMono.variable}`}
+      className={cn(
+        bricolage.variable,
+        jakarta.variable,
+        splineMono.variable,
+        manrope.variable,
+      )}
       suppressHydrationWarning
     >
-      {/*
-        suppressHydrationWarning: browser extensions (Grammarly, password
-        managers, dark-mode tools, etc.) inject attributes onto <html>/<body>
-        before React hydrates, which the server HTML can't predict. This flag
-        relaxes attribute checks on these two elements only (one level deep) —
-        it does NOT hide mismatches inside the component tree.
-      */}
       <body
         className="font-body bg-parchment text-on-surface min-h-full"
         suppressHydrationWarning
