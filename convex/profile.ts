@@ -1,12 +1,14 @@
-import { query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { v } from "convex/values";
 import { getActiveRoles, getCurrentUser, requireUser } from "./lib/authz";
 
-// Read-only "who am I" queries. Profile *submission* and *verification* are
-// handled by `submitProfile` / `verifyProfile` in convex/memberProfiles.ts —
-// see docs/DATA_MODEL.md, Increment 4. This file no longer owns a self-service
-// completion mutation: creating a `memberProfiles` row is gated on mentorship
+// Read-only "who am I" queries, plus `updateMyProfile` below for self-service
+// edits to an *already-verified* profile's contact/bio fields. Profile
+// *submission* and *verification* are handled by `submitProfile` /
+// `verifyProfile` in convex/memberProfiles.ts — see docs/DATA_MODEL.md,
+// Increment 4. Creating a `memberProfiles` row is gated on mentorship
 // completion and does not by itself promote the caller to member (that only
 // happens once Church Admin verifies the submission).
 
@@ -90,5 +92,38 @@ export const getMyProfileStatus = query({
       .query("memberProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .unique();
+  },
+});
+
+/**
+ * Self-service edit of the caller's own contact/bio fields, used by the
+ * admin Settings page. `firstName`/`lastName` are required on the
+ * `memberProfiles` row, so undefined values are dropped rather than patched
+ * in blank.
+ */
+export const updateMyProfile = mutation({
+  args: {
+    firstName: v.optional(v.string()),
+    middleName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    shortBio: v.optional(v.string()),
+    occupation: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    employer: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const profile = await ctx.db
+      .query("memberProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
+    if (!profile) throw new Error("No profile to update");
+
+    const patch: Record<string, string> = {};
+    for (const [key, value] of Object.entries(args)) {
+      if (value !== undefined) patch[key] = value;
+    }
+    await ctx.db.patch(profile._id, { ...patch, updatedAt: Date.now() });
   },
 });
