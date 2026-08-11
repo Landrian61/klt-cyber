@@ -103,16 +103,23 @@ The URL is the source of truth for "which role am I acting as" — no session-st
 
 The mobile app is a *view* over content the web admin produces (weekly program, events, announcements, radio schedule, themes) — it does not author authoritative content itself. When adding a mobile feature that displays data, the first question is "which admin module owns this content?" — if no admin surface owns it and it isn't static seeded content, it isn't ready to build.
 
-## Design system — "Kingdom Radiant" (mobile)
+## Design system — "Kingdom Radiant"
 
-`docs/INTERFACE_SPEC.md` is authoritative for all UI work — read it before styling anything, and prefer the `klt-cyber-brand` skill / `.claude/commands/{new-screen,new-component,setup-theme,check-spec}.md` workflows over ad hoc styling.
+`docs/INTERFACE_SPEC.md` is authoritative for all UI work. **Both frontends share one design language** — the same palette, the same typographic roles, the same No-Line Rule. A screen should be recognisably the same product whether it's on a phone or in the admin portal.
 
-- **Warm cream base** (`#FDF8F0`) — never cold white.
-- **No-Line Rule** — no 1px solid borders; depth comes from tonal surface shifts and a warm blue-glow shadow.
-- **Palette** — Gold `#C47F08`/`#DD9814` (primary), Crimson/red `#C10810` (secondary — LIVE, priority, active nav; the KLT logo red), Royal Blue `#12306E`/`#2C63D9` (tertiary — heroes, community).
-- **Typography** — Bricolage Grotesque (display), Plus Jakarta Sans (body/UI), Spline Sans Mono (amounts, timers, references).
-- 8-point spacing grid; fully-rounded buttons/pills; every interaction gets haptic feedback and spring-physics animation (Reanimated + Gesture Handler).
-- Mobile gating is friendly, not blocking — visitors get real (if narrower) access; member-only areas nudge rather than wall off.
+Shared non-negotiables:
+
+- **Warm parchment/cream base** — never cold white or grey. `#FFFFFF` is reserved for elevated "lifted parchment" cards. Text is warm near-black (`#1c1c18`), never pure black.
+- **No-Line Rule** — no 1px solid borders for structure; depth comes from tonal surface shifts plus an ambient shadow.
+- **Palette** — Gold `#C47F08`/`#DD9814` (primary), Crimson `#AB3332`/`#C10810` (secondary — LIVE, priority, destructive), Royal Blue `#12306E`/`#2C63D9` (tertiary — heroes, community). Never a raw Tailwind palette colour or a hex literal in a component.
+- **Typography by role** — Bricolage Grotesque (display, headings ≥18px only), Plus Jakarta Sans (all body/UI), Spline Sans Mono (numerals: amounts, counts, timers, references). Never a display face on nav/badges/labels; never a UI label in mono.
+- 8-point spacing grid.
+
+**Web admin (`apps/admin`)** — the norm is: the design system, then **shadcn/ui**, then **a restrained touch of anime.js**. Reach for an existing component before writing markup; a hand-rolled modal/dropdown/table is a defect. Look in `components/ui/` (bespoke, design-correct: `DataTable`, `EmptyState`, `Pagination`, `SearchInput`, `FilterBar`, `StatCard`, `Heading`), then `components/shadcn/`, then `components/motion/`. Add missing shadcn components with `npx shadcn@latest add <name> -c apps/admin` — never hand-write one. Do not introduce scoped token override blocks in `globals.css` (a `[data-section="admin"]` block once did this and forked the portal into a different-looking product; it was removed). **Load the `klt-cyber-web-ui` skill** — it carries the full rules, the portal shell pattern, and the motion guidance.
+
+**Mobile (`apps/mobile`)** — React Native `StyleSheet`, tokens from `@/constants/theme`, Reanimated + Gesture Handler, haptics on every interaction, fully-rounded buttons/pills. Load the `klt-cyber-brand` skill. Mobile gating is friendly, not blocking — visitors get real (if narrower) access; member-only areas nudge rather than wall off.
+
+**Motion** — part of the norm, not an afterthought, but it must make a state change *legible* (something arrived, changed, or is loading) rather than decorate. Web uses anime.js via the primitives in `apps/admin/components/motion/` (`Reveal`, `CountUp`, `Stagger`, `TextReveal`); mobile uses Reanimated. In both: apply hidden start states in JS rather than CSS so no-JS/reduced-motion users still see content, **always** bail out on `prefers-reduced-motion`, and always clean up on unmount. Admin motion is short (~300–500ms) and small (~8–12px); the louder spring-and-gild choreography belongs on landing/auth/picker canvases only. Hover/press feedback is CSS, not JS.
 
 ## Git conventions
 
