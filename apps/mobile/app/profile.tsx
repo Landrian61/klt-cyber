@@ -103,7 +103,6 @@ export default function ProfileScreen() {
   const { user, profile, isMember, isVisitor, isPending, isLoading } = useMyAccount();
   const myProfile = useQuery(api.profile.getMyProfile);
   const clans = useQuery(api.clans.listClans);
-  const departments = useQuery(api.departments.listActiveDepartments);
 
   const signOut = async () => {
     await authClient.signOut();
@@ -132,7 +131,6 @@ export default function ProfileScreen() {
       : { label: 'VISITOR', tone: 'light' };
 
   const clanName = clans?.find((c) => c._id === profile?.clanId)?.name;
-  const departmentName = departments?.find((d) => d._id === profile?.departmentId)?.name;
   const hasProfession =
     !!profile?.occupation || !!profile?.industry || !!profile?.employer || (profile?.skills?.length ?? 0) > 0;
 
@@ -300,9 +298,8 @@ export default function ProfileScreen() {
                 </DetailCard>
               )}
 
-              <DetailCard title="SERVICE & CLAN" delay={160}>
+              <DetailCard title="CLAN" delay={160}>
                 <DetailRow label="Clan" value={clanName ?? 'Not set'} muted={!clanName} />
-                <DetailRow label="Serving in" value={departmentName ?? 'Not set'} muted={!departmentName} />
                 <DetailRow label="Mentorship" value="Completed" />
               </DetailCard>
 

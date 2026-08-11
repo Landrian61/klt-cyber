@@ -33,25 +33,36 @@ export function DepartmentMembersClient({
   const router = useRouter();
   const id = departmentId as Id<"departments">;
 
-  const departments = useAuthQuery(api.departments.listActiveDepartments);
+  const departments = useAuthQuery(api.departments.listDepartments);
+  const membership = useAuthQuery(api.departmentMemberships.listDepartmentMembers, {
+    departmentId: id,
+  });
   const members = useAuthQuery(api.memberProfiles.listVerifiedMembersWithRoles);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const department = departments?.find((d) => d._id === id);
 
-  // listVerifiedMembersWithRoles already returns each member's departmentId —
-  // no dedicated "members by department" query exists (or is needed), so we
-  // filter the full verified-member list client-side.
+  const profileByUserId = useMemo(() => {
+    const map = new Map<
+      string,
+      NonNullable<typeof members>[number]["profile"]
+    >();
+    members?.forEach((m) => map.set(m.profile.userId, m.profile));
+    return map;
+  }, [members]);
+
+  // listDepartmentMembers only returns bare membership rows (userId, no
+  // name/phone/occupation) — join against the verified-members map to get
+  // displayable profile fields. Rows whose userId isn't found are skipped.
   const departmentMembers = useMemo(() => {
-    if (!members) return undefined;
+    if (!membership || !members) return undefined;
     const q = search.trim().toLowerCase();
-    return members.filter(
-      (m) =>
-        m.profile.departmentId === id &&
-        (!q || fullName(m.profile).toLowerCase().includes(q)),
-    );
-  }, [members, id, search]);
+    const joined = membership
+      .map((m) => profileByUserId.get(m.userId))
+      .filter((profile): profile is NonNullable<typeof profile> => !!profile);
+    return joined.filter((profile) => !q || fullName(profile).toLowerCase().includes(q));
+  }, [membership, members, profileByUserId, search]);
 
   const totalPages = departmentMembers
     ? Math.max(1, Math.ceil(departmentMembers.length / PAGE_SIZE))
@@ -72,7 +83,7 @@ export function DepartmentMembersClient({
     downloadCsv(
       `${department?.name ?? "department"}-members.csv`,
       ["Name", "Phone", "Occupation", "Joined"],
-      departmentMembers.map(({ profile }) => [
+      departmentMembers.map((profile) => [
         fullName(profile),
         profile.phone ?? "",
         profile.occupation ?? "",
@@ -92,7 +103,7 @@ export function DepartmentMembersClient({
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <p className="text-sm text-muted-foreground">
-          This department is inactive or doesn&apos;t exist.
+          This department doesn&apos;t exist.
         </p>
       </div>
     );
@@ -117,11 +128,6 @@ export function DepartmentMembersClient({
                 <span className="inline-block h-7 w-40 animate-pulse rounded-md bg-muted align-middle" />
               )}
             </h2>
-            {department?.description && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {department.description}
-              </p>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -177,7 +183,7 @@ export function DepartmentMembersClient({
               </tr>
             )}
 
-            {paginated?.map(({ profile }) => (
+            {paginated?.map((profile) => (
               <tr
                 key={profile._id}
                 className="border-b border-border last:border-0"

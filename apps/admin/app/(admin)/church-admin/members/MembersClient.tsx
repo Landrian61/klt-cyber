@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
-import { Card, Input, Select, Button } from "../ui";
+import { Card, Input, Button } from "../ui";
 import { downloadCsv } from "../csv";
 
 const PAGE_SIZE = 10;
@@ -19,27 +19,17 @@ function fullName(p: {
 
 export function MembersClient() {
   const members = useAuthQuery(api.memberProfiles.listVerifiedMembersWithRoles);
-  const departments = useAuthQuery(api.departments.listActiveDepartments);
   const [search, setSearch] = useState("");
-  const [departmentId, setDepartmentId] = useState("all");
   const [page, setPage] = useState(1);
-
-  const departmentNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    departments?.forEach((d) => map.set(d._id, d.name));
-    return map;
-  }, [departments]);
 
   const filtered = useMemo(() => {
     if (!members) return undefined;
     const q = search.trim().toLowerCase();
     return members.filter((m) => {
       const matchesSearch = !q || fullName(m.profile).toLowerCase().includes(q);
-      const matchesDepartment =
-        departmentId === "all" || m.profile.departmentId === departmentId;
-      return matchesSearch && matchesDepartment;
+      return matchesSearch;
     });
-  }, [members, search, departmentId]);
+  }, [members, search]);
 
   const totalPages = filtered
     ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -55,23 +45,15 @@ export function MembersClient() {
     setPage(1);
   }
 
-  function updateDepartment(value: string) {
-    setDepartmentId(value);
-    setPage(1);
-  }
-
   function handleExport() {
     if (!filtered) return;
     downloadCsv(
       "members.csv",
-      ["Name", "Phone", "Occupation", "Department", "Joined"],
+      ["Name", "Phone", "Occupation", "Joined"],
       filtered.map(({ profile }) => [
         fullName(profile),
         profile.phone ?? "",
         profile.occupation ?? "",
-        profile.departmentId
-          ? (departmentNameById.get(profile.departmentId) ?? "")
-          : "",
         profile.joinDate ? new Date(profile.joinDate).toLocaleDateString() : "",
       ]),
     );
@@ -96,16 +78,6 @@ export function MembersClient() {
               className="pl-9"
             />
           </div>
-          <Select
-            value={departmentId}
-            onValueChange={updateDepartment}
-            className="w-48"
-            options={[
-              { value: "all", label: "All departments" },
-              ...(departments?.map((d) => ({ value: d._id, label: d.name })) ??
-                []),
-            ]}
-          />
           <Button
             variant="outline"
             onClick={handleExport}
@@ -125,7 +97,6 @@ export function MembersClient() {
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Phone</th>
               <th className="px-4 py-3 font-medium">Occupation</th>
-              <th className="px-4 py-3 font-medium">Department</th>
               <th className="px-4 py-3 font-medium">Joined</th>
             </tr>
           </thead>
@@ -133,7 +104,7 @@ export function MembersClient() {
             {filtered === undefined &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3" colSpan={5}>
+                  <td className="px-4 py-3" colSpan={4}>
                     <div className="h-5 w-full animate-pulse rounded-md bg-muted" />
                   </td>
                 </tr>
@@ -142,7 +113,7 @@ export function MembersClient() {
             {paginated?.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={4}
                   className="px-4 py-12 text-center text-sm text-muted-foreground"
                 >
                   No verified members match your filters.
@@ -158,11 +129,6 @@ export function MembersClient() {
                 <td className="px-4 py-3 font-medium">{fullName(profile)}</td>
                 <td className="px-4 py-3">{profile.phone ?? "—"}</td>
                 <td className="px-4 py-3">{profile.occupation ?? "—"}</td>
-                <td className="px-4 py-3">
-                  {profile.departmentId
-                    ? (departmentNameById.get(profile.departmentId) ?? "—")
-                    : "—"}
-                </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {profile.joinDate
                     ? new Date(profile.joinDate).toLocaleDateString()

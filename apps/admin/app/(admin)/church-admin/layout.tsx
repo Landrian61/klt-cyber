@@ -13,13 +13,9 @@ export default async function ChurchAdminLayout({
   const account = await fetchAuthQuery(api.profile.getMyAccount);
   if (!account) redirect("/sign-in");
 
-  const { activeRoles } = account;
-  const isChurchAdmin = activeRoles.some(
-    (role) => role.roleType === "church_admin",
-  );
-
-  if (!isChurchAdmin) {
-    redirect(activeRoles.length > 0 ? "/select-role" : "/unauthorized");
+  const { activeRoles, hasAdministrationAccess } = account;
+  if (!hasAdministrationAccess) {
+    redirect(activeRoles.length > 0 ? "/areas-of-service" : "/unauthorized");
   }
 
   return (

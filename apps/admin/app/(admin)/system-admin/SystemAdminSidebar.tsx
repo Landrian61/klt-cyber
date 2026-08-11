@@ -147,15 +147,15 @@ export function SystemAdminSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              tooltip="Switch role"
+              tooltip="Areas of Service"
               className="text-white/70 hover:text-white"
             >
-              <Link href="/select-role">
+              <Link href="/areas-of-service">
                 <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M7 8h13l-3.5-3.5" />
                   <path d="M17 16H4l3.5 3.5" />
                 </svg>
-                <span>Switch role</span>
+                <span>Areas of Service</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

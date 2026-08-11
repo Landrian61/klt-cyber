@@ -25,7 +25,7 @@ export default async function SystemAdminLayout({
   );
 
   if (!isSystemAdmin) {
-    redirect(activeRoles.length > 0 ? "/select-role" : "/unauthorized");
+    redirect(activeRoles.length > 0 ? "/areas-of-service" : "/unauthorized");
   }
 
   const fullName =

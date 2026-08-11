@@ -29,7 +29,6 @@ type StepRoutePath =
   | '/profile-completion/family'
   | '/profile-completion/mentorship'
   | '/profile-completion/leadership'
-  | '/profile-completion/department'
   | '/profile-completion/clan'
   | '/profile-completion/profession';
 
@@ -131,11 +130,10 @@ function buildSubmitArgs(draft: WizardDraft) {
     // Optional — Step 3 proof
     ...(draft.mentorshipProofKey ? { mentorshipProofUrl: draft.mentorshipProofKey } : {}),
 
-    // Optional — Steps 5–6
-    ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
+    // Optional — Step 5
     ...(draft.clanId ? { clanId: draft.clanId } : {}),
 
-    // Optional — Step 7
+    // Optional — Step 6
     ...(draft.occupation.trim() ? { occupation: draft.occupation.trim() } : {}),
     ...(draft.industry.trim() ? { industry: draft.industry.trim() } : {}),
     ...(draft.employer.trim() ? { employer: draft.employer.trim() } : {}),
@@ -251,7 +249,6 @@ export default function ReviewStep() {
   const { draft } = useWizardDraft();
 
   const submitProfile = useMutation(api.memberProfiles.submitProfile);
-  const departments = useQuery(api.departments.listActiveDepartments);
   const clans = useQuery(api.clans.listClans);
 
   const [submitting, setSubmitting] = useState(false);
@@ -268,7 +265,6 @@ export default function ReviewStep() {
 
   const args = useMemo(() => (ready ? buildSubmitArgs(draft) : null), [draft, ready]);
 
-  const departmentName = departments?.find((d) => d._id === draft.departmentId)?.name;
   const clanName = clans?.find((c) => c._id === draft.clanId)?.name;
 
   const handleSubmit = async () => {
@@ -379,15 +375,11 @@ export default function ReviewStep() {
           )}
         </Section>
 
-        <Section title="AREA OF SERVICE" editPath="/profile-completion/department" delay={200}>
-          <Row label="Department" value={departmentName || 'None selected'} muted={!departmentName} />
-        </Section>
-
-        <Section title="CLAN" editPath="/profile-completion/clan" delay={240}>
+        <Section title="CLAN" editPath="/profile-completion/clan" delay={200}>
           <Row label="Clan" value={clanName || 'None selected'} muted={!clanName} />
         </Section>
 
-        <Section title="PROFESSION" editPath="/profile-completion/profession" delay={280}>
+        <Section title="PROFESSION" editPath="/profile-completion/profession" delay={240}>
           {hasProfession ? (
             <>
               {draft.occupation.trim() ? <Row label="Occupation" value={draft.occupation.trim()} /> : null}

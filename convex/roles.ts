@@ -1,31 +1,35 @@
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { roleAssignmentInputSchema } from "@klt-cyber/shared";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import {
   getActiveRoles,
+  getAdministrationDepartmentId,
+  hasActiveDepartmentRole,
+  isActiveSystemAdmin,
   logActivity,
-  requireSystemAdmin,
+  requireDepartmentHod,
   requireUser,
 } from "./lib/authz";
 
 type AssignRoleArgs = {
-  roleType: "system_admin" | "clan_elder";
+  roleType: "system_admin" | "clan_elder" | "hod" | "department_admin";
   userId: Id<"users">;
   clanId?: Id<"clans">;
+  departmentId?: Id<"departments">;
   note?: string;
 };
 
-// ── Core logic (auth-free; the acting admin is passed in) ────────────────────
+// ── Core logic ────────────────────────────────────────────────────────────────
+// Unlike the pre-Increment-5 version, authorization here is data-dependent on
+// `args.roleType` (see docs/Alignment.md §1's authorization table), so the
+// core resolves its own caller via requireUser rather than taking a
+// pre-authorized `caller` param.
 
-export async function assignRoleCore(
-  ctx: MutationCtx,
-  caller: Doc<"users">,
-  args: AssignRoleArgs
-) {
-  // Discriminated validation: clan_elder requires clanId, system_admin must not.
-  roleAssignmentInputSchema.parse(args);
+export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
+  const actor = await requireUser(ctx);
+  const callerIsSystemAdmin = await isActiveSystemAdmin(ctx, actor._id);
+  const adminDeptId = await getAdministrationDepartmentId(ctx);
 
   const target = await ctx.db.get(args.userId);
   if (!target) throw new Error("Target user not found");
@@ -37,8 +41,10 @@ export async function assignRoleCore(
     if (!args.clanId) throw new Error("clan_elder requires a clanId");
     const clanId = args.clanId;
 
-    // Revoke-and-replace any sitting elder of this clan (one elder per clan).
-    const sitting = await ctx.db
+    // Revoke-and-replace any sitting elder of this clan (one elder per clan)
+    // — restored: docs/Alignment.md §4's pseudocode dropped this pre-existing
+    // invariant without flagging it as an intentional change.
+    const sittingElder = await ctx.db
       .query("roleAssignments")
       .withIndex("by_clanId", (q) => q.eq("clanId", clanId))
       .filter((q) =>
@@ -48,18 +54,98 @@ export async function assignRoleCore(
         )
       )
       .collect();
-    for (const ex of sitting) {
-      await ctx.db.patch(ex._id, {
+    for (const row of sittingElder) {
+      await ctx.db.patch(row._id, {
         status: "revoked",
-        revokedBy: caller._id,
+        revokedBy: actor._id,
         revokedAt: Date.now(),
       });
       await logActivity(ctx, {
-        actorUserId: caller._id,
+        actorUserId: actor._id,
         action: "role.revoked",
         targetType: "roleAssignments",
-        targetId: ex._id,
-        metadata: { reason: "replaced", userId: ex.userId, clanId },
+        targetId: row._id,
+        metadata: { reason: "replaced_clan_elder", userId: row.userId, clanId },
+      });
+    }
+  } else if (args.roleType === "system_admin" && args.clanId) {
+    throw new Error("system_admin must not carry a clanId");
+  }
+
+  if (args.roleType === "hod") {
+    const callerIsAdminHod = await hasActiveDepartmentRole(
+      ctx,
+      actor._id,
+      adminDeptId,
+      ["hod"]
+    );
+    if (!callerIsSystemAdmin && !callerIsAdminHod) {
+      throw new Error(
+        "Only System Admin or the Administration HOD can appoint department heads"
+      );
+    }
+  } else if (args.roleType === "department_admin") {
+    if (!args.departmentId) {
+      throw new Error("departmentId required for department_admin");
+    }
+    await requireDepartmentHod(ctx, args.departmentId); // throws if unauthorized
+  } else {
+    if (!callerIsSystemAdmin) throw new Error("Not authorized");
+  }
+
+  if (args.roleType === "hod" && args.departmentId) {
+    const departmentId = args.departmentId;
+
+    // Cardinality A: at most one active hod per department.
+    const existingForDept = await ctx.db
+      .query("roleAssignments")
+      .withIndex("by_departmentId", (q) => q.eq("departmentId", departmentId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "active"),
+          q.eq(q.field("roleType"), "hod")
+        )
+      )
+      .collect();
+    for (const row of existingForDept) {
+      await ctx.db.patch(row._id, {
+        status: "revoked",
+        revokedBy: actor._id,
+        revokedAt: Date.now(),
+      });
+      await logActivity(ctx, {
+        actorUserId: actor._id,
+        action: "role.revoked",
+        targetType: "roleAssignments",
+        targetId: row._id,
+        metadata: {
+          reason: "replaced_department_hod",
+          userId: row.userId,
+          departmentId,
+        },
+      });
+    }
+
+    // Cardinality B: a person can be hod of at most one department.
+    const existingForUser = await ctx.db
+      .query("roleAssignments")
+      .withIndex("by_userId_status", (q) =>
+        q.eq("userId", args.userId).eq("status", "active")
+      )
+      .filter((q) => q.eq(q.field("roleType"), "hod"))
+      .collect();
+    for (const row of existingForUser) {
+      await ctx.db.patch(row._id, {
+        status: "revoked",
+        revokedBy: actor._id,
+        revokedAt: Date.now(),
+      });
+      await logActivity(ctx, {
+        actorUserId: actor._id,
+        action: "role.revoked",
+        targetType: "roleAssignments",
+        targetId: row._id,
+        metadata: { reason: "replaced_person_hod", userId: row.userId },
       });
     }
   }
@@ -67,14 +153,15 @@ export async function assignRoleCore(
   const roleAssignmentId = await ctx.db.insert("roleAssignments", {
     userId: args.userId,
     roleType: args.roleType,
-    ...(args.roleType === "clan_elder" ? { clanId: args.clanId } : {}),
-    assignedBy: caller._id,
+    ...(args.clanId ? { clanId: args.clanId } : {}),
+    ...(args.departmentId ? { departmentId: args.departmentId } : {}),
+    assignedBy: actor._id,
     status: "active",
     ...(args.note ? { note: args.note } : {}),
   });
 
   await logActivity(ctx, {
-    actorUserId: caller._id,
+    actorUserId: actor._id,
     action: "role.assigned",
     targetType: "roleAssignments",
     targetId: roleAssignmentId,
@@ -82,32 +169,89 @@ export async function assignRoleCore(
       roleType: args.roleType,
       userId: args.userId,
       ...(args.clanId ? { clanId: args.clanId } : {}),
+      ...(args.departmentId ? { departmentId: args.departmentId } : {}),
     },
   });
+
+  // hod/department_admin implicitly puts the appointee on that department's
+  // roster too, if they aren't on it already.
+  if (
+    (args.roleType === "hod" || args.roleType === "department_admin") &&
+    args.departmentId
+  ) {
+    const departmentId = args.departmentId;
+    const existingMembership = await ctx.db
+      .query("departmentMemberships")
+      .withIndex("by_userId_status", (q) =>
+        q.eq("userId", args.userId).eq("status", "active")
+      )
+      .filter((q) => q.eq(q.field("departmentId"), departmentId))
+      .first();
+    if (!existingMembership) {
+      await ctx.db.insert("departmentMemberships", {
+        userId: args.userId,
+        departmentId,
+        addedBy: actor._id,
+        status: "active",
+      });
+    }
+  }
 
   return { roleAssignmentId };
 }
 
 export async function revokeRoleCore(
   ctx: MutationCtx,
-  caller: Doc<"users">,
   args: { roleAssignmentId: Id<"roleAssignments">; note?: string }
 ) {
   const assignment = await ctx.db.get(args.roleAssignmentId);
   if (!assignment) throw new Error("Role assignment not found");
+
+  // Authenticate before any early return — an unauthenticated caller must not
+  // be able to probe "does this ID exist and is it already revoked?".
+  const actor = await requireUser(ctx);
+
   if (assignment.status === "revoked") {
     return { ok: true as const, alreadyRevoked: true };
   }
 
+  const callerIsSystemAdmin = await isActiveSystemAdmin(ctx, actor._id);
+
+  // Symmetric with assignRoleCore: revoking a role requires the same
+  // authority tier that would be needed to grant it.
+  if (assignment.roleType === "hod") {
+    const adminDeptId = await getAdministrationDepartmentId(ctx);
+    const callerIsAdminHod = await hasActiveDepartmentRole(
+      ctx,
+      actor._id,
+      adminDeptId,
+      ["hod"]
+    );
+    if (!callerIsSystemAdmin && !callerIsAdminHod) {
+      throw new Error(
+        "Only System Admin or the Administration HOD can revoke a department head"
+      );
+    }
+  } else if (assignment.roleType === "department_admin") {
+    if (!assignment.departmentId) {
+      throw new Error(
+        "Malformed department_admin assignment: missing departmentId"
+      );
+    }
+    await requireDepartmentHod(ctx, assignment.departmentId); // allows system_admin too
+  } else {
+    if (!callerIsSystemAdmin) throw new Error("Not authorized");
+  }
+
   await ctx.db.patch(args.roleAssignmentId, {
     status: "revoked",
-    revokedBy: caller._id,
+    revokedBy: actor._id,
     revokedAt: Date.now(),
     ...(args.note ? { note: args.note } : {}),
   });
 
   await logActivity(ctx, {
-    actorUserId: caller._id,
+    actorUserId: actor._id,
     action: "role.revoked",
     targetType: "roleAssignments",
     targetId: args.roleAssignmentId,
@@ -115,6 +259,9 @@ export async function revokeRoleCore(
       roleType: assignment.roleType,
       userId: assignment.userId,
       ...(assignment.clanId ? { clanId: assignment.clanId } : {}),
+      ...(assignment.departmentId
+        ? { departmentId: assignment.departmentId }
+        : {}),
     },
   });
 
@@ -124,33 +271,36 @@ export async function revokeRoleCore(
 // ── Registered functions (auth wrappers) ─────────────────────────────────────
 
 /**
- * Grant a role. system_admin only. The target must have completed their member
- * profile. For `clan_elder`, any existing active elder of the same clan is
- * revoke-and-replaced in the same mutation.
+ * Grant a role. Authorization is per-roleType — see docs/Alignment.md §1:
+ * system_admin/clan_elder require System Admin; hod requires System Admin or
+ * the Administration department's active hod; department_admin requires
+ * System Admin or that department's active hod. `clan_elder` cardinality
+ * (one per clan) is enforced upstream of this file's history and unchanged;
+ * `hod` cardinality (one per department AND one per person) is enforced here.
  */
 export const assignRole = mutation({
   args: {
-    roleType: v.union(v.literal("system_admin"), v.literal("clan_elder")),
+    roleType: v.union(
+      v.literal("system_admin"),
+      v.literal("clan_elder"),
+      v.literal("hod"),
+      v.literal("department_admin")
+    ),
     userId: v.id("users"),
     clanId: v.optional(v.id("clans")),
+    departmentId: v.optional(v.id("departments")),
     note: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const caller = await requireSystemAdmin(ctx);
-    return await assignRoleCore(ctx, caller, args);
-  },
+  handler: async (ctx, args) => await assignRoleCore(ctx, args),
 });
 
-/** Revoke a role assignment. system_admin only. */
+/** Revoke a role assignment. Authorization mirrors assignRole, see above. */
 export const revokeRole = mutation({
   args: {
     roleAssignmentId: v.id("roleAssignments"),
     note: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const caller = await requireSystemAdmin(ctx);
-    return await revokeRoleCore(ctx, caller, args);
-  },
+  handler: async (ctx, args) => await revokeRoleCore(ctx, args),
 });
 
 /** The caller's own active role assignments. */

@@ -9,6 +9,7 @@ import {
   Building2,
   Landmark,
   Users,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "../../icon.png";
@@ -69,6 +70,17 @@ export function ChurchAdminSidebar() {
           </Link>
         );
       })}
+
+      {/* The only way back to the department picker from inside a portal
+          that isn't reached via a role/dept switcher elsewhere — without
+          this, entering Administration is a one-way trip. */}
+      <Link
+        href="/areas-of-service"
+        className="mt-auto flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+      >
+        <Repeat className="h-4 w-4" />
+        Areas of Service
+      </Link>
     </aside>
   );
 }

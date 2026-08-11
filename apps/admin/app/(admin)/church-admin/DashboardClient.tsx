@@ -82,7 +82,7 @@ function initials(name: string) {
 
 export function ChurchAdminDashboardClient() {
   const pending = useAuthQuery(api.memberProfiles.listPendingVerifications);
-  const departments = useAuthQuery(api.departments.listActiveDepartments);
+  const departments = useAuthQuery(api.departments.listDepartments);
   const facilities = useAuthQuery(api.facilities.listActiveFacilities);
 
   const needsFollowUp = pending?.filter((p) => !p.mentorshipProofUrl).length;
@@ -117,7 +117,7 @@ export function ChurchAdminDashboardClient() {
           href="/church-admin/departments"
           icon={Building2}
           chip="blue"
-          label="Active departments"
+          label="Departments"
           value={departments?.length}
         />
         <StatCard

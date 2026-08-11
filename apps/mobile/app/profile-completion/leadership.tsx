@@ -146,7 +146,7 @@ export default function LeadershipStep() {
     <StepScaffold
       title="Leadership (KLLII)"
       subtitle="Optional. Add a row for each institute level you've taken — order doesn't matter."
-      onPrimary={() => router.push('/profile-completion/department')}
+      onPrimary={() => router.push('/profile-completion/clan')}
     >
       <WizardField>
         {draft.leadership.length === 0 ? (

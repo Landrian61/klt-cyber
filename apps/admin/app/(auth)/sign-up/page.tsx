@@ -68,7 +68,7 @@ export default function SignUpPage() {
       return;
     }
     // Hard navigation on purpose — see the sign-in page's submit handler.
-    window.location.assign("/select-role");
+    window.location.assign("/areas-of-service");
   }
 
   async function handleGoogle() {
@@ -76,7 +76,7 @@ export default function SignUpPage() {
     setGoogleLoading(true);
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/select-role",
+      callbackURL: "/areas-of-service",
     });
     if (error) {
       setGoogleLoading(false);

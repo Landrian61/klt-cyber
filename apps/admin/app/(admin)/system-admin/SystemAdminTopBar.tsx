@@ -125,9 +125,9 @@ export function SystemAdminTopBar({
             <DropdownMenuSeparator />
 
             <DropdownMenuItem asChild>
-              <Link href="/select-role">
+              <Link href="/areas-of-service">
                 <Repeat aria-hidden="true" />
-                Switch role
+                Areas of Service
               </Link>
             </DropdownMenuItem>
 

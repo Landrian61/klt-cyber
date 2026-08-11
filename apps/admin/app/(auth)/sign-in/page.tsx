@@ -53,7 +53,7 @@ export default function SignInPage() {
     // Hard navigation on purpose: the auth state just changed, and a
     // client-side push + refresh can race the App Router cache while the
     // session/middleware view of the world flips (headCacheNode crash).
-    window.location.assign("/select-role");
+    window.location.assign("/areas-of-service");
   }
 
   async function handleGoogle() {
@@ -61,7 +61,7 @@ export default function SignInPage() {
     setGoogleLoading(true);
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/select-role",
+      callbackURL: "/areas-of-service",
     });
     if (error) {
       setGoogleLoading(false);

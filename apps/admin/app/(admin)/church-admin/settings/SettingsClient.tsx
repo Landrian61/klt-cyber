@@ -9,8 +9,9 @@ import { errorMessage } from "../verification/shared";
 
 const ROLE_LABELS: Record<string, string> = {
   system_admin: "System Admin",
-  church_admin: "Church Admin",
   clan_elder: "Clan Elder",
+  hod: "Department Head",
+  department_admin: "Department Admin",
 };
 
 type EditableFields = {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Settings } from "lucide-react";
+import { Bell, Settings, Repeat } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 
@@ -25,6 +25,14 @@ export function ChurchAdminTopBar() {
         >
           <Bell className="h-4.5 w-4.5" />
         </button>
+        <Link
+          href="/areas-of-service"
+          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Areas of Service"
+          title="Areas of Service"
+        >
+          <Repeat className="h-4.5 w-4.5" />
+        </Link>
         <Link
           href="/church-admin/settings"
           className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

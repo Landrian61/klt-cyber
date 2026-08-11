@@ -41,6 +41,21 @@ export async function getActiveRoles(
     .collect();
 }
 
+/** True when `userId` holds an active `system_admin` role assignment. */
+export async function isActiveSystemAdmin(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  const admin = await ctx.db
+    .query("roleAssignments")
+    .withIndex("by_userId_status", (q) =>
+      q.eq("userId", userId).eq("status", "active")
+    )
+    .filter((q) => q.eq(q.field("roleType"), "system_admin"))
+    .first();
+  return admin !== null;
+}
+
 /**
  * Like {@link requireSystemAdmin}, but resolves null when the caller is
  * unauthenticated instead of throwing. For queries subscribed by reactive
@@ -55,17 +70,9 @@ export async function getSystemAdminOrNull(
 ): Promise<Doc<"users"> | null> {
   const user = await getCurrentUser(ctx);
   if (!user) return null;
-  const admin = await ctx.db
-    .query("roleAssignments")
-    .withIndex("by_userId", (q) => q.eq("userId", user._id))
-    .filter((q) =>
-      q.and(
-        q.eq(q.field("roleType"), "system_admin"),
-        q.eq(q.field("status"), "active")
-      )
-    )
-    .first();
-  if (!admin) throw new Error("Requires an active system_admin role");
+  if (!(await isActiveSystemAdmin(ctx, user._id))) {
+    throw new Error("Requires an active system_admin role");
+  }
   return user;
 }
 
@@ -82,69 +89,161 @@ export async function requireSystemAdmin(
   return user;
 }
 
-// Role types that confer Church Admin rights (DATA_MODEL.md, Increment 3 —
-// Access Control; formalized as `canManageChurchAdmin` in Increment 4).
-// `church_admin` is now a real member of the `roleAssignments.roleType` union.
-const CHURCH_ADMIN_ROLES = ["system_admin", "church_admin"] as const;
+// ── Department-scoped authority (docs/Alignment.md, Increment 5) ────────────
+// Replaces the free-floating `church_admin` role: `hod` and `department_admin`
+// are now scoped to a specific `departmentId`. "Administration" is the
+// department whose HOD/department_admin inherit the old church_admin's
+// portal-wide content/verification/facility authority.
 
-/** True when `userId` holds an active Church Admin-equivalent role assignment. */
-async function hasActiveChurchAdminRole(
+/** The `_id` of the fixed "Administration" department, or null if unseeded. */
+export async function getAdministrationDepartmentId(
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"departments"> | null> {
+  const dept = await ctx.db
+    .query("departments")
+    .withIndex("by_name", (q) => q.eq("name", "Administration"))
+    .first();
+  return dept?._id ?? null;
+}
+
+/**
+ * True when `userId` holds an active `roleAssignments` row scoped to
+ * `departmentId` whose `roleType` is in `roleTypes`. `departmentId: null`
+ * (e.g. Administration not yet seeded) always resolves false.
+ */
+export async function hasActiveDepartmentRole(
   ctx: QueryCtx | MutationCtx,
-  userId: Id<"users">
+  userId: Id<"users">,
+  departmentId: Id<"departments"> | null,
+  roleTypes: readonly string[]
 ): Promise<boolean> {
-  const active = await ctx.db
+  if (!departmentId) return false;
+  const rows = await ctx.db
     .query("roleAssignments")
-    .withIndex("by_userId_status", (q) =>
-      q.eq("userId", userId).eq("status", "active")
+    .withIndex("by_departmentId", (q) => q.eq("departmentId", departmentId))
+    .filter((q) =>
+      q.and(q.eq(q.field("userId"), userId), q.eq(q.field("status"), "active"))
     )
     .collect();
-  return active.some((row) =>
-    (CHURCH_ADMIN_ROLES as readonly string[]).includes(row.roleType)
+  return rows.some((row) => roleTypes.includes(row.roleType));
+}
+
+/**
+ * System Admin, or that department's active `hod`/`department_admin`.
+ * Used to gate roster additions ({@link requireDepartmentHod} is the
+ * narrower, hod-only gate for removals).
+ */
+export async function requireDepartmentAuthority(
+  ctx: QueryCtx | MutationCtx,
+  departmentId: Id<"departments">
+): Promise<Doc<"users">> {
+  const actor = await requireUser(ctx);
+  if (await isActiveSystemAdmin(ctx, actor._id)) return actor;
+  if (
+    await hasActiveDepartmentRole(ctx, actor._id, departmentId, [
+      "hod",
+      "department_admin",
+    ])
+  ) {
+    return actor;
+  }
+  throw new Error(
+    "Only System Admin, this department's HOD, or its department admin is authorized"
   );
 }
 
 /**
- * Church Admin gate (DATA_MODEL.md, Increment 4 — Access Control).
- *
- * Checks the caller for an active `roleAssignments` row with `roleType` in
- * {@link CHURCH_ADMIN_ROLES}, via the `by_userId_status` index. A role row is
- * just data — grantable/revocable directly in the Convex dashboard with no
- * redeploy. Revoking a row removes access on the very next request; there is
- * no caching.
- *
- * Throws when the caller is unauthenticated or lacks the role. Returns the
- * caller's `users` row (for audit-log attribution) on success. Called by every
- * content, member-verification, department, and facility mutation.
+ * Narrower than {@link requireDepartmentAuthority} — hod (or system_admin)
+ * only, not department_admin. Used wherever the action is reserved for the
+ * department head: removing a roster member, appointing department_admin
+ * delegates.
  */
-export async function canManageChurchAdmin(
+export async function requireDepartmentHod(
+  ctx: MutationCtx,
+  departmentId: Id<"departments">
+): Promise<Doc<"users">> {
+  const actor = await requireUser(ctx);
+  if (await isActiveSystemAdmin(ctx, actor._id)) return actor;
+  if (await hasActiveDepartmentRole(ctx, actor._id, departmentId, ["hod"])) {
+    return actor;
+  }
+  throw new Error("Only System Admin or this department's HOD is authorized");
+}
+
+/**
+ * System Admin, or the Administration department's active `hod` /
+ * `department_admin`. This is the portal-wide authority gate: content,
+ * member verification, and facilities — everything the old free-floating
+ * `church_admin` role used to cover — now flows through Administration
+ * department membership instead. Kept available under its original name,
+ * {@link canManageChurchAdmin} below, so existing call sites across content/
+ * events/announcements/themes/weeklyPrograms/facilities/memberProfiles/
+ * uploads don't need touching.
+ */
+export async function requireAdministrationAuthority(
   ctx: QueryCtx | MutationCtx
 ): Promise<Doc<"users">> {
   const user = await getCurrentUser(ctx);
   if (!user) throw new Error("Not authenticated");
-  if (!(await hasActiveChurchAdminRole(ctx, user._id))) {
-    throw new Error("Not authorized to manage church admin resources");
+  if (await isActiveSystemAdmin(ctx, user._id)) return user;
+  const adminDeptId = await getAdministrationDepartmentId(ctx);
+  if (
+    adminDeptId &&
+    (await hasActiveDepartmentRole(ctx, user._id, adminDeptId, [
+      "hod",
+      "department_admin",
+    ]))
+  ) {
+    return user;
   }
-  return user;
+  throw new Error(
+    "Not authorized to manage Administration-department resources"
+  );
+}
+
+/**
+ * Church Admin gate (docs/DATA_MODEL.md, Increment 4 — Access Control;
+ * re-pointed at Administration-department authority in Increment 5, see
+ * docs/Alignment.md). A role row is just data — grantable/revocable directly
+ * via `roles.assignRole`/`revokeRole`, no redeploy. Revoking access removes
+ * it on the very next request; there is no caching.
+ *
+ * Throws when the caller is unauthenticated or lacks the authority. Returns
+ * the caller's `users` row (for audit-log attribution) on success. Called by
+ * every content, member-verification, and facility mutation.
+ */
+export async function canManageChurchAdmin(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users">> {
+  return await requireAdministrationAuthority(ctx);
 }
 
 /**
  * @deprecated Increment 3's name for {@link canManageChurchAdmin}, kept as an
  * alias so existing content-mutation call sites (themes, events, programs,
- * announcements) don't need touching. Same check, same roles.
+ * announcements) don't need touching. Same check, same authority.
  */
 export const canManageContent = canManageChurchAdmin;
 
 /**
- * Non-throwing capability check: `true` when the caller may manage Church
- * Admin resources (content, verification, departments, facilities). For
- * gating admin UI without surfacing an authorization error — the write
+ * Non-throwing capability check: `true` when the caller may manage
+ * Administration-department resources (content, verification, facilities).
+ * For gating admin UI without surfacing an authorization error — the write
  * mutations still enforce {@link canManageChurchAdmin} server-side regardless.
  */
 export async function isContentManager(
   ctx: QueryCtx | MutationCtx
 ): Promise<boolean> {
   const user = await getCurrentUser(ctx);
-  return user ? await hasActiveChurchAdminRole(ctx, user._id) : false;
+  if (!user) return false;
+  if (await isActiveSystemAdmin(ctx, user._id)) return true;
+  const adminDeptId = await getAdministrationDepartmentId(ctx);
+  return adminDeptId
+    ? await hasActiveDepartmentRole(ctx, user._id, adminDeptId, [
+        "hod",
+        "department_admin",
+      ])
+    : false;
 }
 
 /** Append an audit entry. The single write-point for `activityLogs`. */
