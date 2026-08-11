@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LogOut, Repeat } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth";
 import { Avatar } from "@/components/shadcn/avatar";
 import { Badge } from "@/components/shadcn/badge";
@@ -16,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/shadcn/dropdown-menu";
+import { DepartmentSwitcher } from "@/components/admin/DepartmentSwitcher";
 
 // Top bar spanning the content column. A warm parchment glass — lighter than
 // the (deeper) page so it lifts, never a cold white. The identity lives behind
@@ -64,6 +64,9 @@ export function SystemAdminTopBar({
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 bg-parchment/85 pl-1.5 pr-3 shadow-[0_10px_30px_-20px_rgba(28,28,24,0.4)] backdrop-blur-xl lg:pl-2 lg:pr-6">
       <div className="flex min-w-0 items-center gap-2">
         <SidebarTrigger className="size-8 text-on-surface-variant hover:bg-surface-low hover:text-primary" />
+        {/* No `current` — System Admin isn't a department, so nothing is
+            check-marked and the trigger reads "Areas of Service". */}
+        <DepartmentSwitcher />
         <p className="min-w-0 truncate font-body text-base font-semibold text-on-surface lg:hidden">
           {moduleTitle(pathname)}
         </p>
@@ -123,13 +126,6 @@ export function SystemAdminTopBar({
             </div>
 
             <DropdownMenuSeparator />
-
-            <DropdownMenuItem asChild>
-              <Link href="/areas-of-service">
-                <Repeat aria-hidden="true" />
-                Areas of Service
-              </Link>
-            </DropdownMenuItem>
 
             <DropdownMenuSeparator />
 

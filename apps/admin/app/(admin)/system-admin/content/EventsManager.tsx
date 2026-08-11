@@ -163,7 +163,7 @@ export function EventsManager() {
         </Button>
       </div>
 
-      {events === undefined ? (
+      {!events ? (
         <p className="font-body text-sm text-outline">Loading…</p>
       ) : events.length === 0 ? (
         <EmptyState title="No events yet" message="Add upcoming events for members to see." />

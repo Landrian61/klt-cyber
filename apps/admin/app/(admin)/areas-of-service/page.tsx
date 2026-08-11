@@ -29,9 +29,11 @@ export default async function AreasOfServicePage() {
 
   const { user, activeRoles } = account;
 
-  const myDepartments = await fetchAuthQuery(
-    api.departmentMemberships.listMyDepartments
-  );
+  // Null if the session lapsed between the account fetch and this one — treat
+  // it as "no departments", which falls through to the /unauthorized redirect
+  // below rather than crashing the render.
+  const myDepartments =
+    (await fetchAuthQuery(api.departmentMemberships.listMyDepartments)) ?? [];
   const departments: DepartmentTile[] = myDepartments.map(({ department }) => ({
     id: department._id,
     name: department.name,

@@ -154,7 +154,7 @@ export function ProgramsManager() {
         </Button>
       </div>
 
-      {programs === undefined ? (
+      {!programs ? (
         <p className="font-body text-sm text-outline">Loading…</p>
       ) : programs.length === 0 ? (
         <EmptyState title="No programs yet" message="Add the church's recurring weekly programs." />

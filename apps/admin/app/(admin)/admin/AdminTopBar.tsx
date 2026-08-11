@@ -1,61 +1,153 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Bell, Settings, Repeat } from "lucide-react";
-import { useAuthQuery } from "@/lib/useAuthQuery";
-import { api } from "@/lib/api";
+import { usePathname } from "next/navigation";
+import { Bell, LogOut, Settings } from "lucide-react";
+import { authClient } from "@/lib/auth";
+import { Avatar } from "@/components/shadcn/avatar";
+import { Badge } from "@/components/shadcn/badge";
+import { SidebarTrigger } from "@/components/shadcn/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/shadcn/dropdown-menu";
+import { DepartmentSwitcher } from "@/components/admin/DepartmentSwitcher";
 
-export function AdminTopBar() {
-  const account = useAuthQuery(api.profile.getMyAccount);
-  const name = account?.user
-    ? [account.user.firstName, account.user.lastName]
-        .filter(Boolean)
-        .join(" ") || account.user.email
-    : undefined;
+// Top bar spanning the content column — the same warm parchment glass as the
+// system_admin bar so both portals read as one product. Adds the instant
+// Area-of-Service switcher on the left: moving to another department no longer
+// means bouncing back through /areas-of-service.
+
+const MODULE_TITLES: [prefix: string, title: string][] = [
+  ["/admin/verification", "Verification"],
+  ["/admin/members", "Members"],
+  ["/admin/departments", "Departments"],
+  ["/admin/settings", "Settings"],
+  ["/admin", "Dashboard"],
+];
+
+function moduleTitle(pathname: string): string {
+  const match = MODULE_TITLES.find(
+    ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+  return match?.[1] ?? "Dashboard";
+}
+
+export function AdminTopBar({
+  name,
+  email,
+  avatarUrl,
+}: {
+  /** Full name for avatar initials; null lets the email drive them. */
+  name: string | null;
+  email: string;
+  avatarUrl: string | null;
+}) {
+  const pathname = usePathname();
+  const [signingOut, setSigningOut] = useState(false);
+  const displayName = name ?? email;
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    await authClient.signOut();
+    // Hard navigation on purpose: a client-side push + refresh races the
+    // collapsing auth state inside the App Router cache (headCacheNode crash)
+    // and would keep signed-in RSC payloads cached. A full load tears both down.
+    window.location.assign("/sign-in");
+  }
 
   return (
-    <header className="flex h-16 items-center gap-4 border-b border-border px-8">
-      <div className="ml-auto flex items-center gap-4">
-        {/* Decorative — no notifications/settings backend exists yet. */}
+    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 bg-parchment/85 pl-1.5 pr-3 shadow-[0_10px_30px_-20px_rgba(28,28,24,0.4)] backdrop-blur-xl lg:pl-2 lg:pr-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <SidebarTrigger className="size-8 text-on-surface-variant hover:bg-surface-low hover:text-primary" />
+        <DepartmentSwitcher current="Administration" />
+        <p className="min-w-0 truncate font-body text-base font-semibold text-on-surface lg:hidden">
+          {moduleTitle(pathname)}
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1">
+        {/* Notifications */}
         <button
           type="button"
-          disabled
-          className="rounded-full p-2 text-muted-foreground opacity-50"
-          aria-label="Notifications (not yet available)"
+          aria-label="Notifications"
+          className="flex size-9 items-center justify-center rounded-full text-on-surface-variant outline-none transition-colors hover:bg-surface-low hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
         >
-          <Bell className="h-4.5 w-4.5" />
+          <Bell className="h-5 w-5" aria-hidden="true" />
         </button>
-        <Link
-          href="/areas-of-service"
-          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Areas of Service"
-          title="Areas of Service"
-        >
-          <Repeat className="h-4.5 w-4.5" />
-        </Link>
-        <Link
-          href="/admin/settings"
-          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Settings"
-        >
-          <Settings className="h-4.5 w-4.5" />
-        </Link>
 
-        {name ? (
-          <div className="flex items-center gap-3">
-            <div className="text-right text-sm">
-              <p className="font-medium leading-none">{name}</p>
-              <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-                Administration
-              </p>
+        {/* Account menu — modal={false} avoids Radix's body scroll-lock, which
+            would add scrollbar-compensation padding and jitter the fixed
+            sidebar/content on open. */}
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Account menu"
+              className="shrink-0 rounded-full outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-parchment"
+            >
+              <Avatar
+                variant="gradient"
+                name={name}
+                email={email}
+                src={avatarUrl}
+                size="md"
+              />
+            </button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="flex items-center gap-3 py-2.5">
+              <Avatar
+                variant="gradient"
+                name={name}
+                email={email}
+                src={avatarUrl}
+                size="md"
+              />
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate font-body text-sm font-semibold text-on-surface">
+                  {displayName}
+                </span>
+                <span className="truncate font-body text-xs font-normal text-on-surface-variant">
+                  {email}
+                </span>
+              </span>
+            </DropdownMenuLabel>
+
+            <div className="px-2 pb-1.5">
+              <Badge variant="role">Administration</Badge>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-semibold uppercase text-[var(--color-on-primary)]">
-              {name.charAt(0)}
-            </div>
-          </div>
-        ) : (
-          <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
-        )}
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem asChild>
+              <Link href="/admin/settings">
+                <Settings aria-hidden="true" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={signingOut}
+              onSelect={(event) => {
+                event.preventDefault();
+                handleSignOut();
+              }}
+            >
+              <LogOut aria-hidden="true" />
+              {signingOut ? "Signing out…" : "Sign out"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

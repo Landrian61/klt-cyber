@@ -172,7 +172,7 @@ export function ThemesManager() {
         </Button>
       </div>
 
-      {themes === undefined ? (
+      {!themes ? (
         <p className="font-body text-sm text-outline">Loading…</p>
       ) : themes.length === 0 ? (
         <EmptyState title="No themes yet" message="Add the annual and monthly themes members will see on the Home tab." />

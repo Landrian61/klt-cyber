@@ -10,59 +10,84 @@ import {
 } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
-import { Card, Button, Badge } from "./ui";
+import { cn } from "@/lib/utils";
+import { Heading } from "@/components/ui/Heading";
+import { Avatar } from "@/components/shadcn/avatar";
+import { Badge } from "@/components/shadcn/badge";
+import { buttonVariants } from "@/components/shadcn/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/shadcn/card";
+import { Skeleton } from "@/components/shadcn/skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { CountUp } from "@/components/motion/CountUp";
+import { Reveal } from "@/components/motion/Reveal";
 import { PendingSubmissionsChart } from "./PendingSubmissionsChart";
 
-const CHIP_COLORS = {
-  amber: "bg-amber-100 text-amber-700",
-  blue: "bg-blue-100 text-blue-700",
-  emerald: "bg-emerald-100 text-emerald-700",
+// Tonal icon chips — semantic token pairs, never a raw Tailwind palette.
+const CHIP_TONES = {
+  gold: "bg-primary-light text-primary",
+  royal: "bg-royal-light text-royal",
+  success: "bg-success-light text-success",
 } as const;
 
-function StatCard({
+// The bespoke StatCard (@/components/ui/StatCard) has no icon or link
+// affordance, so this dashboard keeps a local wrapper — but wears the same
+// Sacred Curator skin: lifted parchment, ambient shadow, no border, and the
+// count set in the mono face.
+function StatTile({
   href,
   icon: Icon,
-  chip,
+  tone,
   label,
   value,
   flag,
 }: {
   href: string;
   icon: React.ElementType;
-  chip: keyof typeof CHIP_COLORS;
+  tone: keyof typeof CHIP_TONES;
   label: string;
   value: number | undefined;
   flag?: string;
 }) {
   return (
-    <Link href={href}>
-      <Card className="flex flex-col gap-4 p-6 transition-all hover:-translate-y-0.5 hover:shadow-md">
-        <div className="flex items-center justify-between">
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl ${CHIP_COLORS[chip]}`}
-          >
-            <Icon className="h-5 w-5" />
-          </div>
-          {flag && (
-            <Badge variant="destructive" className="gap-1">
-              <PhoneCall className="h-3 w-3" />
-              {flag}
-            </Badge>
+    <Link
+      href={href}
+      className="flex flex-col gap-4 rounded-xl bg-surface-lowest p-6 shadow-[0_8px_32px_rgba(28,28,24,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_40px_rgba(28,28,24,0.08)]"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className={cn(
+            "flex size-10 items-center justify-center rounded-xl",
+            CHIP_TONES[tone],
+          )}
+        >
+          <Icon className="size-5" aria-hidden="true" />
+        </span>
+        {flag && (
+          <Badge variant="pending">
+            <PhoneCall className="mr-1 size-3" aria-hidden="true" />
+            {flag}
+          </Badge>
+        )}
+      </div>
+      <div>
+        <div className="font-mono text-4xl font-bold leading-none text-on-surface">
+          {value === undefined ? (
+            <Skeleton className="h-9 w-12" />
+          ) : (
+            // Rolls up on first paint, and tweens again whenever the live
+            // Convex count changes — a number that moves reads as an event.
+            <CountUp value={value} />
           )}
         </div>
-        <div>
-          <p className="font-display text-3xl font-semibold">
-            {value === undefined ? (
-              <span className="inline-block h-8 w-12 animate-pulse rounded-md bg-muted align-middle" />
-            ) : (
-              value
-            )}
-          </p>
-          <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
-            {label}
-          </p>
-        </div>
-      </Card>
+        <p className="mt-1 font-body text-sm text-on-surface-variant">
+          {label}
+        </p>
+      </div>
     </Link>
   );
 }
@@ -75,11 +100,6 @@ function fullName(p: {
   return [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ");
 }
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
-}
-
 export function AdminDashboardClient() {
   const pending = useAuthQuery(api.memberProfiles.listPendingVerifications);
   const departments = useAuthQuery(api.departments.listDepartments);
@@ -89,22 +109,21 @@ export function AdminDashboardClient() {
   const recentPending = pending?.slice(0, 5);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-primary)]">
-          Overview
-        </p>
-        <h2 className="font-display text-4xl font-semibold">Dashboard</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <Heading as="h1" size="2xl">
+          Dashboard
+        </Heading>
+        <p className="font-body text-base text-on-surface-variant">
           Overview of pending work across Administration.
         </p>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard
+      <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatTile
           href="/admin/verification"
           icon={ClipboardCheck}
-          chip="amber"
+          tone="gold"
           label="Pending verifications"
           value={pending?.length}
           flag={
@@ -113,83 +132,98 @@ export function AdminDashboardClient() {
               : undefined
           }
         />
-        <StatCard
+        <StatTile
           href="/admin/departments"
           icon={Building2}
-          chip="blue"
+          tone="royal"
           label="Departments"
           value={departments?.length}
         />
-        <StatCard
+        <StatTile
           href="/admin/facilities"
           icon={Landmark}
-          chip="emerald"
+          tone="success"
           label="Tower of Faith facilities"
           value={facilities?.length}
         />
-      </div>
+      </Reveal>
 
       <PendingSubmissionsChart profiles={pending} />
 
-      <Card className="p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold">
+      <Card className="gap-4 p-6">
+        <CardHeader className="flex-row items-center justify-between gap-3 p-0">
+          <CardTitle className="font-body text-lg font-semibold text-on-surface">
             Pending Approvals
-          </h3>
+          </CardTitle>
           {pending && pending.length > 5 && (
             <Link
               href="/admin/verification"
-              className="text-sm text-[var(--color-primary)] hover:underline"
+              className="font-body text-sm font-medium text-primary underline underline-offset-2"
             >
               View all {pending.length}
             </Link>
           )}
-        </div>
+        </CardHeader>
 
-        {recentPending === undefined && (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
-            ))}
-          </div>
-        )}
-
-        {recentPending?.length === 0 && (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            No pending profiles right now.
-          </p>
-        )}
-
-        <ul className="flex flex-col gap-2">
-          {recentPending?.map((profile) => {
-            const name = fullName(profile);
-            return (
-              <li
-                key={profile._id}
-                className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/40"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-xs font-semibold text-[var(--color-primary)]">
-                    {initials(name)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Submitted{" "}
-                      {new Date(profile._creationTime).toLocaleDateString()}
-                      {!profile.mentorshipProofUrl && " · needs follow-up call"}
-                    </p>
-                  </div>
-                </div>
-                <Link href={`/admin/verification/${profile._id}`}>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    Review <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <CardContent className="p-0">
+          {recentPending === undefined ? (
+            <div className="flex flex-col gap-2" aria-hidden="true">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 rounded-lg" />
+              ))}
+            </div>
+          ) : recentPending.length === 0 ? (
+            <EmptyState
+              title="Nothing waiting for approval"
+              message="Submitted member profiles will appear here for review."
+            />
+          ) : (
+            // `replayKey` re-runs the stagger when the row set changes, so
+            // rows arriving after the skeleton animate in rather than pop.
+            <Reveal
+              as="ul"
+              className="flex flex-col"
+              replayKey={recentPending.length}
+            >
+              {recentPending.map((profile) => {
+                const name = fullName(profile);
+                return (
+                  <li
+                    key={profile._id}
+                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-low"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar name={name} size="md" />
+                      <div className="min-w-0">
+                        <p className="truncate font-body text-sm font-medium text-on-surface">
+                          {name}
+                        </p>
+                        <p className="font-body text-xs text-on-surface-variant">
+                          Submitted{" "}
+                          {new Date(profile._creationTime).toLocaleDateString()}
+                          {!profile.mentorshipProofUrl &&
+                            " · needs follow-up call"}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Link styled as a button — never a <button> inside an
+                        <a>, which the previous markup nested. */}
+                    <Link
+                      href={`/admin/verification/${profile._id}`}
+                      className={cn(
+                        buttonVariants({ variant: "secondary", size: "sm" }),
+                        "shrink-0",
+                      )}
+                    >
+                      Review
+                      <ArrowRight className="size-3.5" aria-hidden="true" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </Reveal>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

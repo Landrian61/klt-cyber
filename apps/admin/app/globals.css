@@ -175,25 +175,6 @@ body {
   }
 }
 
-[data-section="admin"] {
-  --font-display: var(--font-manrope), -apple-system, sans-serif;
-
-  --color-background: #f8f9fa;
-  --color-card: #ffffff;
-  --color-card-foreground: #1a1a1a;
-  --color-border: #e2e4e7;
-  --color-muted: #f1f2f4;
-  --color-muted-foreground: #6b7280;
-
-  --color-primary: #002366;
-  --color-primary-container: #143c7a;
-  --color-primary-light: #e6ebf5;
-  --color-on-primary: #ffffff;
-
-  --color-brand: #d4af37;
-  --color-destructive: #b22222;
-}
-
 /*
   Kingdom Radiant motion primitives. anime.js drives the entrance/particle
   choreography imperatively (see components/motion + components/brand); these
@@ -243,4 +224,31 @@ body {
 }
 .kr-halo {
   animation: kr-halo 9s ease-in-out infinite;
+}
+
+/*
+  A quiet scrollbar for scrollable overlay surfaces (e.g. the Areas-of-Service
+  switcher menu). Pair with `overflow-y-auto` so the bar appears only when the
+  content actually overflows — the affordance is present when it's needed and
+  absent when it isn't. Slim and tonal rather than the chunky OS default, so it
+  reads as part of the surface instead of chrome cutting through it.
+*/
+@utility subtle-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--color-surface-high) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-surface-high);
+    border-radius: var(--radius-xl);
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-outline);
+  }
 }

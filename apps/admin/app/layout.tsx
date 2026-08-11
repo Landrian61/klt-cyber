@@ -3,7 +3,6 @@ import {
   Bricolage_Grotesque,
   Plus_Jakarta_Sans,
   Spline_Sans_Mono,
-  Manrope,
 } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -32,15 +31,6 @@ const splineMono = Spline_Sans_Mono({
   display: "swap",
 });
 
-// Administration heading font — scoped via [data-section="admin"] in
-// globals.css, so this never overrides system-admin's Playfair headings.
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: "KLT Cyber — Admin",
   description: "Administration console for KLT Cyber Church.",
@@ -56,12 +46,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(
-        bricolage.variable,
-        jakarta.variable,
-        splineMono.variable,
-        manrope.variable,
-      )}
+      className={cn(bricolage.variable, jakarta.variable, splineMono.variable)}
       suppressHydrationWarning
     >
       <body

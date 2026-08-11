@@ -137,85 +137,89 @@ export function AssignRoleSheet({
           <SheetTitle>Assign a role</SheetTitle>
         </SheetHeader>
 
-        {profileCompleted ? (
-          <div className="flex-1 space-y-6 overflow-y-auto">
-            <Field label="Role" htmlFor="assign-role-type">
+        <div className="flex-1 space-y-6 overflow-y-auto">
+          <Field label="Role" htmlFor="assign-role-type">
+            <Select
+              value={roleType}
+              onValueChange={(value) => {
+                setRoleType(value as RoleChoice);
+                setError(null);
+              }}
+            >
+              <SelectTrigger id="assign-role-type">
+                <SelectValue placeholder="Choose a role…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="system_admin">
+                  System Administrator
+                </SelectItem>
+                {/* Every role but System Admin is a ministry position held by
+                    a verified member, so it needs a completed profile. System
+                    Admin is a technical steward — a "ghost" account with no
+                    church-domain data — and is exempt. */}
+                <SelectItem value="clan_elder" disabled={!profileCompleted}>
+                  Clan Elder
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {!profileCompleted && (
+            <p className="rounded-md bg-surface-low p-3 font-body text-xs text-on-surface-variant">
+              This user hasn&apos;t completed a member profile, so only System
+              Administrator — which doesn&apos;t require one — can be assigned.
+            </p>
+          )}
+
+          {roleType === "clan_elder" && (
+            <Field label="Clan" htmlFor="assign-clan">
               <Select
-                value={roleType}
+                value={clanId}
                 onValueChange={(value) => {
-                  setRoleType(value as RoleChoice);
+                  setClanId(value);
                   setError(null);
                 }}
               >
-                <SelectTrigger id="assign-role-type">
-                  <SelectValue placeholder="Choose a role…" />
+                <SelectTrigger id="assign-clan">
+                  <SelectValue placeholder="Choose a clan…" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="system_admin">
-                    System Administrator
-                  </SelectItem>
-                  <SelectItem value="clan_elder">Clan Elder</SelectItem>
+                  {(clans ?? []).map((clan) => (
+                    <SelectItem key={clan._id} value={clan._id}>
+                      {clan.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
+          )}
 
-            {roleType === "clan_elder" && (
-              <Field label="Clan" htmlFor="assign-clan">
-                <Select
-                  value={clanId}
-                  onValueChange={(value) => {
-                    setClanId(value);
-                    setError(null);
-                  }}
-                >
-                  <SelectTrigger id="assign-clan">
-                    <SelectValue placeholder="Choose a clan…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(clans ?? []).map((clan) => (
-                      <SelectItem key={clan._id} value={clan._id}>
-                        {clan.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
+          <Field label="Note (optional)" htmlFor="assign-note">
+            <Textarea
+              id="assign-note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Context for the audit trail"
+            />
+          </Field>
 
-            <Field label="Note (optional)" htmlFor="assign-note">
-              <Textarea
-                id="assign-note"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="Context for the audit trail"
-              />
-            </Field>
+          {chosenClanName && (
+            <p className="rounded-md bg-warning-light p-3 font-body text-xs text-on-surface-variant">
+              If Clan {chosenClanName} already has an elder, they will be
+              replaced and their assignment revoked.
+            </p>
+          )}
 
-            {chosenClanName && (
-              <p className="rounded-md bg-warning-light p-3 font-body text-xs text-on-surface-variant">
-                If Clan {chosenClanName} already has an elder, they will be
-                replaced and their assignment revoked.
-              </p>
-            )}
-
-            {error && <p className="font-body text-sm text-error">{error}</p>}
-          </div>
-        ) : (
-          <div className="flex-1 rounded-md bg-surface-low p-4 font-body text-sm text-on-surface-variant">
-            This user must complete their member profile before roles can be
-            assigned.
-          </div>
-        )}
+          {error && <p className="font-body text-sm text-error">{error}</p>}
+        </div>
 
         <SheetFooter className="flex-row items-center justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={handleClose}>
             Cancel
           </Button>
-          {profileCompleted && (
-            <Button size="sm" loading={busy} onClick={handleSubmit}>
-              Assign role
-            </Button>
-          )}
+          <Button size="sm" loading={busy} onClick={handleSubmit}>
+            Assign role
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

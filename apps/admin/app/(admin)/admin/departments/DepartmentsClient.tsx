@@ -1,57 +1,64 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { FunctionReturnType } from "convex/server";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
-import { Card } from "../ui";
+import { Heading } from "@/components/ui/Heading";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+
+// Row shape comes straight from the Convex query — no hand-rolled drift.
+type DepartmentRow = NonNullable<
+  FunctionReturnType<typeof api.departments.listDepartments>
+>[number];
 
 export function DepartmentsClient() {
   const router = useRouter();
   const departments = useAuthQuery(api.departments.listDepartments);
 
+  const columns: Column<DepartmentRow>[] = [
+    {
+      key: "name",
+      header: "Department",
+      render: (dept) => (
+        <span className="font-medium text-on-surface">{dept.name}</span>
+      ),
+    },
+    {
+      key: "order",
+      header: "Order",
+      align: "right",
+      render: (dept) => (
+        <span className="font-mono text-on-surface-variant">{dept.order}</span>
+      ),
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="font-display text-2xl font-semibold">Departments</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The 13 fixed Areas of Service.
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <Heading as="h1" size="2xl">
+          Departments
+        </Heading>
+        <p className="font-body text-base text-on-surface-variant">
+          The <span className="font-mono">13</span> fixed Areas of Service.
         </p>
-      </div>
+      </header>
 
-      <Card className="overflow-hidden p-0">
-        {departments === undefined && (
-          <div className="flex flex-col gap-px">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-16 animate-pulse bg-muted" />
-            ))}
-          </div>
-        )}
-
-        {departments?.length === 0 && (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            No departments found yet.
-          </p>
-        )}
-
-        {departments?.map((dept, i) => (
-          <div
-            key={dept._id}
-            role="button"
-            tabIndex={0}
-            onClick={() => router.push(`/admin/departments/${dept._id}`)}
-            className={`flex cursor-pointer items-center justify-between p-4 transition-colors hover:bg-muted/40 ${
-              i > 0 ? "border-t border-border" : ""
-            }`}
-          >
-            <div>
-              <p className="text-sm font-medium">{dept.name}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Order {dept.order}
-            </p>
-          </div>
-        ))}
-      </Card>
+      <DataTable<DepartmentRow>
+        columns={columns}
+        rows={departments}
+        rowKey={(dept) => dept._id}
+        onRowClick={(dept) => router.push(`/admin/departments/${dept._id}`)}
+        skeletonRows={3}
+        empty={
+          <EmptyState
+            title="No departments found yet"
+            message="The fixed Areas of Service will appear here once seeded."
+          />
+        }
+      />
     </div>
   );
 }

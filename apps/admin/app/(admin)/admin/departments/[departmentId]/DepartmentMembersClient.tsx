@@ -2,20 +2,26 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-} from "lucide-react";
+import { Download } from "lucide-react";
+import type { FunctionReturnType } from "convex/server";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
-import { Card, Button, Input } from "../../ui";
+import { Heading } from "@/components/ui/Heading";
+import { Button } from "@/components/shadcn/button";
+import { Skeleton } from "@/components/shadcn/skeleton";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { downloadCsv } from "../../csv";
 
 const PAGE_SIZE = 10;
+
+// Row shape comes straight from the Convex query — no hand-rolled drift.
+type MemberProfile = NonNullable<
+  FunctionReturnType<typeof api.memberProfiles.listVerifiedMembersWithRoles>
+>[number]["profile"];
 
 function fullName(p: {
   firstName: string;
@@ -94,146 +100,141 @@ export function DepartmentMembersClient({
 
   if (departments !== undefined && !department) {
     return (
-      <div className="flex flex-col gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push("/admin/departments")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <p className="text-sm text-muted-foreground">
-          This department doesn&apos;t exist.
-        </p>
+      <div className="space-y-6">
+        <BackLink onClick={() => router.push("/admin/departments")} />
+        <EmptyState
+          title="Department not found"
+          message="This department doesn't exist or may have been removed."
+        />
       </div>
     );
   }
 
+  const columns: Column<MemberProfile>[] = [
+    {
+      key: "name",
+      header: "Name",
+      render: (profile) => (
+        <span className="font-medium text-on-surface">
+          {fullName(profile)}
+        </span>
+      ),
+    },
+    {
+      key: "phone",
+      header: "Phone",
+      render: (profile) => (
+        <span className="text-on-surface-variant">{profile.phone ?? "—"}</span>
+      ),
+    },
+    {
+      key: "occupation",
+      header: "Occupation",
+      render: (profile) => (
+        <span className="text-on-surface-variant">
+          {profile.occupation ?? "—"}
+        </span>
+      ),
+    },
+    {
+      key: "joined",
+      header: "Joined",
+      render: (profile) => (
+        <span className="whitespace-nowrap text-on-surface-variant">
+          {profile.joinDate
+            ? new Date(profile.joinDate).toLocaleDateString()
+            : "—"}
+        </span>
+      ),
+    },
+  ];
+
+  const rangeStart = (clampedPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = departmentMembers
+    ? Math.min(clampedPage * PAGE_SIZE, departmentMembers.length)
+    : 0;
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/admin/departments")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h2 className="font-display text-2xl font-semibold">
-              {department ? (
-                department.name
-              ) : (
-                <span className="inline-block h-7 w-40 animate-pulse rounded-md bg-muted align-middle" />
-              )}
-            </h2>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by name…"
-              value={search}
-              onChange={(e) => updateSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            disabled={!departmentMembers || departmentMembers.length === 0}
-            className="gap-1.5"
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
-        </div>
+    <div className="space-y-6">
+      <BackLink onClick={() => router.push("/admin/departments")} />
+
+      <header className="space-y-1">
+        {department ? (
+          <Heading as="h1" size="2xl">
+            {department.name}
+          </Heading>
+        ) : (
+          <Skeleton className="h-9 w-56" />
+        )}
+        <p className="font-body text-base text-on-surface-variant">
+          {departmentMembers ? (
+            <span className="font-mono">{departmentMembers.length}</span>
+          ) : (
+            <span aria-hidden="true">—</span>
+          )}{" "}
+          members serving here
+        </p>
+      </header>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <SearchInput
+          defaultValue={search}
+          onDebouncedChange={updateSearch}
+          placeholder="Search by name…"
+          className="min-w-64 flex-1"
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleExport}
+          disabled={!departmentMembers || departmentMembers.length === 0}
+        >
+          <Download className="size-4" />
+          Export CSV
+        </Button>
       </div>
 
-      <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Phone</th>
-              <th className="px-4 py-3 font-medium">Occupation</th>
-              <th className="px-4 py-3 font-medium">Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginated === undefined &&
-              Array.from({ length: 3 }).map((_, i) => (
-                <tr key={i} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3" colSpan={4}>
-                    <div className="h-5 w-full animate-pulse rounded-md bg-muted" />
-                  </td>
-                </tr>
-              ))}
+      <DataTable<MemberProfile>
+        columns={columns}
+        rows={paginated}
+        rowKey={(profile) => profile._id}
+        skeletonRows={3}
+        empty={
+          <EmptyState
+            title="No members match your search"
+            message="Nobody in this department matches — try a different name."
+          />
+        }
+      />
 
-            {paginated?.length === 0 && (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-4 py-12 text-center text-sm text-muted-foreground"
-                >
-                  No verified members match your search.
-                </td>
-              </tr>
-            )}
-
-            {paginated?.map((profile) => (
-              <tr
-                key={profile._id}
-                className="border-b border-border last:border-0"
-              >
-                <td className="px-4 py-3 font-medium">{fullName(profile)}</td>
-                <td className="px-4 py-3">{profile.phone ?? "—"}</td>
-                <td className="px-4 py-3">{profile.occupation ?? "—"}</td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {profile.joinDate
-                    ? new Date(profile.joinDate).toLocaleDateString()
-                    : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {departmentMembers && departmentMembers.length > 0 && (
-          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm text-muted-foreground">
-            <p>
-              Showing {(clampedPage - 1) * PAGE_SIZE + 1}–
-              {Math.min(clampedPage * PAGE_SIZE, departmentMembers.length)} of{" "}
-              {departmentMembers.length} results
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={clampedPage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="px-2 text-foreground">
-                Page {clampedPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={clampedPage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
+      {departmentMembers && departmentMembers.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="font-body text-xs text-outline">
+            Showing <span className="font-mono">{rangeStart}</span>–
+            <span className="font-mono">{rangeEnd}</span> of{" "}
+            <span className="font-mono">{departmentMembers.length}</span>
+          </p>
+          <Pagination
+            page={clampedPage}
+            pageCount={totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+// Quiet text-link back affordance (matches the system-admin detail screens).
+// Kept as a button so the existing router.push navigation is untouched.
+function BackLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-block font-body text-sm text-primary underline underline-offset-2"
+    >
+      &larr; Departments
+    </button>
   );
 }

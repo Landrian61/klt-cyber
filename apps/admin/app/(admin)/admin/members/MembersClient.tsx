@@ -1,13 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Download } from "lucide-react";
+import type { FunctionReturnType } from "convex/server";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
-import { Card, Input, Button } from "../ui";
+import { Heading } from "@/components/ui/Heading";
+import { Button } from "@/components/shadcn/button";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { downloadCsv } from "../csv";
 
 const PAGE_SIZE = 10;
+
+// Row shape comes straight from the Convex query — no hand-rolled drift.
+type MemberEntry = NonNullable<
+  FunctionReturnType<typeof api.memberProfiles.listVerifiedMembersWithRoles>
+>[number];
 
 function fullName(p: {
   firstName: string;
@@ -59,119 +70,110 @@ export function MembersClient() {
     );
   }
 
+  const columns: Column<MemberEntry>[] = [
+    {
+      key: "name",
+      header: "Name",
+      render: ({ profile }) => (
+        <span className="font-medium text-on-surface">
+          {fullName(profile)}
+        </span>
+      ),
+    },
+    {
+      key: "phone",
+      header: "Phone",
+      render: ({ profile }) => (
+        <span className="text-on-surface-variant">{profile.phone ?? "—"}</span>
+      ),
+    },
+    {
+      key: "occupation",
+      header: "Occupation",
+      render: ({ profile }) => (
+        <span className="text-on-surface-variant">
+          {profile.occupation ?? "—"}
+        </span>
+      ),
+    },
+    {
+      key: "joined",
+      header: "Joined",
+      render: ({ profile }) => (
+        <span className="whitespace-nowrap text-on-surface-variant">
+          {profile.joinDate
+            ? new Date(profile.joinDate).toLocaleDateString()
+            : "—"}
+        </span>
+      ),
+    },
+  ];
+
+  const rangeStart = (clampedPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = filtered
+    ? Math.min(clampedPage * PAGE_SIZE, filtered.length)
+    : 0;
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-semibold">Members</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Verified members.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by name…"
-              value={search}
-              onChange={(e) => updateSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            disabled={!filtered || filtered.length === 0}
-            className="gap-1.5"
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
-        </div>
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <Heading as="h1" size="2xl">
+          Members
+        </Heading>
+        <p className="font-body text-base text-on-surface-variant">
+          {filtered ? (
+            <span className="font-mono">{filtered.length}</span>
+          ) : (
+            <span aria-hidden="true">—</span>
+          )}{" "}
+          verified members
+        </p>
+      </header>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <SearchInput
+          defaultValue={search}
+          onDebouncedChange={updateSearch}
+          placeholder="Search by name…"
+          className="min-w-64 flex-1"
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleExport}
+          disabled={!filtered || filtered.length === 0}
+        >
+          <Download className="size-4" />
+          Export CSV
+        </Button>
       </div>
 
-      <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Phone</th>
-              <th className="px-4 py-3 font-medium">Occupation</th>
-              <th className="px-4 py-3 font-medium">Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered === undefined &&
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3" colSpan={4}>
-                    <div className="h-5 w-full animate-pulse rounded-md bg-muted" />
-                  </td>
-                </tr>
-              ))}
+      <DataTable<MemberEntry>
+        columns={columns}
+        rows={paginated}
+        rowKey={({ profile }) => profile._id}
+        empty={
+          <EmptyState
+            title="No members match your search"
+            message="Try a different name, or clear the search field."
+          />
+        }
+      />
 
-            {paginated?.length === 0 && (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-4 py-12 text-center text-sm text-muted-foreground"
-                >
-                  No verified members match your filters.
-                </td>
-              </tr>
-            )}
-
-            {paginated?.map(({ profile }) => (
-              <tr
-                key={profile._id}
-                className="border-b border-border last:border-0"
-              >
-                <td className="px-4 py-3 font-medium">{fullName(profile)}</td>
-                <td className="px-4 py-3">{profile.phone ?? "—"}</td>
-                <td className="px-4 py-3">{profile.occupation ?? "—"}</td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {profile.joinDate
-                    ? new Date(profile.joinDate).toLocaleDateString()
-                    : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {filtered && filtered.length > 0 && (
-          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm text-muted-foreground">
-            <p>
-              Showing {(clampedPage - 1) * PAGE_SIZE + 1}–
-              {Math.min(clampedPage * PAGE_SIZE, filtered.length)} of{" "}
-              {filtered.length} results
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={clampedPage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="px-2 text-foreground">
-                Page {clampedPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={clampedPage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
+      {filtered && filtered.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="font-body text-xs text-outline">
+            Showing <span className="font-mono">{rangeStart}</span>–
+            <span className="font-mono">{rangeEnd}</span> of{" "}
+            <span className="font-mono">{filtered.length}</span>
+          </p>
+          <Pagination
+            page={clampedPage}
+            pageCount={totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
     </div>
   );
 }

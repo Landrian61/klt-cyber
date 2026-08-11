@@ -4,7 +4,20 @@ import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
-import { Card, Button, Input } from "../ui";
+import { Heading } from "@/components/ui/Heading";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/shadcn/card";
+import { Button } from "@/components/shadcn/button";
+import { Field } from "@/components/shadcn/field";
+import { Input } from "@/components/shadcn/input";
+import { Textarea } from "@/components/shadcn/textarea";
+import { Skeleton } from "@/components/shadcn/skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { errorMessage } from "../verification/shared";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -95,141 +108,165 @@ export function SettingsClient() {
 
   if (account === undefined) {
     return (
-      <div className="flex flex-col gap-6">
-        <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
-        <div className="h-96 animate-pulse rounded-xl bg-muted" />
+      <div className="space-y-6" aria-busy="true" aria-label="Loading settings">
+        <Skeleton className="h-9 w-40" />
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-96 w-full rounded-xl" />
       </div>
     );
   }
 
   if (account === null) {
     return (
-      <p className="text-sm text-muted-foreground">
-        You need to be signed in to view settings.
-      </p>
+      <EmptyState
+        title="You're signed out"
+        message="You need to be signed in to view settings."
+      />
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="font-display text-2xl font-semibold">Settings</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <Heading as="h1" size="2xl">
+          Settings
+        </Heading>
+        <p className="font-body text-base text-on-surface-variant">
           Manage your own contact and professional details.
         </p>
-      </div>
+      </header>
 
-      <Card className="p-6">
-        <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
-          Account
-        </h3>
-        <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-xs text-muted-foreground">Email</dt>
-            <dd>{account.user.email}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Admin roles</dt>
-            <dd>
-              {account.activeRoles.length === 0
-                ? "—"
-                : account.activeRoles
+      <Card className="gap-5 p-6">
+        <CardHeader className="p-0">
+          <CardTitle className="font-body text-lg font-semibold text-on-surface">
+            Account
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <div>
+              <dt className="font-body text-xs uppercase tracking-wide text-outline">
+                Email
+              </dt>
+              <dd className="mt-1 font-body text-sm text-on-surface">
+                {account.user.email}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-body text-xs uppercase tracking-wide text-outline">
+                Admin roles
+              </dt>
+              <dd className="mt-1 font-body text-sm text-on-surface">
+                {account.activeRoles.length === 0 ? (
+                  <span className="text-outline">&mdash;</span>
+                ) : (
+                  account.activeRoles
                     .map((r) => ROLE_LABELS[r.roleType] ?? r.roleType)
-                    .join(", ")}
-            </dd>
-          </div>
-        </dl>
+                    .join(", ")
+                )}
+              </dd>
+            </div>
+          </dl>
+        </CardContent>
       </Card>
 
       {account.profile === null ? (
         <Card className="p-6">
-          <p className="text-sm text-muted-foreground">
-            You haven&apos;t submitted a member profile through the mobile app
-            yet, so there&apos;s nothing here to edit. This doesn&apos;t affect
-            your Administration access.
-          </p>
+          <CardContent className="p-0">
+            <p className="font-body text-sm text-on-surface-variant">
+              You haven&apos;t submitted a member profile through the mobile app
+              yet, so there&apos;s nothing here to edit. This doesn&apos;t affect
+              your Administration access.
+            </p>
+          </CardContent>
         </Card>
       ) : (
-        <Card className="p-6">
-          <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
-            Your Details
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <LabeledInput
-              label="First name"
-              value={form.firstName}
-              onChange={(v) => set("firstName", v)}
-            />
-            <LabeledInput
-              label="Middle name"
-              value={form.middleName}
-              onChange={(v) => set("middleName", v)}
-            />
-            <LabeledInput
-              label="Last name"
-              value={form.lastName}
-              onChange={(v) => set("lastName", v)}
-            />
-            <LabeledInput
-              label="Phone"
-              value={form.phone}
-              onChange={(v) => set("phone", v)}
-            />
-            <LabeledInput
-              label="Occupation"
-              value={form.occupation}
-              onChange={(v) => set("occupation", v)}
-            />
-            <LabeledInput
-              label="Industry"
-              value={form.industry}
-              onChange={(v) => set("industry", v)}
-            />
-            <LabeledInput
-              label="Employer"
-              value={form.employer}
-              onChange={(v) => set("employer", v)}
-            />
-            <div className="sm:col-span-2">
-              <LabeledInput
-                label="Short bio"
-                value={form.shortBio}
-                onChange={(v) => set("shortBio", v)}
-              />
-            </div>
-          </div>
+        <Card className="gap-5 p-6">
+          <CardHeader className="p-0">
+            <CardTitle className="font-body text-lg font-semibold text-on-surface">
+              Your Details
+            </CardTitle>
+          </CardHeader>
 
-          <div className="mt-6 flex items-center gap-3">
-            <Button onClick={handleSave} disabled={busy}>
-              {busy ? "Saving…" : "Save changes"}
+          <CardContent className="p-0">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="First name" htmlFor="settings-first-name">
+                <Input
+                  id="settings-first-name"
+                  value={form.firstName}
+                  onChange={(e) => set("firstName", e.target.value)}
+                />
+              </Field>
+              <Field label="Middle name" htmlFor="settings-middle-name">
+                <Input
+                  id="settings-middle-name"
+                  value={form.middleName}
+                  onChange={(e) => set("middleName", e.target.value)}
+                />
+              </Field>
+              <Field label="Last name" htmlFor="settings-last-name">
+                <Input
+                  id="settings-last-name"
+                  value={form.lastName}
+                  onChange={(e) => set("lastName", e.target.value)}
+                />
+              </Field>
+              <Field label="Phone" htmlFor="settings-phone">
+                <Input
+                  id="settings-phone"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                />
+              </Field>
+              <Field label="Occupation" htmlFor="settings-occupation">
+                <Input
+                  id="settings-occupation"
+                  value={form.occupation}
+                  onChange={(e) => set("occupation", e.target.value)}
+                />
+              </Field>
+              <Field label="Industry" htmlFor="settings-industry">
+                <Input
+                  id="settings-industry"
+                  value={form.industry}
+                  onChange={(e) => set("industry", e.target.value)}
+                />
+              </Field>
+              <Field label="Employer" htmlFor="settings-employer">
+                <Input
+                  id="settings-employer"
+                  value={form.employer}
+                  onChange={(e) => set("employer", e.target.value)}
+                />
+              </Field>
+              <Field
+                label="Short bio"
+                htmlFor="settings-short-bio"
+                className="sm:col-span-2"
+              >
+                <Textarea
+                  id="settings-short-bio"
+                  rows={3}
+                  value={form.shortBio}
+                  onChange={(e) => set("shortBio", e.target.value)}
+                />
+              </Field>
+            </div>
+          </CardContent>
+
+          <CardFooter className="gap-3 p-0">
+            <Button size="sm" loading={busy} onClick={handleSave}>
+              Save changes
             </Button>
             {saved && (
-              <span className="text-sm text-muted-foreground">Saved.</span>
+              <span className="font-body text-sm text-success">Saved.</span>
             )}
-            {error && <span className="text-sm text-destructive">{error}</span>}
-          </div>
+            {error && (
+              <span className="font-body text-sm text-error">{error}</span>
+            )}
+          </CardFooter>
         </Card>
       )}
     </div>
   );
 }
-
-function LabeledInput({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-

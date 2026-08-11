@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -142,25 +141,8 @@ export function SystemAdminSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              tooltip="Areas of Service"
-              className="text-white/70 hover:text-white"
-            >
-              <Link href="/areas-of-service">
-                <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M7 8h13l-3.5-3.5" />
-                  <path d="M17 16H4l3.5 3.5" />
-                </svg>
-                <span>Areas of Service</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+      {/* No switcher here — switching Areas of Service lives in exactly one
+          place, the top bar's DepartmentSwitcher. */}
 
       <SidebarRail />
     </Sidebar>

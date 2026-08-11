@@ -9,7 +9,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card } from "./ui";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/shadcn/card";
+import { Skeleton } from "@/components/shadcn/skeleton";
 
 type PendingProfile = { _creationTime: number };
 
@@ -40,6 +47,14 @@ function bucketByDay(profiles: PendingProfile[]) {
   return days.map(({ label, count }) => ({ label, count }));
 }
 
+// Axis/label styling is driven by the design tokens rather than raw hex so the
+// chart shifts with the palette. Recharts needs inline values, not classes.
+const axisTick = {
+  fontSize: 12,
+  fontFamily: "var(--font-body)",
+  fill: "var(--color-on-surface-variant)",
+};
+
 export function PendingSubmissionsChart({
   profiles,
 }: {
@@ -51,18 +66,20 @@ export function PendingSubmissionsChart({
   );
 
   return (
-    <Card className="p-6">
-      <h3 className="font-display text-lg font-semibold">
-        Pending Submissions by Day
-      </h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Currently-pending profiles, grouped by the day they were submitted (last
-        7 days). Profiles already verified aren&apos;t counted here.
-      </p>
+    <Card className="gap-5 p-6">
+      <CardHeader className="p-0">
+        <CardTitle className="font-body text-lg font-semibold text-on-surface">
+          Pending Submissions by Day
+        </CardTitle>
+        <CardDescription className="text-sm">
+          Currently-pending profiles, grouped by the day they were submitted
+          (last 7 days). Profiles already verified aren&apos;t counted here.
+        </CardDescription>
+      </CardHeader>
 
-      <div className="mt-4 h-56">
+      <CardContent className="h-56 p-0">
         {data === undefined ? (
-          <div className="h-full w-full animate-pulse rounded-lg bg-muted" />
+          <Skeleton className="size-full rounded-lg" />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
@@ -70,22 +87,27 @@ export function PendingSubmissionsChart({
                 dataKey="label"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                tick={axisTick}
               />
               <YAxis
                 allowDecimals={false}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                tick={{ ...axisTick, fontFamily: "var(--font-mono)" }}
                 width={24}
               />
               <Tooltip
-                cursor={{ fill: "var(--muted)" }}
+                cursor={{ fill: "var(--color-surface-low)" }}
                 contentStyle={{
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                  border: "none",
+                  backgroundColor: "var(--color-surface-lowest)",
+                  boxShadow: "0 16px 40px -12px rgba(28, 28, 24, 0.22)",
+                  fontFamily: "var(--font-body)",
                   fontSize: 12,
                 }}
+                labelStyle={{ color: "var(--color-on-surface)" }}
+                itemStyle={{ color: "var(--color-on-surface-variant)" }}
               />
               <Bar
                 dataKey="count"
@@ -95,7 +117,7 @@ export function PendingSubmissionsChart({
             </BarChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </CardContent>
     </Card>
   );
 }

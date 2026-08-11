@@ -1,13 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
-import { PhoneCall, ArrowLeft } from "lucide-react";
+import { PhoneCall } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
-import { Card, Badge, Button, Input, Select, Dialog } from "../../ui";
+import { Heading } from "@/components/ui/Heading";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Badge } from "@/components/shadcn/badge";
+import { Button } from "@/components/shadcn/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/shadcn/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shadcn/dialog";
+import { Field } from "@/components/shadcn/field";
+import { Input } from "@/components/shadcn/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/select";
+import { Separator } from "@/components/shadcn/separator";
+import { Skeleton } from "@/components/shadcn/skeleton";
 import { capitalize, errorMessage, type ProfileForReview } from "../shared";
 
 // The subset of `memberProfiles` fields an admin can correct before
@@ -59,24 +89,24 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
     if (profile) setForm(toFormState(profile));
   }, [profile]);
 
-  if (profile === undefined || form === null) {
+  // `null` = no such profile (or the query resolved unauthenticated during
+  // sign-out teardown). This must be checked BEFORE the loading guard: `form`
+  // is only populated from a truthy profile, so `form === null` stays true
+  // forever in this case and would otherwise pin the screen to a skeleton.
+  if (profile === null) {
     return (
-      <div className="flex flex-col gap-6">
-        <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="h-64 animate-pulse rounded-xl bg-muted lg:col-span-2" />
-          <div className="h-64 animate-pulse rounded-xl bg-muted" />
-        </div>
+      <div className="space-y-6">
+        <BackLink onClick={() => router.push("/admin/verification")} />
+        <EmptyState
+          title="Profile unavailable"
+          message="This profile no longer exists or has already been reviewed."
+        />
       </div>
     );
   }
 
-  if (profile === null) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        This profile no longer exists or has already been reviewed.
-      </p>
-    );
+  if (profile === undefined || form === null) {
+    return <ReviewSkeleton />;
   }
 
   const needsFollowUp = !profile.mentorshipProofUrl;
@@ -121,267 +151,320 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push("/admin/verification")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h2 className="font-display text-2xl font-semibold">
+    <div className="space-y-6">
+      <BackLink onClick={() => router.push("/admin/verification")} />
+
+      <header className="flex flex-wrap items-center gap-3">
+        <Heading as="h1" size="2xl">
           {profile.firstName} {profile.lastName}
-        </h2>
+        </Heading>
         {needsFollowUp && (
-          <Badge variant="destructive" className="gap-1">
-            <PhoneCall className="h-3 w-3" />
+          <Badge variant="pending">
+            <PhoneCall className="mr-1 size-3" aria-hidden="true" />
             Needs follow-up call — no mentorship certificate
           </Badge>
         )}
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid items-start gap-6 lg:grid-cols-3">
         {/* Left: read-only context */}
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          <Card className="p-6">
-            <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
-              Submission Details
-            </h3>
-            <dl className="grid grid-cols-2 gap-4 text-sm">
-              <Field label="Mentorship status">
-                {capitalize(profile.mentorshipStatus.replace("_", " "))}
-              </Field>
-              <Field label="Certificate">
-                {profile.mentorshipProofUrl ? (
-                  <a
-                    href={profile.mentorshipProofUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[var(--color-primary)] underline underline-offset-2"
-                  >
-                    View certificate
-                  </a>
-                ) : (
-                  "Not submitted"
-                )}
-              </Field>
-              <Field label="Submitted">
-                {new Date(profile._creationTime).toLocaleString()}
-              </Field>
-              <Field label="Join date">
-                {profile.joinDate
-                  ? new Date(profile.joinDate).toLocaleDateString()
-                  : "—"}
-              </Field>
-            </dl>
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="gap-5 p-6">
+            <CardHeader className="p-0">
+              <CardTitle className="font-body text-lg font-semibold text-on-surface">
+                Submission Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                <DetailRow label="Mentorship status">
+                  {capitalize(profile.mentorshipStatus.replace("_", " "))}
+                </DetailRow>
+                <DetailRow label="Certificate">
+                  {profile.mentorshipProofUrl ? (
+                    <a
+                      href={profile.mentorshipProofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-primary underline underline-offset-2"
+                    >
+                      View certificate
+                    </a>
+                  ) : (
+                    "Not submitted"
+                  )}
+                </DetailRow>
+                <DetailRow label="Submitted">
+                  {new Date(profile._creationTime).toLocaleString()}
+                </DetailRow>
+                <DetailRow label="Join date">
+                  {profile.joinDate
+                    ? new Date(profile.joinDate).toLocaleDateString()
+                    : null}
+                </DetailRow>
+              </dl>
+            </CardContent>
           </Card>
 
-          <Card className="p-6">
-            <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
-              Family
-            </h3>
-            {profile.children.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No children on this profile.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {profile.children.map((child, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span>{child.name}</span>
-                    <span className="text-muted-foreground capitalize">
-                      {child.sex}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <Card className="gap-5 p-6">
+            <CardHeader className="p-0">
+              <CardTitle className="font-body text-lg font-semibold text-on-surface">
+                Family
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {profile.children.length === 0 ? (
+                <p className="font-body text-sm text-on-surface-variant">
+                  No children on this profile.
+                </p>
+              ) : (
+                <ul>
+                  {profile.children.map((child, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center justify-between gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-surface-low"
+                    >
+                      <span className="font-body text-sm text-on-surface">
+                        {child.name}
+                      </span>
+                      <Badge variant="neutral" className="capitalize">
+                        {child.sex}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
           </Card>
 
           {profile.leadershipProgress.length > 0 && (
-            <Card className="p-6">
-              <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
-                Leadership Progress
-              </h3>
-              <ul className="flex flex-col gap-2">
-                {profile.leadershipProgress.map((entry, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="capitalize">
-                      {entry.level.replace("_", " ")}
-                    </span>
-                    <Badge variant="secondary" className="capitalize">
-                      {entry.status.replace("_", " ")}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
+            <Card className="gap-5 p-6">
+              <CardHeader className="p-0">
+                <CardTitle className="font-body text-lg font-semibold text-on-surface">
+                  Leadership Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ul>
+                  {profile.leadershipProgress.map((entry, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center justify-between gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-surface-low"
+                    >
+                      <span className="font-body text-sm capitalize text-on-surface">
+                        {entry.level.replace("_", " ")}
+                      </span>
+                      <Badge variant="neutral" className="capitalize">
+                        {entry.status.replace("_", " ")}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
             </Card>
           )}
         </div>
 
         {/* Right: editable fields + verify action */}
-        <div className="flex flex-col gap-6">
-          <Card className="p-6">
-            <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
-              Edit Before Approving
-            </h3>
-            <div className="flex flex-col gap-4">
-              <LabeledInput
-                label="First name"
-                value={form.firstName}
-                onChange={(v) => set("firstName", v)}
-              />
-              <LabeledInput
-                label="Middle name"
-                value={form.middleName}
-                onChange={(v) => set("middleName", v)}
-              />
-              <LabeledInput
-                label="Last name"
-                value={form.lastName}
-                onChange={(v) => set("lastName", v)}
-              />
-              <LabeledInput
-                label="Phone"
-                value={form.phone}
-                onChange={(v) => set("phone", v)}
-              />
+        <div className="space-y-6">
+          <Card className="gap-5 p-6">
+            <CardHeader className="p-0">
+              <CardTitle className="font-body text-lg font-semibold text-on-surface">
+                Edit Before Approving
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5 p-0">
+              <Field label="First name" htmlFor="review-first-name">
+                <Input
+                  id="review-first-name"
+                  value={form.firstName}
+                  onChange={(e) => set("firstName", e.target.value)}
+                />
+              </Field>
+              <Field label="Middle name" htmlFor="review-middle-name">
+                <Input
+                  id="review-middle-name"
+                  value={form.middleName}
+                  onChange={(e) => set("middleName", e.target.value)}
+                />
+              </Field>
+              <Field label="Last name" htmlFor="review-last-name">
+                <Input
+                  id="review-last-name"
+                  value={form.lastName}
+                  onChange={(e) => set("lastName", e.target.value)}
+                />
+              </Field>
+              <Field label="Phone" htmlFor="review-phone">
+                <Input
+                  id="review-phone"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                />
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Sex
-                </label>
+              <Field label="Sex" htmlFor="review-sex">
                 <Select
                   value={form.sex}
                   onValueChange={(v) => set("sex", v as EditableFields["sex"])}
-                  options={[
-                    { value: "male", label: "Male" },
-                    { value: "female", label: "Female" },
-                  ]}
-                />
-              </div>
+                >
+                  <SelectTrigger id="review-sex">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Marital status
-                </label>
+              <Field label="Marital status" htmlFor="review-marital-status">
                 <Select
                   value={form.maritalStatus}
                   onValueChange={(v) =>
                     set("maritalStatus", v as EditableFields["maritalStatus"])
                   }
-                  options={[
-                    { value: "single", label: "Single" },
-                    { value: "married", label: "Married" },
-                    { value: "widowed", label: "Widowed" },
-                    { value: "divorced", label: "Divorced" },
-                  ]}
+                >
+                  <SelectTrigger id="review-marital-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Single</SelectItem>
+                    <SelectItem value="married">Married</SelectItem>
+                    <SelectItem value="widowed">Widowed</SelectItem>
+                    <SelectItem value="divorced">Divorced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              <Separator />
+
+              <Field label="Occupation" htmlFor="review-occupation">
+                <Input
+                  id="review-occupation"
+                  value={form.occupation}
+                  onChange={(e) => set("occupation", e.target.value)}
                 />
-              </div>
-
-              <div className="h-px bg-border" />
-
-              <LabeledInput
-                label="Occupation"
-                value={form.occupation}
-                onChange={(v) => set("occupation", v)}
-              />
-              <LabeledInput
-                label="Industry"
-                value={form.industry}
-                onChange={(v) => set("industry", v)}
-              />
-              <LabeledInput
-                label="Employer"
-                value={form.employer}
-                onChange={(v) => set("employer", v)}
-              />
-            </div>
+              </Field>
+              <Field label="Industry" htmlFor="review-industry">
+                <Input
+                  id="review-industry"
+                  value={form.industry}
+                  onChange={(e) => set("industry", e.target.value)}
+                />
+              </Field>
+              <Field label="Employer" htmlFor="review-employer">
+                <Input
+                  id="review-employer"
+                  value={form.employer}
+                  onChange={(e) => set("employer", e.target.value)}
+                />
+              </Field>
+            </CardContent>
           </Card>
 
-          <Card className="p-6">
-            {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
-            <Button
-              className="w-full"
-              disabled={busy}
-              onClick={() => setConfirmOpen(true)}
-            >
-              Verify &amp; Approve
-            </Button>
-
-            <Dialog
-              open={confirmOpen}
-              onOpenChange={setConfirmOpen}
-              title="Approve this profile?"
-              description={
-                <>
-                  {form.firstName} {form.lastName} will be promoted from visitor
-                  to member.
-                  {dirty &&
-                    " Your edits will be saved along with the approval."}
-                  {needsFollowUp &&
-                    " No mentorship certificate is on file — confirm the manual follow-up call happened before approving."}
-                </>
-              }
-              footer={
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setConfirmOpen(false)}
-                    disabled={busy}
-                  >
-                    Cancel
-                  </Button>
-                  <Button onClick={handleVerify} disabled={busy}>
-                    {busy ? "Approving…" : "Confirm approval"}
-                  </Button>
-                </>
-              }
-            />
+          <Card className="gap-4 p-6">
+            {error && (
+              <CardContent className="p-0">
+                <p className="font-body text-sm text-error">{error}</p>
+              </CardContent>
+            )}
+            <CardFooter className="p-0">
+              <Button
+                className="w-full"
+                disabled={busy}
+                onClick={() => setConfirmOpen(true)}
+              >
+                Verify &amp; Approve
+              </Button>
+            </CardFooter>
           </Card>
         </div>
       </div>
+
+      {/* Consequential action: confirm in a centered Dialog. */}
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(next) => {
+          if (!next && !busy) setConfirmOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Approve this profile?</DialogTitle>
+            <DialogDescription>
+              {form.firstName} {form.lastName} will be promoted from visitor to
+              member.
+              {dirty && " Your edits will be saved along with the approval."}
+              {needsFollowUp &&
+                " No mentorship certificate is on file — confirm the manual follow-up call happened before approving."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" loading={busy} onClick={handleVerify}>
+              Confirm approval
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function Field({
+// Quiet text-link back affordance (matches the system-admin detail screens).
+// Kept as a button so the existing router.push navigation is untouched.
+function BackLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-block font-body text-sm text-primary underline underline-offset-2"
+    >
+      &larr; Pending Verifications
+    </button>
+  );
+}
+
+function DetailRow({
   label,
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd>{children}</dd>
+    <div>
+      <dt className="font-body text-xs uppercase tracking-wide text-outline">
+        {label}
+      </dt>
+      <dd className="mt-1 font-body text-sm text-on-surface">
+        {children ?? <span className="text-outline">&mdash;</span>}
+      </dd>
     </div>
   );
 }
 
-function LabeledInput({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
+// Mirrors the final layout so nothing shifts on load.
+function ReviewSkeleton() {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+    <div className="space-y-6" aria-busy="true" aria-label="Loading profile">
+      <Skeleton className="h-5 w-40" />
+      <Skeleton className="h-9 w-64" />
+      <div className="grid items-start gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
     </div>
   );
 }
