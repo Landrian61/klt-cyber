@@ -15,18 +15,18 @@ import { cn } from "@/lib/utils";
 import logo from "../../icon.png";
 
 const NAV_ITEMS = [
-  { href: "/church-admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   {
-    href: "/church-admin/verification",
+    href: "/admin/verification",
     label: "Verification",
     icon: ClipboardCheck,
   },
-  { href: "/church-admin/members", label: "Members", icon: Users },
-  { href: "/church-admin/departments", label: "Departments", icon: Building2 },
-  // { href: "/church-admin/facilities", label: "Facilities", icon: Landmark },
+  { href: "/admin/members", label: "Members", icon: Users },
+  { href: "/admin/departments", label: "Departments", icon: Building2 },
+  // { href: "/admin/facilities", label: "Facilities", icon: Landmark },
 ];
 
-export function ChurchAdminSidebar() {
+export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
@@ -42,14 +42,14 @@ export function ChurchAdminSidebar() {
             KLT Cyber
           </p>
           <p className="text-[11px] uppercase tracking-wide text-white/50">
-            Church Admin
+            Administration
           </p>
         </div>
       </div>
 
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
         const active =
-          href === "/church-admin"
+          href === "/admin"
             ? pathname === href
             : pathname.startsWith(href);
         return (

@@ -112,7 +112,7 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
           : undefined,
       });
       setConfirmOpen(false);
-      router.push("/church-admin/verification");
+      router.push("/admin/verification");
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -126,7 +126,7 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/church-admin/verification")}
+          onClick={() => router.push("/admin/verification")}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

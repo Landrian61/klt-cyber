@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "@/lib/api";
-import { ChurchAdminSidebar } from "./ChurchAdminSidebar";
-import { ChurchAdminTopBar } from "./ChurchAdminTopBar";
+import { AdminSidebar } from "./AdminSidebar";
+import { AdminTopBar } from "./AdminTopBar";
 
-export default async function ChurchAdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: ReactNode;
@@ -20,12 +20,12 @@ export default async function ChurchAdminLayout({
 
   return (
     <div
-      data-section="church-admin"
+      data-section="admin"
       className="flex h-dvh overflow-hidden bg-background"
     >
-      <ChurchAdminSidebar />
+      <AdminSidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <ChurchAdminTopBar />
+        <AdminTopBar />
         <main className="w-full min-w-0 flex-1 overflow-y-auto px-8 py-8">
           {children}
         </main>

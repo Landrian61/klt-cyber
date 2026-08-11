@@ -80,7 +80,7 @@ function initials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-export function ChurchAdminDashboardClient() {
+export function AdminDashboardClient() {
   const pending = useAuthQuery(api.memberProfiles.listPendingVerifications);
   const departments = useAuthQuery(api.departments.listDepartments);
   const facilities = useAuthQuery(api.facilities.listActiveFacilities);
@@ -96,13 +96,13 @@ export function ChurchAdminDashboardClient() {
         </p>
         <h2 className="font-display text-4xl font-semibold">Dashboard</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Overview of pending work across Church Admin.
+          Overview of pending work across Administration.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          href="/church-admin/verification"
+          href="/admin/verification"
           icon={ClipboardCheck}
           chip="amber"
           label="Pending verifications"
@@ -114,14 +114,14 @@ export function ChurchAdminDashboardClient() {
           }
         />
         <StatCard
-          href="/church-admin/departments"
+          href="/admin/departments"
           icon={Building2}
           chip="blue"
           label="Departments"
           value={departments?.length}
         />
         <StatCard
-          href="/church-admin/facilities"
+          href="/admin/facilities"
           icon={Landmark}
           chip="emerald"
           label="Tower of Faith facilities"
@@ -138,7 +138,7 @@ export function ChurchAdminDashboardClient() {
           </h3>
           {pending && pending.length > 5 && (
             <Link
-              href="/church-admin/verification"
+              href="/admin/verification"
               className="text-sm text-[var(--color-primary)] hover:underline"
             >
               View all {pending.length}
@@ -181,7 +181,7 @@ export function ChurchAdminDashboardClient() {
                     </p>
                   </div>
                 </div>
-                <Link href={`/church-admin/verification/${profile._id}`}>
+                <Link href={`/admin/verification/${profile._id}`}>
                   <Button variant="outline" size="sm" className="gap-1">
                     Review <ArrowRight className="h-3.5 w-3.5" />
                   </Button>

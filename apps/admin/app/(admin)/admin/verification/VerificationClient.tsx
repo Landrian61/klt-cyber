@@ -88,7 +88,7 @@ export function VerificationClient() {
                   key={profile._id}
                   className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
                   onClick={() =>
-                    router.push(`/church-admin/verification/${profile._id}`)
+                    router.push(`/admin/verification/${profile._id}`)
                   }
                 >
                   <td className="px-4 py-3 font-medium">

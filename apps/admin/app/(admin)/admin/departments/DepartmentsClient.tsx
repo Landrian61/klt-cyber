@@ -38,7 +38,7 @@ export function DepartmentsClient() {
             key={dept._id}
             role="button"
             tabIndex={0}
-            onClick={() => router.push(`/church-admin/departments/${dept._id}`)}
+            onClick={() => router.push(`/admin/departments/${dept._id}`)}
             className={`flex cursor-pointer items-center justify-between p-4 transition-colors hover:bg-muted/40 ${
               i > 0 ? "border-t border-border" : ""
             }`}

@@ -5,7 +5,7 @@ import { Bell, Settings, Repeat } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 
-export function ChurchAdminTopBar() {
+export function AdminTopBar() {
   const account = useAuthQuery(api.profile.getMyAccount);
   const name = account?.user
     ? [account.user.firstName, account.user.lastName]
@@ -34,7 +34,7 @@ export function ChurchAdminTopBar() {
           <Repeat className="h-4.5 w-4.5" />
         </Link>
         <Link
-          href="/church-admin/settings"
+          href="/admin/settings"
           className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Settings"
         >
@@ -46,7 +46,7 @@ export function ChurchAdminTopBar() {
             <div className="text-right text-sm">
               <p className="font-medium leading-none">{name}</p>
               <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-                Church Admin
+                Administration
               </p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-semibold uppercase text-[var(--color-on-primary)]">

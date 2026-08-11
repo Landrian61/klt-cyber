@@ -32,7 +32,7 @@ const splineMono = Spline_Sans_Mono({
   display: "swap",
 });
 
-// Church Admin heading font — scoped via [data-section="church-admin"] in
+// Administration heading font — scoped via [data-section="admin"] in
 // globals.css, so this never overrides system-admin's Playfair headings.
 const manrope = Manrope({
   variable: "--font-manrope",

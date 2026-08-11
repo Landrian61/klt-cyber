@@ -8,8 +8,8 @@ import type {
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Plain-Tailwind primitives for Church Admin, built directly against the
-// Final Design System (Manrope headings via [data-section="church-admin"],
+// Plain-Tailwind primitives for Administration, built directly against the
+// Final Design System (Manrope headings via [data-section="admin"],
 // Inter body, 44px control height, 12px card radius, 8px grid, Lucide
 // icons). No shadcn/Base UI — avoids the filename-casing collisions and
 // Radix/Base-UI API mismatches we hit building on top of shadcn.

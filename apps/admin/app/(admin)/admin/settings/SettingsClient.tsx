@@ -146,7 +146,7 @@ export function SettingsClient() {
           <p className="text-sm text-muted-foreground">
             You haven&apos;t submitted a member profile through the mobile app
             yet, so there&apos;s nothing here to edit. This doesn&apos;t affect
-            your Church Admin access.
+            your Administration access.
           </p>
         </Card>
       ) : (

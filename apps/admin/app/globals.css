@@ -175,7 +175,7 @@ body {
   }
 }
 
-[data-section="church-admin"] {
+[data-section="admin"] {
   --font-display: var(--font-manrope), -apple-system, sans-serif;
 
   --color-background: #f8f9fa;

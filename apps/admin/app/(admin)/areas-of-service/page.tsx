@@ -14,7 +14,7 @@ const ADMINISTRATION_DEPARTMENT_NAME = "Administration";
 
 function departmentHref(departmentName: string, departmentId: Id<"departments">) {
   return departmentName === ADMINISTRATION_DEPARTMENT_NAME
-    ? "/church-admin"
+    ? "/admin"
     : `/departments/${departmentId}`;
 }
 
