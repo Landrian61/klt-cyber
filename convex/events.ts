@@ -1,7 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { canManageContent, logActivity } from "./lib/authz";
+import {
+  canManageContent,
+  getAdministrationAuthorityOrNull,
+  logActivity,
+} from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
 
 // One-off events. `archiveEvent` sets active:false rather than hard-deleting, so
@@ -47,7 +51,8 @@ export const listFeaturedEvents = query({
 export const listAllEvents = query({
   args: {},
   handler: async (ctx) => {
-    await canManageContent(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
     const events = await ctx.db
       .query("events")
       .withIndex("by_startDateTime")

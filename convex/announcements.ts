@@ -2,7 +2,11 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { canManageContent, logActivity } from "./lib/authz";
+import {
+  canManageContent,
+  getAdministrationAuthorityOrNull,
+  logActivity,
+} from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
 
 // Announcements. The lifecycle draft → published → active → expired/disabled →
@@ -58,7 +62,8 @@ export const listActiveAnnouncements = query({
 export const listAllAnnouncements = query({
   args: {},
   handler: async (ctx) => {
-    await canManageContent(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
     const all = await ctx.db.query("announcements").collect();
     return all.sort((a, b) => b.startDate - a.startDate);
   },

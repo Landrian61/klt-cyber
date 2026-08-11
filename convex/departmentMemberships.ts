@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
   requireUser,
+  getCurrentUser,
   requireDepartmentAuthority,
   requireDepartmentHod,
   isActiveSystemAdmin,
@@ -136,11 +137,12 @@ export const listDepartmentMembers = query({
       .collect(),
 });
 
-/** The caller's own active department memberships. */
+/** The caller's own active department memberships. Null when unauthenticated. */
 export const getMyDepartmentMemberships = query({
   args: {},
   handler: async (ctx) => {
-    const actor = await requireUser(ctx);
+    const actor = await getCurrentUser(ctx);
+    if (!actor) return null;
     return await ctx.db
       .query("departmentMemberships")
       .withIndex("by_userId_status", (q) =>
@@ -181,7 +183,12 @@ export const listDepartmentHods = query({
 export const listMyDepartments = query({
   args: {},
   handler: async (ctx) => {
-    const actor = await requireUser(ctx);
+    // Null (not an error) when unauthenticated — reactive clients stay
+    // subscribed through sign-out, and the unauthenticated re-run must
+    // resolve rather than log a crash mid-teardown.
+    const actor = await getCurrentUser(ctx);
+    if (!actor) return null;
+
     const isSystemAdmin = await isActiveSystemAdmin(ctx, actor._id);
     const allDepartments = await ctx.db
       .query("departments")

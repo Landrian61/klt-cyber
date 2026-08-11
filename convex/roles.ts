@@ -33,7 +33,15 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
 
   const target = await ctx.db.get(args.userId);
   if (!target) throw new Error("Target user not found");
-  if (!target.profileCompleted) {
+
+  // System Admin is a "ghost": a technical steward, not a church member. They
+  // sign up and are granted the role without ever completing a member profile,
+  // because none of their church-domain data is stored. Every other role is a
+  // real ministry position held by a verified member, so it keeps the gate —
+  // and for hod/department_admin the gate also protects the implicit roster
+  // insert below, which `addDepartmentMember` would refuse for an unverified
+  // member.
+  if (args.roleType !== "system_admin" && !target.profileCompleted) {
     throw new Error("Target user must complete their profile first");
   }
 

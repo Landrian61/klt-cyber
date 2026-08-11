@@ -202,6 +202,28 @@ export async function requireAdministrationAuthority(
 }
 
 /**
+ * Like {@link requireAdministrationAuthority}, but resolves null when the
+ * caller is unauthenticated instead of throwing — the same contract, and for
+ * the same reason, as {@link getSystemAdminOrNull}: on sign-out the token
+ * drops while reactive subscriptions are still live, so the server re-runs
+ * them unauthenticated. Those re-runs must deliver a value (null), not an
+ * error that surfaces in the Convex log and the client console.
+ *
+ * An authenticated caller *without* the authority still throws — that's a
+ * real authorization violation, not a teardown race.
+ *
+ * Use this in every `query` a client subscribes to. Mutations and one-shot
+ * server reads should keep using {@link canManageChurchAdmin}.
+ */
+export async function getAdministrationAuthorityOrNull(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users"> | null> {
+  const user = await getCurrentUser(ctx);
+  if (!user) return null;
+  return await requireAdministrationAuthority(ctx);
+}
+
+/**
  * Church Admin gate (docs/DATA_MODEL.md, Increment 4 — Access Control;
  * re-pointed at Administration-department authority in Increment 5, see
  * docs/Alignment.md). A role row is just data — grantable/revocable directly

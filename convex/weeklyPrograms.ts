@@ -1,7 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { canManageContent, logActivity } from "./lib/authz";
+import {
+  canManageContent,
+  getAdministrationAuthorityOrNull,
+  logActivity,
+} from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
 
 // Weekly programs — recurring slots defined once and repeating until
@@ -33,7 +37,8 @@ export const listActivePrograms = query({
 export const listAllPrograms = query({
   args: {},
   handler: async (ctx) => {
-    await canManageContent(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
     const programs = await ctx.db.query("weeklyPrograms").collect();
     return programs.sort(byDayThenTime);
   },
