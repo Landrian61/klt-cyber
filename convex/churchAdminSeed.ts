@@ -1,10 +1,12 @@
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
-// Seed realistic Increment 4 data: departments, Tower of Faith facilities, and
-// a varied spread of pending-verification member profiles (one with
-// mentorship proof, one without, one with children, one with a linked
-// spouse). Idempotent — skips if departments already exist.
+// Seed realistic Increment 4 data: Tower of Faith facilities, and a varied
+// spread of pending-verification member profiles (one with mentorship proof,
+// one without, one with children, one with a linked spouse). Departments are
+// now fixed reference data seeded separately via `seed:departments` (see
+// docs/Alignment.md, Increment 5) — this file no longer seeds any. Idempotent
+// — skips if facilities already exist.
 //
 // Run: npx convex run churchAdminSeed:seedChurchAdmin
 
@@ -62,28 +64,13 @@ export const seedChurchAdmin = internalMutation({
       };
     }
 
-    const existing = await ctx.db.query("departments").first();
+    const existing = await ctx.db.query("facilities").first();
     if (existing) {
-      return { ok: false as const, reason: "already seeded (departments exist)" };
+      return { ok: false as const, reason: "already seeded (facilities exist)" };
     }
 
     const now = Date.now();
     const meta = { createdBy, createdAt: now, updatedAt: now };
-
-    // ── Departments ─────────────────────────────────────────────────────────
-    const departmentNames = [
-      { name: "Media & Communication", description: "Photography, livestream, and social media for every service and event." },
-      { name: "Ushering", description: "Welcoming and guiding the congregation before, during, and after service." },
-      { name: "Youth", description: "Discipleship and fellowship for teens and young adults." },
-      { name: "Missions", description: "Local and cross-border outreach and evangelism." },
-      { name: "Creative Arts", description: "Drama, dance, and visual arts in worship." },
-    ];
-    const departmentIds: Id<"departments">[] = [];
-    for (const dept of departmentNames) {
-      departmentIds.push(
-        await ctx.db.insert("departments", { ...dept, active: true, ...meta })
-      );
-    }
 
     // ── Facilities (Tower of Faith) ─────────────────────────────────────────
     const facilities = [
@@ -176,7 +163,6 @@ export const seedChurchAdmin = internalMutation({
         shortBio: "Loves serving in worship and community outreach.",
         mentorshipProofUrl:
           "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&q=80",
-        departmentId: departmentIds[2], // Youth
         occupation: "Graphic Designer",
         industry: "Creative",
         ...profileMeta,
@@ -196,7 +182,6 @@ export const seedChurchAdmin = internalMutation({
         phone: "+256700333444",
         sex: "male",
         maritalStatus: "single",
-        departmentId: departmentIds[0], // Media & Communication
         occupation: "Videographer",
         ...profileMeta,
       });
@@ -217,7 +202,6 @@ export const seedChurchAdmin = internalMutation({
         maritalStatus: "married",
         mentorshipProofUrl:
           "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=800&q=80",
-        departmentId: departmentIds[1], // Ushering
         occupation: "Nurse",
         industry: "Healthcare",
         ...profileMeta,
@@ -257,7 +241,6 @@ export const seedChurchAdmin = internalMutation({
         anniversaryDate: Date.UTC(2016, 7, 20),
         mentorshipProofUrl:
           "https://images.unsplash.com/photo-1554224154-26032fced8bd?w=800&q=80",
-        departmentId: departmentIds[3], // Missions
         occupation: "Accountant",
         industry: "Finance",
         ...profileMeta,
@@ -266,7 +249,6 @@ export const seedChurchAdmin = internalMutation({
 
     return {
       ok: true as const,
-      departments: departmentNames.length,
       facilities: facilities.length,
       memberProfiles: 4,
     };

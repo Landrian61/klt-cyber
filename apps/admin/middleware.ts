@@ -73,7 +73,7 @@ export default async function middleware(request: NextRequest) {
 
   if (pathname === "/sign-in" || pathname === "/sign-up") {
     if (sessionCookie) {
-      return NextResponse.redirect(new URL("/select-role", request.url));
+      return NextResponse.redirect(new URL("/areas-of-service", request.url));
     }
     return NextResponse.next();
   }

@@ -78,13 +78,10 @@ export interface WizardDraft {
   // Step 4 — Leadership (KLLII)
   leadership: LeadershipDraft[];
 
-  // Step 5 — Department
-  departmentId?: Id<'departments'>;
-
-  // Step 6 — Clan
+  // Step 5 — Clan
   clanId?: Id<'clans'>;
 
-  // Step 7 — Profession
+  // Step 6 — Profession
   occupation: string;
   industry: string;
   employer: string;
@@ -134,7 +131,6 @@ export const STEPS = [
   'family',
   'mentorship',
   'leadership',
-  'department',
   'clan',
   'profession',
 ] as const;
@@ -212,7 +208,6 @@ export default function ProfileCompletionLayout() {
           <Stack.Screen name="family" />
           <Stack.Screen name="mentorship" />
           <Stack.Screen name="leadership" />
-          <Stack.Screen name="department" />
           <Stack.Screen name="clan" />
           <Stack.Screen name="profession" />
           <Stack.Screen name="review" />

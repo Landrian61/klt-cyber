@@ -2,7 +2,12 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
-import { getActiveRoles, getCurrentUser, requireUser } from "./lib/authz";
+import {
+  getActiveRoles,
+  getAdministrationDepartmentId,
+  getCurrentUser,
+  requireUser,
+} from "./lib/authz";
 
 // Read-only "who am I" queries, plus `updateMyProfile` below for self-service
 // edits to an *already-verified* profile's contact/bio fields. Profile
@@ -21,7 +26,24 @@ export async function getMyAccountCore(
     .withIndex("by_userId", (q) => q.eq("userId", user._id))
     .unique();
   const activeRoles = await getActiveRoles(ctx, user._id);
-  return { user, profile: profile ?? null, activeRoles };
+
+  const isSystemAdmin = activeRoles.some((r) => r.roleType === "system_admin");
+  const adminDeptId = isSystemAdmin ? null : await getAdministrationDepartmentId(ctx);
+  const hasAdministrationAccess =
+    isSystemAdmin ||
+    (adminDeptId !== null &&
+      activeRoles.some(
+        (r) =>
+          r.departmentId === adminDeptId &&
+          (r.roleType === "hod" || r.roleType === "department_admin")
+      ));
+
+  return {
+    user,
+    profile: profile ?? null,
+    activeRoles,
+    hasAdministrationAccess,
+  };
 }
 
 export async function getMyProfileCore(

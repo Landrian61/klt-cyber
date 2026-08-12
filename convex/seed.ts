@@ -119,3 +119,97 @@ export const promoteSeedAdmin = internalMutation({
   args: {},
   handler: (ctx) => bootstrapSystemAdminHandler(ctx),
 });
+
+// The 13 Areas of Service (docs/Alignment.md, Increment 5). "Administration"
+// must be first/present — convex/lib/authz.ts looks it up by exact name.
+// `description` is a one-line hint of what the department does, shown on its
+// picker card — still fixed/seeded data, not admin-editable. Phrased in
+// first person/imperative ("Lead", not "Leads") — each card reads as that
+// department introducing itself, not a third-party summary of it.
+const DEPARTMENTS = [
+  {
+    name: "Administration",
+    description:
+      "Coordinate church operations, governance, and cross-department support.",
+  },
+  {
+    name: "Pastoral",
+    description: "Shepherd the congregation through counsel, prayer, and pastoral care.",
+  },
+  {
+    name: "Finance",
+    description: "Steward church resources, budgeting, and financial accountability.",
+  },
+  {
+    name: "Education",
+    description: "Lead discipleship, Bible study, and teaching ministries.",
+  },
+  {
+    name: "Media",
+    description: "Capture and share services through photography, livestream, and broadcast.",
+  },
+  {
+    name: "Worship Ministry",
+    description: "Lead the congregation in praise, worship, and musical ministry.",
+  },
+  {
+    name: "Ushering",
+    description: "Welcome and guide the congregation before, during, and after service.",
+  },
+  {
+    name: "Missions & Outreach",
+    description: "Carry the gospel beyond the church through local and cross-border outreach.",
+  },
+  {
+    name: "Hospitality",
+    description: "Care for guests, fellowship meals, and church events.",
+  },
+  {
+    name: "Children's Ministry",
+    description: "Nurture the youngest members through age-appropriate discipleship and care.",
+  },
+  {
+    name: "Eagles Youth",
+    description: "Disciple and mentor teens and young adults.",
+  },
+  {
+    name: "Real Estate",
+    description: "Oversee church property, facilities, and physical infrastructure.",
+  },
+  {
+    name: "Library & Information",
+    description: "Maintain the church's resource library and information access.",
+  },
+] as const;
+
+/**
+ * Ensure the 13 fixed department records exist with their canonical names,
+ * 1..13 order, and description. Idempotent — inserts missing rows, and
+ * patches `order`/`description` on existing ones so re-running safely
+ * backfills fields added after the initial seed (e.g. `description` itself,
+ * added post-launch). Mirrors `clans` above, plus the backfill.
+ */
+export const departments = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let created = 0;
+    let updated = 0;
+    for (let i = 0; i < DEPARTMENTS.length; i++) {
+      const { name, description } = DEPARTMENTS[i];
+      const order = i + 1;
+      const existing = await ctx.db
+        .query("departments")
+        .withIndex("by_name", (q) => q.eq("name", name))
+        .first();
+      if (!existing) {
+        await ctx.db.insert("departments", { name, order, description });
+        created++;
+      } else if (existing.order !== order || existing.description !== description) {
+        await ctx.db.patch(existing._id, { order, description });
+        updated++;
+      }
+    }
+    const total = (await ctx.db.query("departments").collect()).length;
+    return { created, updated, total };
+  },
+});

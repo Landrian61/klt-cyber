@@ -2,7 +2,12 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { canManageChurchAdmin, logActivity, requireUser } from "./lib/authz";
+import {
+  canManageChurchAdmin,
+  getAdministrationAuthorityOrNull,
+  logActivity,
+  requireUser,
+} from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
 
 // The mobile 7-step profile-submission wizard and its Church Admin
@@ -69,7 +74,6 @@ const profileEditableFields = {
   nextOfKin: v.optional(nextOfKinValidator),
   mentorshipStatus: mentorshipStatusValidator,
   mentorshipProofUrl: v.optional(v.string()),
-  departmentId: v.optional(v.id("departments")),
   clanId: v.optional(v.id("clans")),
   occupation: v.optional(v.string()),
   industry: v.optional(v.string()),
@@ -95,7 +99,6 @@ const profileEditsPatchValidator = v.object({
   nextOfKin: v.optional(nextOfKinValidator),
   mentorshipStatus: v.optional(mentorshipStatusValidator),
   mentorshipProofUrl: v.optional(v.string()),
-  departmentId: v.optional(v.id("departments")),
   clanId: v.optional(v.id("clans")),
   occupation: v.optional(v.string()),
   industry: v.optional(v.string()),
@@ -295,7 +298,8 @@ export const verifyProfile = mutation({
 export const listPendingVerifications = query({
   args: {},
   handler: async (ctx) => {
-    await canManageChurchAdmin(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
     const pending = await ctx.db
       .query("memberProfiles")
       .withIndex("by_profileStatus", (q) =>
@@ -312,7 +316,8 @@ export const listPendingVerifications = query({
 export const getProfileForReview = query({
   args: { profileId: v.id("memberProfiles") },
   handler: async (ctx, { profileId }) => {
-    await canManageChurchAdmin(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
     const profile = await ctx.db.get(profileId);
     if (!profile) return null;
     return await withChildrenAndLeadership(ctx, profile);
@@ -327,7 +332,8 @@ export const getProfileForReview = query({
 export const listVerifiedMembersWithRoles = query({
   args: {},
   handler: async (ctx) => {
-    await canManageChurchAdmin(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
 
     const verified = await ctx.db
       .query("memberProfiles")

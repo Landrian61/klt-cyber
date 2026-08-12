@@ -15,7 +15,11 @@ description: >
 
 You are building UI for the KLT Cyber Church mobile app. Every component, screen, and style must follow the **Sacred Curator** design language — a high-end editorial digital sanctuary combining cathedral warmth with premium magazine aesthetics.
 
-The authoritative specification lives in `INTERFACE_SPEC.md` at the project root. This skill encodes the key rules and patterns so you produce compliant code by default. When in doubt, consult `INTERFACE_SPEC.md` directly.
+The authoritative specification lives in **`docs/INTERFACE_SPEC.md`**. This skill encodes the key rules and patterns so you produce compliant code by default. When in doubt, consult `docs/INTERFACE_SPEC.md` directly.
+
+> **Scope:** this skill covers the React Native mobile app (`apps/mobile`) only. For the Next.js web admin portal (`apps/admin`), use the **`klt-cyber-web-ui`** skill instead — same design language, different stack (Tailwind v4 + shadcn/ui + anime.js).
+
+> **Known drift:** the font table below (Merriweather / Inter / JetBrains Mono) predates the "Kingdom Radiant" refresh. The app now ships **Bricolage Grotesque** (display), **Plus Jakarta Sans** (body/UI), and **Spline Sans Mono** (numerals) — see `apps/mobile/constants/theme.ts`, which is the source of truth. The *roles* below still hold exactly; only the faces changed. Treat `constants/theme.ts` as authoritative over any hex or family named here.
 
 ---
 

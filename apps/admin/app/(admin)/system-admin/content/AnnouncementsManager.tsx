@@ -184,7 +184,7 @@ export function AnnouncementsManager() {
         </Button>
       </div>
 
-      {announcements === undefined ? (
+      {!announcements ? (
         <p className="font-body text-sm text-outline">Loading…</p>
       ) : announcements.length === 0 ? (
         <EmptyState title="No announcements yet" message="Post the church's weekly notices here." />

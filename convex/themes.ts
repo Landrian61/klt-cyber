@@ -2,7 +2,11 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { canManageContent, logActivity } from "./lib/authz";
+import {
+  canManageContent,
+  getAdministrationAuthorityOrNull,
+  logActivity,
+} from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
 
 // Themes — annual & monthly. "Current" is derived from the validity period, not
@@ -55,7 +59,8 @@ export const getCurrentThemes = query({
 export const listThemes = query({
   args: {},
   handler: async (ctx) => {
-    await canManageContent(ctx);
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
     const themes = await ctx.db.query("themes").collect();
     return themes.sort((a, b) => b.periodStart - a.periodStart);
   },

@@ -46,6 +46,14 @@ app-example
 .claude/plans/
 .claude/settings.json
 
+# Skills installed via `pnpm dlx skills add` — local tooling install
+# (symlinked into .claude/skills/), not project source. Project-authored
+# skills (e.g. .claude/skills/klt-cyber-brand) stay tracked.
+.agents/
+skills-lock.json
+.claude/skills/shadcn
+.claude/skills/migrate-radix-to-base
+
 # Editor
 .vscode/
 .idea/

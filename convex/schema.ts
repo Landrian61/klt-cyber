@@ -90,11 +90,10 @@ export default defineSchema({
     ),
     mentorshipProofUrl: v.optional(v.string()), // absent = admin follows up manually
 
-    // Departments / Clan — Steps 5–6
-    departmentId: v.optional(v.id("departments")),
+    // Clan — Step 5
     clanId: v.optional(v.id("clans")),
 
-    // Profession — Step 7
+    // Profession — Step 6
     occupation: v.optional(v.string()),
     industry: v.optional(v.string()),
     employer: v.optional(v.string()),
@@ -146,16 +145,18 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_parentUserId", ["parentUserId"]),
 
-  // Church Admin-owned department list. Deliberately not seeded like the 12
-  // fixed clans — Church Admin populates this live.
+  // The 13 fixed Areas of Service — seeded reference data (seed:departments).
+  // See docs/Alignment.md, Increment 5. Mirrors `clans` below: no toggle, no
+  // admin-created/edited rows.
   departments: defineTable({
     name: v.string(),
+    order: v.number(),
+    // A one-line hint of what the department does, shown on its picker card.
+    // Still fixed/seeded, not admin-editable — same status as name/order.
     description: v.optional(v.string()),
-    active: v.boolean(),
-    createdBy: v.id("users"),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_active", ["active"]),
+  })
+    .index("by_order", ["order"])
+    .index("by_name", ["name"]),
 
   // Tower of Faith facilities directory.
   facilities: defineTable({
@@ -266,16 +267,22 @@ export default defineSchema({
   }).index("by_status_startDate", ["status", "startDate"]),
 
   // Scoped administrative role grants. A user may hold any number of these.
+  // `hod`/`department_admin` are department-scoped (docs/Alignment.md,
+  // Increment 5), replacing the free-floating `church_admin` role.
   roleAssignments: defineTable({
     userId: v.id("users"),
     roleType: v.union(
       v.literal("system_admin"),
       v.literal("clan_elder"),
-      v.literal("church_admin")
+      v.literal("hod"),
+      v.literal("department_admin")
     ),
     // Set only for clan-scoped roles (currently clan_elder). Enforced by the
     // mutation layer, not the schema.
     clanId: v.optional(v.id("clans")),
+    // Set only for department-scoped roles (hod, department_admin). Enforced
+    // by the mutation layer, not the schema.
+    departmentId: v.optional(v.id("departments")),
     assignedBy: v.id("users"),
     status: v.union(v.literal("active"), v.literal("revoked")),
     revokedBy: v.optional(v.id("users")),
@@ -286,5 +293,21 @@ export default defineSchema({
     // Content-management gate (Increment 3): active-role lookup for a user.
     .index("by_userId_status", ["userId", "status"])
     .index("by_roleType", ["roleType"])
-    .index("by_clanId", ["clanId"]),
+    .index("by_clanId", ["clanId"])
+    .index("by_departmentId", ["departmentId"]),
+
+  // Department roster (docs/Alignment.md, Increment 5). Separate from
+  // `roleAssignments`: membership doesn't imply administrative authority.
+  departmentMemberships: defineTable({
+    userId: v.id("users"),
+    departmentId: v.id("departments"),
+    positionTitle: v.optional(v.string()),
+    addedBy: v.id("users"),
+    status: v.union(v.literal("active"), v.literal("removed")),
+    removedBy: v.optional(v.id("users")),
+    removedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_status", ["userId", "status"])
+    .index("by_departmentId_status", ["departmentId", "status"]),
 });
