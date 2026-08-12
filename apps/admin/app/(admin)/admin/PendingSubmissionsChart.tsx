@@ -58,7 +58,11 @@ const axisTick = {
 export function PendingSubmissionsChart({
   profiles,
 }: {
-  profiles: PendingProfile[] | undefined;
+  /**
+   * `undefined` while the query loads; `null` when it resolved
+   * unauthenticated (the sign-out teardown window). Both render as loading.
+   */
+  profiles: PendingProfile[] | null | undefined;
 }) {
   const data = useMemo(
     () => (profiles ? bucketByDay(profiles) : undefined),
