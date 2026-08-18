@@ -16,7 +16,7 @@ const buttonVariants = cva(
       variant: {
         default:
           "text-gold-ink bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))] " +
-          "shadow-[0_10px_30px_-10px_rgba(196,127,8,0.55)] hover:-translate-y-px hover:brightness-105 " +
+          "shadow-gold-glow hover:-translate-y-px hover:brightness-105 " +
           "disabled:bg-none disabled:bg-surface-high disabled:text-outline disabled:shadow-none disabled:translate-y-0",
         secondary:
           "text-primary bg-secondary hover:bg-surface-high disabled:text-outline",

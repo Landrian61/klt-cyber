@@ -56,7 +56,7 @@ function StatTile({
   return (
     <Link
       href={href}
-      className="flex flex-col gap-4 rounded-xl bg-surface-lowest p-6 shadow-[0_8px_32px_rgba(28,28,24,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_40px_rgba(28,28,24,0.08)]"
+      className="flex flex-col gap-4 rounded-xl bg-surface-lowest p-6 shadow-e1 transition-all hover:-translate-y-0.5 hover:shadow-e2"
     >
       <div className="flex items-center justify-between gap-3">
         <span

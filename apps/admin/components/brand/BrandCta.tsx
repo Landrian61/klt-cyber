@@ -19,7 +19,7 @@ export function GoldCta({
         "group inline-flex h-[54px] items-center justify-center gap-2 rounded-full px-8",
         "bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))]",
         "font-body text-base font-bold text-gold-ink",
-        "shadow-[0_12px_36px_-8px_rgba(196,127,8,0.6)]",
+        "shadow-gold-glow",
         "transition-[transform,filter] duration-200 ease-out",
         "hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.98]",
         className,

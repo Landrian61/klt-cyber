@@ -69,6 +69,31 @@
   --radius-xl: 20px;
 
   /*
+    --- Elevation (§1.6 Tonal Layering) ---
+    Depth comes from a warm, blue-tinted glow — never a Material grey drop
+    shadow, never a hard border (the No-Line Rule). Shadow colour is royal
+    blue (rgb(18,48,110), the same navy as --color-heaven/--color-royal), so
+    it reads as light lifting a "lifted parchment" surface off the cream base
+    rather than a cast shadow. Three tiers cover the admin's stacking (the
+    mobile spec only needs two — e1 list/small tiles, e2 heroes/sheets):
+      e1 — resting surfaces: cards, table shells, stat cards, list tiles.
+      e2 — raised: hover-lifted cards, dropdowns, selects, tooltips.
+      e3 — topmost chrome: dialogs, sheets — the deepest float in the stack.
+    Exposed as --shadow-* so Tailwind generates shadow-e1/e2/e3 utilities
+    (mirrors how --radius-* above already generates rounded-sm/md/lg/xl).
+  */
+  --shadow-e1: 0 6px 20px -4px rgba(18, 48, 110, 0.1);
+  --shadow-e2: 0 14px 36px -10px rgba(18, 48, 110, 0.16);
+  --shadow-e3: 0 26px 60px -14px rgba(18, 48, 110, 0.24);
+  /* The sticky top bar's separator glow — a thin, mostly-invisible-until-
+     scroll seam under fixed chrome, not an ambient card lift, so it keeps its
+     own tighter shape rather than reusing e1. */
+  --shadow-header: 0 10px 30px -20px rgba(18, 48, 110, 0.3);
+  /* Reserved for the primary gold-leaf CTA only (§1.7 Buttons) — every other
+     surface uses the blue-tinted tiers above. */
+  --shadow-gold-glow: 0 12px 32px -8px rgba(196, 127, 8, 0.5);
+
+  /*
     --- Kingdom Radiant: immersive brand scenes (landing / auth / role) ---
     The deep heaven-blue + radiant-gold system the mobile app adopted for its
     welcome & splash. Used ONLY on the full-bleed brand canvases — the parchment
