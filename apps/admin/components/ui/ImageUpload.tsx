@@ -109,7 +109,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
           type="button"
           disabled={disabled || busy}
           onClick={() => inputRef.current?.click()}
-          className="flex h-24 w-full items-center justify-center rounded-lg bg-surface-lowest font-body text-sm text-on-surface-variant transition hover:bg-surface-low disabled:opacity-60"
+          className="flex h-24 w-full items-center justify-center rounded-lg bg-surface-lowest font-body text-sm text-on-surface-variant shadow-e1 transition hover:bg-surface-low disabled:opacity-60 disabled:shadow-none"
         >
           {busy ? "Uploading…" : "Upload an image"}
         </button>

@@ -144,7 +144,7 @@ export function ContentRow({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg bg-surface-lowest px-4 py-3 shadow-[0_8px_32px_rgba(28,28,24,0.04)]">
+    <div className="flex items-center justify-between gap-4 rounded-lg bg-surface-lowest px-4 py-3 shadow-e1">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-body text-sm font-semibold text-on-surface">

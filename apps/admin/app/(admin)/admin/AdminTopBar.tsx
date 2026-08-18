@@ -66,7 +66,7 @@ export function AdminTopBar({
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 bg-parchment/85 pl-1.5 pr-3 shadow-[0_10px_30px_-20px_rgba(28,28,24,0.4)] backdrop-blur-xl lg:pl-2 lg:pr-6">
+    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 bg-parchment/85 pl-1.5 pr-3 shadow-header backdrop-blur-xl lg:pl-2 lg:pr-6">
       <div className="flex min-w-0 items-center gap-2">
         <SidebarTrigger className="size-8 text-on-surface-variant hover:bg-surface-low hover:text-primary" />
         <DepartmentSwitcher current="Administration" />

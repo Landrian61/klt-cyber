@@ -22,7 +22,7 @@ export function StatCard({ label, value, hint, trend, className }: StatCardProps
   return (
     <div
       className={cn(
-        "rounded-xl bg-surface-lowest p-6 shadow-[0_8px_32px_rgba(28,28,24,0.04)]",
+        "rounded-xl bg-surface-lowest p-6 shadow-e1",
         className,
       )}
     >

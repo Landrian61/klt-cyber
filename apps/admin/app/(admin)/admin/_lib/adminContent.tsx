@@ -186,7 +186,7 @@ export function ContentCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-xl bg-surface-lowest text-left shadow-[0_8px_32px_rgba(28,28,24,0.04)] transition hover:shadow-[0_12px_40px_rgba(28,28,24,0.08)]"
+      className="group flex flex-col overflow-hidden rounded-xl bg-surface-lowest text-left shadow-e1 transition hover:-translate-y-0.5 hover:shadow-e2"
     >
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-[image:linear-gradient(135deg,var(--color-primary-container),var(--color-primary))]">
         {coverImageUrl && (
