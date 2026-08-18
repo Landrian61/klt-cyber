@@ -40,7 +40,7 @@ export const listAllPrograms = query({
     // Null when unauthenticated — live subscriptions outlast sign-out.
     if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
     const programs = await ctx.db.query("weeklyPrograms").collect();
-    return programs.sort(byDayThenTime);
+    return resolveCoverUrls(programs.sort(byDayThenTime));
   },
 });
 

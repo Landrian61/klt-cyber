@@ -310,4 +310,24 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_status", ["userId", "status"])
     .index("by_departmentId_status", ["departmentId", "status"]),
+
+  // Year Planner (docs/Admin_Portal.md). Internal planning records — never
+  // shown to members — distinct from `weeklyPrograms`/`events`. The planner
+  // UI merges all three into one calendar. No stored `month`: it's derived
+  // from `targetDate` at query/render time, same as "current theme" derives
+  // from a period rather than a stored flag.
+  plannedActivities: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    targetDate: v.number(), // unix ms, start of day (Africa/Kampala) — where it lands on the calendar
+    departmentIds: v.array(v.id("departments")), // area(s) of service responsible; at least one
+    status: v.union(
+      v.literal("planned"),
+      v.literal("in_progress"),
+      v.literal("done")
+    ),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_targetDate", ["targetDate"]),
 });

@@ -71,11 +71,18 @@ export function EventsManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState<EventDoc | null>(null);
+  // listAllEvents resolves coverImageUrl to a temporary signed URL (7-day
+  // expiry), not the durable R2 key — see convex/lib/media.ts. Track whether
+  // the admin actually touched the image so an untouched save omits the field
+  // from the update payload rather than overwriting the stored key with a
+  // URL that will 404 once it expires.
+  const [coverImageTouched, setCoverImageTouched] = useState(false);
 
   function openNew() {
     setEditing(null);
     setForm(EMPTY);
     setError(null);
+    setCoverImageTouched(false);
     setOpen(true);
   }
 
@@ -92,6 +99,7 @@ export function EventsManager() {
       active: event.active,
     });
     setError(null);
+    setCoverImageTouched(false);
     setOpen(true);
   }
 
@@ -116,20 +124,32 @@ export function EventsManager() {
     }
     setBusy(true);
     try {
-      const payload = {
+      const base = {
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         location: form.location.trim() || undefined,
         startDateTime,
         endDateTime,
-        coverImageUrl: form.coverImageUrl.trim() || undefined,
         featured: form.featured,
         active: form.active,
       };
       if (editing) {
-        await updateEvent({ eventId: editing._id as Id<"events">, ...payload });
+        // coverImageUrl from the query is a temporary signed URL (7-day
+        // expiry), not the durable R2 key — only send it back when the admin
+        // actually replaced/removed the image. Omitting the key leaves the
+        // stored value untouched (see convex/events.ts).
+        await updateEvent({
+          eventId: editing._id as Id<"events">,
+          ...base,
+          ...(coverImageTouched
+            ? { coverImageUrl: form.coverImageUrl.trim() || undefined }
+            : {}),
+        });
       } else {
-        await createEvent(payload);
+        await createEvent({
+          ...base,
+          coverImageUrl: form.coverImageUrl.trim() || undefined,
+        });
       }
       setOpen(false);
     } catch (mutationError) {
@@ -233,7 +253,10 @@ export function EventsManager() {
           <Field label="Cover image" hint="Upload the image members see (optional).">
             <ImageUpload
               value={form.coverImageUrl || undefined}
-              onChange={(value) => set("coverImageUrl", value ?? "")}
+              onChange={(value) => {
+                set("coverImageUrl", value ?? "");
+                setCoverImageTouched(true);
+              }}
               disabled={busy}
             />
           </Field>

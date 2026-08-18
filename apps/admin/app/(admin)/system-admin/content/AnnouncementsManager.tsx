@@ -85,11 +85,18 @@ export function AnnouncementsManager() {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // listAllAnnouncements resolves coverImageUrl to a temporary signed URL
+  // (7-day expiry), not the durable R2 key — see convex/lib/media.ts. Track
+  // whether the admin actually touched the image so an untouched save omits
+  // the field from the update payload rather than overwriting the stored key
+  // with a URL that will 404 once it expires.
+  const [coverImageTouched, setCoverImageTouched] = useState(false);
 
   function openNew() {
     setEditing(null);
     setForm(EMPTY);
     setError(null);
+    setCoverImageTouched(false);
     setOpen(true);
   }
 
@@ -107,6 +114,7 @@ export function AnnouncementsManager() {
       publishNow: false, // edit never changes status; use the row actions
     });
     setError(null);
+    setCoverImageTouched(false);
     setOpen(true);
   }
 
@@ -147,15 +155,28 @@ export function AnnouncementsManager() {
         body: form.body.trim(),
         category: form.category.trim() || undefined,
         priority: form.priority,
-        coverImageUrl: form.coverImageUrl.trim() || undefined,
         links: links.length ? links : undefined,
         startDate,
         endDate,
       };
       if (editing) {
-        await updateAnnouncement({ announcementId: editing._id as Id<"announcements">, ...shared });
+        // coverImageUrl from the query is a temporary signed URL (7-day
+        // expiry), not the durable R2 key — only send it back when the admin
+        // actually replaced/removed the image. Omitting the key leaves the
+        // stored value untouched (see convex/announcements.ts).
+        await updateAnnouncement({
+          announcementId: editing._id as Id<"announcements">,
+          ...shared,
+          ...(coverImageTouched
+            ? { coverImageUrl: form.coverImageUrl.trim() || undefined }
+            : {}),
+        });
       } else {
-        await createAnnouncement({ ...shared, status: form.publishNow ? "published" : "draft" });
+        await createAnnouncement({
+          ...shared,
+          coverImageUrl: form.coverImageUrl.trim() || undefined,
+          status: form.publishNow ? "published" : "draft",
+        });
       }
       setOpen(false);
     } catch (mutationError) {
@@ -269,7 +290,10 @@ export function AnnouncementsManager() {
           <Field label="Cover image" hint="Upload the image members see (optional).">
             <ImageUpload
               value={form.coverImageUrl || undefined}
-              onChange={(value) => set("coverImageUrl", value ?? "")}
+              onChange={(value) => {
+                set("coverImageUrl", value ?? "");
+                setCoverImageTouched(true);
+              }}
               disabled={busy}
             />
           </Field>

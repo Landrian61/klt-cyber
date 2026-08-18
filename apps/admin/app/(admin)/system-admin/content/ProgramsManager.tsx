@@ -75,11 +75,18 @@ export function ProgramsManager() {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // listAllPrograms resolves coverImageUrl to a temporary signed URL (7-day
+  // expiry), not the durable R2 key — see convex/lib/media.ts. Track whether
+  // the admin actually touched the image so an untouched save omits the field
+  // from the update payload rather than overwriting the stored key with a
+  // URL that will 404 once it expires.
+  const [coverImageTouched, setCoverImageTouched] = useState(false);
 
   function openNew() {
     setEditing(null);
     setForm(EMPTY);
     setError(null);
+    setCoverImageTouched(false);
     setOpen(true);
   }
 
@@ -95,6 +102,7 @@ export function ProgramsManager() {
       active: program.active,
     });
     setError(null);
+    setCoverImageTouched(false);
     setOpen(true);
   }
 
@@ -113,19 +121,31 @@ export function ProgramsManager() {
     }
     setBusy(true);
     try {
-      const payload = {
+      const base = {
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         dayOfWeek: Number(form.dayOfWeek),
         time: form.time,
         location: form.location.trim() || undefined,
-        coverImageUrl: form.coverImageUrl.trim() || undefined,
         active: form.active,
       };
       if (editing) {
-        await updateProgram({ programId: editing._id as Id<"weeklyPrograms">, ...payload });
+        // coverImageUrl from the query is a temporary signed URL (7-day
+        // expiry), not the durable R2 key — only send it back when the admin
+        // actually replaced/removed the image. Omitting the key leaves the
+        // stored value untouched (see convex/weeklyPrograms.ts).
+        await updateProgram({
+          programId: editing._id as Id<"weeklyPrograms">,
+          ...base,
+          ...(coverImageTouched
+            ? { coverImageUrl: form.coverImageUrl.trim() || undefined }
+            : {}),
+        });
       } else {
-        await createProgram(payload);
+        await createProgram({
+          ...base,
+          coverImageUrl: form.coverImageUrl.trim() || undefined,
+        });
       }
       setOpen(false);
     } catch (mutationError) {
@@ -233,7 +253,10 @@ export function ProgramsManager() {
           <Field label="Cover image" hint="Upload the image members see (optional).">
             <ImageUpload
               value={form.coverImageUrl || undefined}
-              onChange={(value) => set("coverImageUrl", value ?? "")}
+              onChange={(value) => {
+                set("coverImageUrl", value ?? "");
+                setCoverImageTouched(true);
+              }}
               disabled={busy}
             />
           </Field>

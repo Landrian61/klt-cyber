@@ -26,6 +26,7 @@ import type * as http from "../http.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_media from "../lib/media.js";
 import type * as memberProfiles from "../memberProfiles.js";
+import type * as plannedActivities from "../plannedActivities.js";
 import type * as profile from "../profile.js";
 import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "lib/authz": typeof lib_authz;
   "lib/media": typeof lib_media;
   memberProfiles: typeof memberProfiles;
+  plannedActivities: typeof plannedActivities;
   profile: typeof profile;
   roles: typeof roles;
   seed: typeof seed;

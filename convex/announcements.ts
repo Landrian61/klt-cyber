@@ -65,7 +65,7 @@ export const listAllAnnouncements = query({
     // Null when unauthenticated — live subscriptions outlast sign-out.
     if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
     const all = await ctx.db.query("announcements").collect();
-    return all.sort((a, b) => b.startDate - a.startDate);
+    return resolveCoverUrls(all.sort((a, b) => b.startDate - a.startDate));
   },
 });
 
