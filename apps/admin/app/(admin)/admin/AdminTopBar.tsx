@@ -26,7 +26,11 @@ import { DepartmentSwitcher } from "@/components/admin/DepartmentSwitcher";
 const MODULE_TITLES: [prefix: string, title: string][] = [
   ["/admin/verification", "Verification"],
   ["/admin/members", "Members"],
-  ["/admin/departments", "Departments"],
+  ["/admin/departments", "Roster"],
+  ["/admin/weekly-program", "Weekly program"],
+  ["/admin/events", "Events"],
+  ["/admin/announcements", "Announcements"],
+  ["/admin/year-planner", "Year planner"],
   ["/admin/settings", "Settings"],
   ["/admin", "Dashboard"],
 ];

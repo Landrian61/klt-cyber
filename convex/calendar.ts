@@ -11,11 +11,14 @@ import { resolveCoverUrls } from "./lib/media";
 // Church-local time is Africa/Kampala — fixed UTC+3, no DST. Occurrences are
 // computed against this offset so a "09:00" program lands at the right instant
 // regardless of the server's own timezone.
-const KAMPALA_OFFSET_MS = 3 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+// Exported (not just module-local) so other admin-only calendar views —
+// currently the Year Planner (convex/plannedActivities.ts) — can expand
+// occurrences the same way without duplicating the Kampala-offset math.
+export const KAMPALA_OFFSET_MS = 3 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The Kampala-local calendar parts of a unix instant. */
-function kampalaParts(ts: number) {
+export function kampalaParts(ts: number) {
   const d = new Date(ts + KAMPALA_OFFSET_MS);
   return {
     year: d.getUTCFullYear(),
@@ -26,7 +29,7 @@ function kampalaParts(ts: number) {
 }
 
 /** The unix instant for a Kampala-local date + "HH:mm" wall-clock time. */
-function occurrenceInstant(
+export function occurrenceInstant(
   year: number,
   month: number,
   day: number,
@@ -37,7 +40,7 @@ function occurrenceInstant(
 }
 
 /** "YYYY-MM-DD" for a Kampala-local date. */
-function ymd(year: number, month: number, day: number): string {
+export function ymd(year: number, month: number, day: number): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${year}-${pad(month + 1)}-${pad(day)}`;
 }

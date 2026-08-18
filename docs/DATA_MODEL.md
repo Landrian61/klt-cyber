@@ -1041,4 +1041,43 @@ identical, just avoiding duplicated authorization logic going forward.
   explicitly marked so in your spec.
 - **Children's date of birth** simplified to a single optional date rather than the
   DOB-or-age ambiguity in the original wording — confirm that's fine.
+
+---
+
+## `plannedActivities` — Year Planner (Increment 5)
+
+Backs the Year Planner page (docs/Admin_Portal.md). Internal planning records — never surfaced to
+members — distinct from the member-facing `weeklyPrograms`/`events`/`announcements` content in the
+Increment 3 section above.
+
+```ts
+plannedActivities: defineTable({
+  title: v.string(),
+  description: v.optional(v.string()),
+  targetDate: v.number(),              // unix ms, start of day (Africa/Kampala) — where it lands on the calendar
+  departmentIds: v.array(v.id("departments")), // area(s) of service responsible; at least one
+  status: v.union(v.literal("planned"), v.literal("in_progress"), v.literal("done")),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_targetDate", ["targetDate"])
+```
+
+No stored `month` field — the spec's "which month" is derived from `targetDate` at render time,
+the same way `themes`' "current theme" derives from a validity period rather than a stored flag.
+
+**Reads/writes.** Same gate as the rest of Administration's content
+(`canManageContent`/`getAdministrationAuthorityOrNull` in `convex/lib/authz.ts`): Administration
+HOD, delegate, or `system_admin`. `plannedActivities.getYearPlannerRange` is the planner's single
+data source — it reuses the occurrence-expansion helpers exported from `convex/calendar.ts`
+(`kampalaParts`, `occurrenceInstant`, `ymd`, `DAY_MS`) to merge active weekly-program occurrences,
+in-range events, and in-range activities into one sorted list per the calendar day they land on.
+This is a *separate* query from `calendar.getCalendarRange`, not an extension of it — the public
+calendar is open to any authenticated session (including mobile), and `plannedActivities` must
+never leak into that surface.
+
+**Future addition, not needed for this to already be useful** (per docs/Admin_Portal.md): notify
+everyone responsible for a month's activities automatically when the month begins. No table or
+field changes anticipated for that — it reads `plannedActivities` + `departmentIds` as they stand.
  

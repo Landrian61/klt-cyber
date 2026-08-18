@@ -58,7 +58,7 @@ export const listAllEvents = query({
       .withIndex("by_startDateTime")
       .order("desc")
       .collect();
-    return events;
+    return resolveCoverUrls(events);
   },
 });
 
