@@ -45,8 +45,13 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   loading?: boolean;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
+// ref accepted as a plain prop (React 19 — no forwardRef needed). Required
+// for Radix's asChild/Slot pattern (Popover/Tooltip triggers) to measure and
+// position against the real <button>, and for shadcn registry code (e.g.
+// calendar.tsx's day buttons) that forwards a ref through this component.
 function Button({
   className,
   variant,
@@ -54,10 +59,12 @@ function Button({
   loading = false,
   disabled,
   children,
+  ref,
   ...props
 }: ButtonProps) {
   return (
     <button
+      ref={ref}
       data-slot="button"
       className={cn(buttonVariants({ variant, size }), className)}
       disabled={disabled || loading}

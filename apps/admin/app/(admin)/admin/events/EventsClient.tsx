@@ -9,6 +9,7 @@ import { Button } from "@/components/shadcn/button";
 import { Input } from "@/components/shadcn/input";
 import { Textarea } from "@/components/shadcn/textarea";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { DateTimePicker } from "@/components/ui/DatePicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentedFilter } from "@/components/ui/FilterBar";
 import {
@@ -25,8 +26,6 @@ import {
   Field,
   errorMessage,
   formatDateTime,
-  fromDateTimeInput,
-  toDateTimeInput,
 } from "../_lib/adminContent";
 
 type EventDoc = Doc<"events">;
@@ -41,8 +40,8 @@ interface FormState {
   title: string;
   description: string;
   location: string;
-  startDateTime: string;
-  endDateTime: string;
+  startDateTime: number | undefined;
+  endDateTime: number | undefined;
   coverImageUrl: string;
   featured: boolean;
   active: boolean;
@@ -52,8 +51,8 @@ const EMPTY: FormState = {
   title: "",
   description: "",
   location: "",
-  startDateTime: "",
-  endDateTime: "",
+  startDateTime: undefined,
+  endDateTime: undefined,
   coverImageUrl: "",
   featured: false,
   active: true,
@@ -102,8 +101,8 @@ export function EventsClient() {
       title: event.title,
       description: event.description ?? "",
       location: event.location ?? "",
-      startDateTime: toDateTimeInput(event.startDateTime),
-      endDateTime: toDateTimeInput(event.endDateTime),
+      startDateTime: event.startDateTime,
+      endDateTime: event.endDateTime,
       coverImageUrl: event.coverImageUrl ?? "",
       featured: event.featured,
       active: event.active,
@@ -122,13 +121,11 @@ export function EventsClient() {
       setError("Title is required.");
       return;
     }
-    if (!form.startDateTime || !form.endDateTime) {
+    if (form.startDateTime === undefined || form.endDateTime === undefined) {
       setError("Start and end date/time are required.");
       return;
     }
-    const startDateTime = fromDateTimeInput(form.startDateTime);
-    const endDateTime = fromDateTimeInput(form.endDateTime);
-    if (endDateTime < startDateTime) {
+    if (form.endDateTime < form.startDateTime) {
       setError("End must be on or after start.");
       return;
     }
@@ -138,8 +135,8 @@ export function EventsClient() {
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         location: form.location.trim() || undefined,
-        startDateTime,
-        endDateTime,
+        startDateTime: form.startDateTime,
+        endDateTime: form.endDateTime,
         featured: form.featured,
         active: form.active,
       };
@@ -198,7 +195,7 @@ export function EventsClient() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="aspect-[4/5] animate-pulse rounded-xl bg-surface-lowest"
+              className="aspect-[4/5] animate-pulse rounded-md bg-surface-lowest"
             />
           ))}
         </CardGrid>
@@ -234,12 +231,12 @@ export function EventsClient() {
           if (!next && !busy) setOpen(false);
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit event" : "Add event"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-5">
-            <Field label="Title" htmlFor="event-title">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+            <Field label="Title" htmlFor="event-title" className="md:col-span-2">
               <Input
                 id="event-title"
                 value={form.title}
@@ -247,66 +244,70 @@ export function EventsClient() {
                 placeholder="Youth outreach day"
               />
             </Field>
-            <Field label="Description" htmlFor="event-desc">
-              <Textarea
-                id="event-desc"
-                rows={3}
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                placeholder="What this event is about (optional)"
-              />
-            </Field>
-            <Field label="Location" htmlFor="event-loc">
-              <Input
-                id="event-loc"
-                value={form.location}
-                onChange={(e) => set("location", e.target.value)}
-                placeholder="Downtown (optional)"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Starts" htmlFor="event-start">
-                <Input
-                  id="event-start"
-                  type="datetime-local"
-                  value={form.startDateTime}
-                  onChange={(e) => set("startDateTime", e.target.value)}
+            <div className="space-y-5">
+              <Field label="Description" htmlFor="event-desc">
+                <Textarea
+                  id="event-desc"
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) => set("description", e.target.value)}
+                  placeholder="What this event is about (optional)"
                 />
               </Field>
-              <Field label="Ends" htmlFor="event-end">
+              <Field label="Location" htmlFor="event-loc">
                 <Input
-                  id="event-end"
-                  type="datetime-local"
-                  value={form.endDateTime}
-                  onChange={(e) => set("endDateTime", e.target.value)}
+                  id="event-loc"
+                  value={form.location}
+                  onChange={(e) => set("location", e.target.value)}
+                  placeholder="Downtown (optional)"
                 />
               </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Starts" htmlFor="event-start">
+                  <DateTimePicker
+                    id="event-start"
+                    value={form.startDateTime}
+                    onChange={(value) => set("startDateTime", value)}
+                  />
+                </Field>
+                <Field label="Ends" htmlFor="event-end">
+                  <DateTimePicker
+                    id="event-end"
+                    value={form.endDateTime}
+                    onChange={(value) => set("endDateTime", value)}
+                  />
+                </Field>
+              </div>
             </div>
-            <Field label="Cover image" hint="Shown at the top of the card (optional).">
-              <ImageUpload
-                value={form.coverImageUrl || undefined}
-                onChange={(value) => {
-                  set("coverImageUrl", value ?? "");
-                  setCoverImageTouched(true);
-                }}
-                disabled={busy}
-              />
-            </Field>
-            <div className="flex flex-col gap-3">
-              <CheckboxField
-                id="event-featured"
-                label="Featured"
-                checked={form.featured}
-                onChange={(value) => set("featured", value)}
-              />
-              <CheckboxField
-                id="event-active"
-                label="Active (visible to members)"
-                checked={form.active}
-                onChange={(value) => set("active", value)}
-              />
+            <div className="space-y-5">
+              <Field label="Cover image" hint="Shown at the top of the card (optional).">
+                <ImageUpload
+                  value={form.coverImageUrl || undefined}
+                  onChange={(value) => {
+                    set("coverImageUrl", value ?? "");
+                    setCoverImageTouched(true);
+                  }}
+                  disabled={busy}
+                />
+              </Field>
+              <div className="flex flex-col gap-3">
+                <CheckboxField
+                  id="event-featured"
+                  label="Featured"
+                  checked={form.featured}
+                  onChange={(value) => set("featured", value)}
+                />
+                <CheckboxField
+                  id="event-active"
+                  label="Active (visible to members)"
+                  checked={form.active}
+                  onChange={(value) => set("active", value)}
+                />
+              </div>
             </div>
-            {error && <p className="font-body text-sm text-error">{error}</p>}
+            {error && (
+              <p className="font-body text-sm text-error md:col-span-2">{error}</p>
+            )}
           </div>
           <DialogFooter>
             <Button

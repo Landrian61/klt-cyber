@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Label } from "@/components/shadcn/label";
+import { Field as ShadcnField } from "@/components/shadcn/field";
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { Badge, type BadgeVariant } from "@/components/shadcn/badge";
 import { cn } from "@/lib/utils";
 
@@ -114,28 +115,29 @@ export const MONTH_LABELS = [
   "December",
 ];
 
-/** A labelled form field wrapper. */
+/** A labelled form field wrapper — delegates to the shadcn Field primitive. */
 export function Field({
   label,
   htmlFor,
   hint,
+  className,
   children,
 }: {
   label: string;
   htmlFor?: string;
   hint?: string;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <div>
-      <Label htmlFor={htmlFor}>{label}</Label>
-      <div className="mt-1">{children}</div>
-      {hint && <p className="mt-1 font-body text-xs text-outline">{hint}</p>}
-    </div>
+    <ShadcnField label={label} htmlFor={htmlFor ?? ""} hint={hint} className={className}>
+      {children}
+    </ShadcnField>
   );
 }
 
-/** Minimal checkbox + label row for boolean flags (active, featured). */
+/** Minimal checkbox + label row for boolean flags (active, featured) — the
+ * shadcn Checkbox (Radix), not a raw <input type="checkbox">. */
 export function CheckboxField({
   id,
   label,
@@ -149,12 +151,10 @@ export function CheckboxField({
 }) {
   return (
     <label htmlFor={id} className="flex cursor-pointer items-center gap-2.5">
-      <input
+      <Checkbox
         id={id}
-        type="checkbox"
         checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 accent-[color:var(--color-primary)]"
+        onCheckedChange={(value) => onChange(value === true)}
       />
       <span className="font-body text-sm text-on-surface">{label}</span>
     </label>
@@ -186,7 +186,7 @@ export function ContentCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-xl bg-surface-lowest text-left shadow-e1 transition hover:-translate-y-0.5 hover:shadow-e2"
+      className="group flex flex-col overflow-hidden rounded-md bg-surface-lowest text-left shadow-e1 transition hover:-translate-y-0.5 hover:shadow-e2"
     >
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-[image:linear-gradient(135deg,var(--color-primary-container),var(--color-primary))]">
         {coverImageUrl && (
@@ -200,7 +200,7 @@ export function ContentCard({
           />
         )}
         {marker && (
-          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-[#0c1120]/45 px-2 py-1 font-body text-xs font-semibold text-white backdrop-blur-sm">
+          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-heaven-deep/45 px-2 py-1 font-body text-xs font-semibold text-white backdrop-blur-sm">
             {marker}
           </div>
         )}

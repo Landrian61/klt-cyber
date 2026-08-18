@@ -1,15 +1,21 @@
 "use client";
 
+import * as React from "react";
+import { getDefaultClassNames, type DayButton } from "react-day-picker";
+import { Calendar } from "@/components/shadcn/calendar";
 import { cn } from "@/lib/utils";
 import { MONTH_LABELS } from "../_lib/adminContent";
-import { localYmd, monthGridDays } from "./calendarGrid";
+import { localYmd } from "./calendarGrid";
 import type { PlannerItem } from "./types";
 
 // Year/Quarter view's shared building block (docs/Admin-portal.html
-// `.mini-month`). Tiny — no room for day numbers, so a day cell is just a
-// gold marker when something's on it. Padding cells (days spilling into the
-// adjacent month, needed to align the 7-column grid) are unmarked and
-// unclickable.
+// `.mini-month`) — now the real shadcn Calendar (react-day-picker) rather
+// than a grid of blank marker squares, so each tile shows actual date
+// numbers, not just coloured planks. A custom, compact DayButton keeps the
+// "gold when something's on it" treatment; the calendar's own caption/nav/
+// weekday header are hidden since the card renders its own "Jan"/"Feb" label
+// and there's nothing to navigate — the parent Year/Quarter grid already
+// shows every month at once.
 export function MiniMonth({
   year,
   month,
@@ -23,51 +29,72 @@ export function MiniMonth({
   onDayClick: (date: Date) => void;
   isCurrent?: boolean;
 }) {
-  const days = monthGridDays(year, month);
+  const dayPickerDefaults = getDefaultClassNames();
 
   return (
     <div
       className={cn(
-        "rounded-lg p-2.5 shadow-e1",
+        "rounded-md p-2.5 shadow-e1",
         isCurrent ? "bg-primary-light" : "bg-surface-lowest",
       )}
     >
       <p
         className={cn(
-          "mb-1.5 font-body text-xs font-semibold",
+          "mb-1 font-body text-xs font-semibold",
           isCurrent ? "text-primary" : "text-on-surface-variant",
         )}
       >
         {MONTH_LABELS[month].slice(0, 3)}
       </p>
-      <div className="grid grid-cols-7 gap-[3px]">
-        {days.map(({ date, inMonth }) => {
-          const key = localYmd(date);
-          const items = inMonth ? byDate.get(key) : undefined;
-          const hasItems = !!items && items.length > 0;
-          return (
-            <button
-              key={key}
-              type="button"
-              disabled={!inMonth}
-              onClick={() => onDayClick(date)}
-              aria-label={
-                inMonth
-                  ? `${date.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}${
-                      hasItems ? `, ${items!.length} item${items!.length > 1 ? "s" : ""}` : ""
-                    }`
-                  : undefined
-              }
-              className={cn(
-                "aspect-square rounded-[2px] transition-colors",
-                !inMonth && "pointer-events-none bg-transparent",
-                inMonth && !hasItems && "bg-surface-low hover:bg-surface-high",
-                inMonth && hasItems && "bg-primary hover:brightness-110",
-              )}
-            />
-          );
-        })}
-      </div>
+      <Calendar
+        month={new Date(year, month, 1)}
+        showOutsideDays={false}
+        onDayClick={(date, modifiers) => {
+          if (modifiers.outside || modifiers.hidden) return;
+          onDayClick(date);
+        }}
+        modifiers={{
+          hasItems: (date) => {
+            const items = byDate.get(localYmd(date));
+            return !!items && items.length > 0;
+          },
+        }}
+        components={{ Nav: () => <></>, DayButton: MiniMonthDayButton }}
+        classNames={{
+          root: cn("w-full", dayPickerDefaults.root),
+          month_caption: "hidden",
+          nav: "hidden",
+          weekdays: "hidden",
+        }}
+        className="bg-transparent p-0 [--cell-size:1.75rem]"
+      />
     </div>
+  );
+}
+
+function MiniMonthDayButton({
+  className,
+  day,
+  modifiers,
+  ...props
+}: React.ComponentProps<typeof DayButton>) {
+  const blank = modifiers.outside || modifiers.hidden;
+  return (
+    <button
+      type="button"
+      disabled={blank}
+      className={cn(
+        "flex aspect-square w-full items-center justify-center rounded-[3px] font-mono text-[10px] transition-colors",
+        blank && "invisible pointer-events-none",
+        !blank &&
+          (modifiers.hasItems
+            ? "bg-primary font-semibold text-on-primary hover:brightness-110"
+            : "text-on-surface-variant hover:bg-surface-high"),
+        className,
+      )}
+      {...props}
+    >
+      {day.date.getDate()}
+    </button>
   );
 }

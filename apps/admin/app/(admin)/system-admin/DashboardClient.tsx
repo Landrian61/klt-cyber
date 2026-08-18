@@ -252,7 +252,7 @@ function AttentionCard({
     <Link
       href={href}
       className={cn(
-        "block rounded-lg p-4 transition hover:brightness-[0.98]",
+        "block rounded-md p-4 transition hover:brightness-[0.98]",
         cardClass,
       )}
     >
@@ -272,7 +272,7 @@ function AttentionCard({
 // ── Skeletons (layout-stable, §12.1) ──────────────────────────────────────
 
 function StatSkeleton() {
-  return <div className="h-32 animate-pulse rounded-xl bg-surface-low" />;
+  return <div className="h-32 animate-pulse rounded-md bg-surface-low" />;
 }
 
 function FeedSkeleton() {

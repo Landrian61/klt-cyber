@@ -460,10 +460,10 @@ function ReviewSkeleton() {
       <Skeleton className="h-9 w-64" />
       <div className="grid items-start gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <Skeleton className="h-64 rounded-xl" />
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-64 rounded-md" />
+          <Skeleton className="h-40 rounded-md" />
         </div>
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-md" />
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ export function Table({
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-lg bg-surface-lowest shadow-e1",
+        "overflow-x-auto rounded-md bg-surface-lowest shadow-e1",
         className,
       )}
     >

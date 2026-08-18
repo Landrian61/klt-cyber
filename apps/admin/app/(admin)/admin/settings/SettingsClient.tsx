@@ -110,8 +110,8 @@ export function SettingsClient() {
     return (
       <div className="space-y-6" aria-busy="true" aria-label="Loading settings">
         <Skeleton className="h-9 w-40" />
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-96 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-md" />
+        <Skeleton className="h-96 w-full rounded-md" />
       </div>
     );
   }
