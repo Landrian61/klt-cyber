@@ -22,12 +22,11 @@ import {
   SelectValue,
 } from "@/components/shadcn/select";
 import { FilterChip } from "@/components/ui/FilterBar";
+import { DatePicker } from "@/components/ui/DatePicker";
 import {
   ACTIVITY_STATUS_OPTIONS,
   Field,
   errorMessage,
-  fromDateInput,
-  toDateInput,
 } from "../_lib/adminContent";
 
 type Status = "planned" | "in_progress" | "done";
@@ -47,7 +46,7 @@ export interface EditingActivity {
 interface FormState {
   title: string;
   description: string;
-  targetDate: string;
+  targetDate: number | undefined;
   departmentIds: Id<"departments">[];
   status: Status;
 }
@@ -56,7 +55,7 @@ function emptyForm(defaultDate: Date): FormState {
   return {
     title: "",
     description: "",
-    targetDate: toDateInput(defaultDate.getTime()),
+    targetDate: defaultDate.getTime(),
     departmentIds: [],
     status: "planned",
   };
@@ -93,7 +92,7 @@ export function ActivityDialog({
         ? {
             title: activity.title,
             description: activity.description,
-            targetDate: toDateInput(activity.targetDate),
+            targetDate: activity.targetDate,
             departmentIds: activity.departmentIds,
             status: activity.status,
           }
@@ -120,7 +119,7 @@ export function ActivityDialog({
       setError("Title is required.");
       return;
     }
-    if (!form.targetDate) {
+    if (form.targetDate === undefined) {
       setError("Target date is required.");
       return;
     }
@@ -133,7 +132,7 @@ export function ActivityDialog({
       const payload = {
         title: form.title.trim(),
         description: form.description.trim() || undefined,
-        targetDate: fromDateInput(form.targetDate),
+        targetDate: form.targetDate,
         departmentIds: form.departmentIds,
         status: form.status,
       };
@@ -152,71 +151,76 @@ export function ActivityDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{activity ? "Edit activity" : "Add activity"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-5">
-          <Field label="Title" htmlFor="activity-title">
-            <Input
-              id="activity-title"
-              value={form.title}
-              onChange={(e) => set("title", e.target.value)}
-              placeholder="Building fund drive"
-            />
-          </Field>
-          <Field label="Description" htmlFor="activity-desc">
-            <Textarea
-              id="activity-desc"
-              rows={3}
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              placeholder="What this activity involves (optional)"
-            />
-          </Field>
-          <Field label="Target date" htmlFor="activity-date">
-            <Input
-              id="activity-date"
-              type="date"
-              value={form.targetDate}
-              onChange={(e) => set("targetDate", e.target.value)}
-            />
-          </Field>
-          <Field label="Responsible area(s) of service">
-            <div className="flex flex-wrap gap-2">
-              {departments === undefined ? (
-                <span className="font-body text-sm text-outline">Loading…</span>
-              ) : (
-                departments.map((dept) => (
-                  <FilterChip
-                    key={dept._id}
-                    selected={form.departmentIds.includes(dept._id)}
-                    onClick={() => toggleDepartment(dept._id)}
-                  >
-                    {dept.name}
-                  </FilterChip>
-                ))
-              )}
-            </div>
-          </Field>
-          <Field label="Status" htmlFor="activity-status">
-            <Select
-              value={form.status}
-              onValueChange={(value) => set("status", value as Status)}
-            >
-              <SelectTrigger id="activity-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACTIVITY_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          {error && <p className="font-body text-sm text-error">{error}</p>}
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+          <div className="space-y-5">
+            <Field label="Title" htmlFor="activity-title">
+              <Input
+                id="activity-title"
+                value={form.title}
+                onChange={(e) => set("title", e.target.value)}
+                placeholder="Building fund drive"
+              />
+            </Field>
+            <Field label="Description" htmlFor="activity-desc">
+              <Textarea
+                id="activity-desc"
+                rows={3}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="What this activity involves (optional)"
+              />
+            </Field>
+            <Field label="Target date" htmlFor="activity-date">
+              <DatePicker
+                id="activity-date"
+                value={form.targetDate}
+                onChange={(value) => set("targetDate", value)}
+              />
+            </Field>
+          </div>
+          <div className="space-y-5">
+            <Field label="Responsible area(s) of service">
+              <div className="flex flex-wrap gap-2">
+                {departments === undefined ? (
+                  <span className="font-body text-sm text-outline">Loading…</span>
+                ) : (
+                  departments.map((dept) => (
+                    <FilterChip
+                      key={dept._id}
+                      selected={form.departmentIds.includes(dept._id)}
+                      onClick={() => toggleDepartment(dept._id)}
+                    >
+                      {dept.name}
+                    </FilterChip>
+                  ))
+                )}
+              </div>
+            </Field>
+            <Field label="Status" htmlFor="activity-status">
+              <Select
+                value={form.status}
+                onValueChange={(value) => set("status", value as Status)}
+              >
+                <SelectTrigger id="activity-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACTIVITY_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          {error && (
+            <p className="font-body text-sm text-error sm:col-span-2">{error}</p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={() => !busy && onOpenChange(false)}>

@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useAuthQuery } from "@/lib/useAuthQuery";
-import { api, type Id } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
 import { Button } from "@/components/shadcn/button";
 import { Input } from "@/components/shadcn/input";
 import { Textarea } from "@/components/shadcn/textarea";
-import { Badge } from "@/components/shadcn/badge";
 import {
   Select,
   SelectContent,
@@ -25,9 +24,12 @@ import {
   DialogTitle,
 } from "@/components/shadcn/dialog";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { DataTable, type Column } from "@/components/ui/DataTable";
+import { Skeleton } from "@/components/shadcn/skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SegmentedFilter } from "@/components/ui/FilterBar";
 import {
+  CardGrid,
+  ContentCard,
   Field,
   CheckboxField,
   errorMessage,
@@ -35,6 +37,13 @@ import {
   DAY_OPTIONS,
   DAY_LABELS,
 } from "../_lib/adminContent";
+
+type Tab = "active" | "inactive";
+
+const TAB_OPTIONS: { value: Tab; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
 
 // Row shape comes straight from the Convex query — coverImageUrl arrives
 // already resolved to a display-ready URL (or undefined), no hand-rolled drift.
@@ -66,16 +75,13 @@ export function WeeklyProgramClient() {
   const programs = useAuthQuery(api.weeklyPrograms.listAllPrograms, {});
   const createProgram = useMutation(api.weeklyPrograms.createProgram);
   const updateProgram = useMutation(api.weeklyPrograms.updateProgram);
-  const toggleActive = useMutation(api.weeklyPrograms.toggleProgramActive);
 
+  const [tab, setTab] = useState<Tab>("active");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Program | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<Id<"weeklyPrograms"> | null>(
-    null,
-  );
   // listAllPrograms resolves coverImageUrl to a temporary signed URL (7-day
   // expiry) for display — it is never the durable R2 key. Track whether the
   // admin actually touched the image so an untouched edit omits the field
@@ -157,119 +163,71 @@ export function WeeklyProgramClient() {
     }
   }
 
-  async function toggle(program: Program) {
-    setTogglingId(program._id);
-    try {
-      await toggleActive({ programId: program._id, active: !program.active });
-    } catch {
-      // Reactive list corrects itself; nothing to surface for a toggle.
-    } finally {
-      setTogglingId(null);
-    }
-  }
-
-  const columns: Column<Program>[] = [
-    {
-      key: "day",
-      header: "Day",
-      render: (program) => (
-        <span className="text-on-surface">{DAY_LABELS[program.dayOfWeek]}</span>
-      ),
-    },
-    {
-      key: "title",
-      header: "Title",
-      render: (program) => (
-        <span className="font-medium text-on-surface">{program.title}</span>
-      ),
-    },
-    {
-      key: "time",
-      header: "Time",
-      render: (program) => (
-        <span className="font-mono text-on-surface-variant">
-          {formatTime(program.time)}
-        </span>
-      ),
-    },
-    {
-      key: "location",
-      header: "Location",
-      render: (program) => (
-        <span className="text-on-surface-variant">
-          {program.location ?? "—"}
-        </span>
-      ),
-    },
-    {
-      key: "active",
-      header: "Active",
-      render: (program) =>
-        program.active ? (
-          <Badge variant="verified">On</Badge>
-        ) : (
-          <Badge variant="neutral">Off</Badge>
-        ),
-    },
-    {
-      key: "actions",
-      header: "",
-      align: "right",
-      render: (program) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          loading={togglingId === program._id}
-          onClick={(event) => {
-            event.stopPropagation();
-            void toggle(program);
-          }}
-        >
-          {program.active ? "Turn off" : "Turn on"}
-        </Button>
-      ),
-    },
-  ];
+  const shown = useMemo(() => {
+    if (!programs) return undefined;
+    return programs.filter((program) =>
+      tab === "active" ? program.active : !program.active,
+    );
+  }, [programs, tab]);
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <Heading as="h1" size="2xl">
-            Weekly program
-          </Heading>
-          <p className="font-body text-base text-on-surface-variant">
-            {programs ? (
-              <span className="font-mono">{programs.length}</span>
-            ) : (
-              <span aria-hidden="true">—</span>
-            )}{" "}
-            recurring programs
-          </p>
-        </div>
+      <header className="space-y-1">
+        <Heading as="h1" size="2xl">
+          Weekly program
+        </Heading>
+        <p className="font-body text-base text-on-surface-variant">
+          {programs ? (
+            <span className="font-mono">{programs.length}</span>
+          ) : (
+            <span aria-hidden="true">—</span>
+          )}{" "}
+          recurring programs
+        </p>
+      </header>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SegmentedFilter
+          ariaLabel="Active or inactive programs"
+          options={TAB_OPTIONS}
+          value={tab}
+          onChange={(value) => setTab(value as Tab)}
+        />
         <Button size="sm" onClick={openNew}>
           Add program
         </Button>
-      </header>
+      </div>
 
-      <DataTable<Program>
-        columns={columns}
-        rows={programs ?? undefined}
-        rowKey={(program) => program._id}
-        onRowClick={openEdit}
-        skeletonRows={4}
-        empty={
-          <EmptyState
-            title="No weekly programs yet"
-            message="Add the church's recurring schedule — Sunday service, Wednesday prayer meeting, and similar."
-            action={
-              <Button size="sm" onClick={openNew}>
-                Add program
-              </Button>
-            }
-          />
-        }
-      />
+      {!shown ? (
+        <CardGrid>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-[4/5] w-full rounded-md" />
+          ))}
+        </CardGrid>
+      ) : shown.length === 0 ? (
+        <EmptyState
+          title={tab === "active" ? "No active programs" : "No inactive programs"}
+          message={
+            tab === "active"
+              ? "Add the church's recurring schedule — Sunday service, Wednesday prayer meeting, and similar."
+              : "Programs turned off from the schedule land here — still editable."
+          }
+        />
+      ) : (
+        <CardGrid>
+          {shown.map((program) => (
+            <ContentCard
+              key={program._id}
+              coverImageUrl={program.coverImageUrl}
+              title={program.title}
+              meta={`${DAY_LABELS[program.dayOfWeek]} · ${formatTime(program.time)}${
+                program.location ? ` · ${program.location}` : ""
+              }`}
+              onClick={() => openEdit(program)}
+            />
+          ))}
+        </CardGrid>
+      )}
 
       <Dialog
         open={open}
@@ -277,13 +235,13 @@ export function WeeklyProgramClient() {
           if (!next && !busy) setOpen(false);
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit program" : "Add program"}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5">
-            <Field label="Title" htmlFor="program-title">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+            <Field label="Title" htmlFor="program-title" className="md:col-span-2">
               <Input
                 id="program-title"
                 value={form.title}
@@ -291,71 +249,81 @@ export function WeeklyProgramClient() {
                 placeholder="Sunday service"
               />
             </Field>
-            <Field label="Description" htmlFor="program-description">
-              <Textarea
-                id="program-description"
-                rows={3}
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                placeholder="What happens at this program (optional)"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Day of week" htmlFor="program-day">
-                <Select
-                  value={form.dayOfWeek}
-                  onValueChange={(value) => set("dayOfWeek", value)}
-                >
-                  <SelectTrigger id="program-day">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DAY_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field
-                label="Time"
-                htmlFor="program-time"
-                hint="Church-local (Africa/Kampala)."
-              >
-                <Input
-                  id="program-time"
-                  type="time"
-                  value={form.time}
-                  onChange={(e) => set("time", e.target.value)}
+
+            <div className="space-y-5">
+              <Field label="Description" htmlFor="program-description">
+                <Textarea
+                  id="program-description"
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) => set("description", e.target.value)}
+                  placeholder="What happens at this program (optional)"
                 />
               </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Day of week" htmlFor="program-day">
+                  <Select
+                    value={form.dayOfWeek}
+                    onValueChange={(value) => set("dayOfWeek", value)}
+                  >
+                    <SelectTrigger id="program-day">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field
+                  label="Time"
+                  htmlFor="program-time"
+                  hint="Church-local (Africa/Kampala)."
+                >
+                  <input
+                    id="program-time"
+                    type="time"
+                    value={form.time}
+                    onChange={(e) => set("time", e.target.value)}
+                    className="h-11 w-full rounded-md bg-surface-low px-3 text-center font-body text-base text-on-surface outline-none focus-visible:brightness-95"
+                  />
+                </Field>
+              </div>
             </div>
-            <Field label="Location" htmlFor="program-location">
-              <Input
-                id="program-location"
-                value={form.location}
-                onChange={(e) => set("location", e.target.value)}
-                placeholder="Main hall (optional)"
+
+            <div className="space-y-5">
+              <Field label="Location" htmlFor="program-location">
+                <Input
+                  id="program-location"
+                  value={form.location}
+                  onChange={(e) => set("location", e.target.value)}
+                  placeholder="Main hall (optional)"
+                />
+              </Field>
+              <Field label="Cover image" hint="Upload the image members see (optional).">
+                <ImageUpload
+                  value={form.coverImageUrl || undefined}
+                  onChange={(value) => {
+                    set("coverImageUrl", value ?? "");
+                    setCoverImageTouched(true);
+                  }}
+                  disabled={busy}
+                />
+              </Field>
+              <CheckboxField
+                id="program-active"
+                label="Active (visible to members)"
+                checked={form.active}
+                onChange={(value) => set("active", value)}
               />
-            </Field>
-            <Field label="Cover image" hint="Upload the image members see (optional).">
-              <ImageUpload
-                value={form.coverImageUrl || undefined}
-                onChange={(value) => {
-                  set("coverImageUrl", value ?? "");
-                  setCoverImageTouched(true);
-                }}
-                disabled={busy}
-              />
-            </Field>
-            <CheckboxField
-              id="program-active"
-              label="Active (visible to members)"
-              checked={form.active}
-              onChange={(value) => set("active", value)}
-            />
-            {error && <p className="font-body text-sm text-error">{error}</p>}
+            </div>
+
+            {error && (
+              <p className="font-body text-sm text-error md:col-span-2">{error}</p>
+            )}
           </div>
 
           <DialogFooter>

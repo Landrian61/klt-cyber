@@ -27,6 +27,7 @@ import { Badge, type BadgeVariant } from "@/components/shadcn/badge";
 import { Skeleton } from "@/components/shadcn/skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { SegmentedFilter } from "@/components/ui/FilterBar";
 import {
   CardGrid,
@@ -34,8 +35,6 @@ import {
   Field,
   PriorityBadge,
   errorMessage,
-  fromDateInput,
-  toDateInput,
 } from "../_lib/adminContent";
 
 type Announcement = Doc<"announcements">;
@@ -50,8 +49,8 @@ interface FormState {
   priority: Priority;
   coverImageUrl: string;
   links: LinkRow[];
-  startDate: string;
-  endDate: string;
+  startDate: number | undefined;
+  endDate: number | undefined;
 }
 
 const EMPTY_FORM: FormState = {
@@ -61,9 +60,17 @@ const EMPTY_FORM: FormState = {
   priority: "normal",
   coverImageUrl: "",
   links: [],
-  startDate: "",
-  endDate: "",
+  startDate: undefined,
+  endDate: undefined,
 };
+
+/** End-of-day snap for a period end, mirroring the old fromDateInput(v, true)
+ * behaviour now that DatePicker hands back a local-midnight ms directly. */
+function endOfDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(23, 59, 59, 999);
+  return d.getTime();
+}
 
 const TAB_OPTIONS: { value: Status; label: string }[] = [
   { value: "draft", label: "Draft" },
@@ -151,8 +158,8 @@ export function AnnouncementsClient() {
       priority: a.priority ?? "normal",
       coverImageUrl: a.coverImageUrl ?? "",
       links: a.links ? a.links.map((l) => ({ ...l })) : [],
-      startDate: toDateInput(a.startDate),
-      endDate: toDateInput(a.endDate),
+      startDate: a.startDate,
+      endDate: a.endDate,
     });
     setCoverImageTouched(false);
     setError(null);
@@ -173,11 +180,11 @@ export function AnnouncementsClient() {
     if (!form.title.trim() || !form.body.trim()) {
       throw new Error("Title and body are required.");
     }
-    if (!form.startDate || !form.endDate) {
+    if (form.startDate === undefined || form.endDate === undefined) {
       throw new Error("Start and end dates are required.");
     }
-    const startDate = fromDateInput(form.startDate);
-    const endDate = fromDateInput(form.endDate, true);
+    const startDate = form.startDate;
+    const endDate = endOfDay(form.endDate);
     if (endDate < startDate) {
       throw new Error("End date must be on or after start date.");
     }
@@ -273,7 +280,7 @@ export function AnnouncementsClient() {
       {!announcements ? (
         <CardGrid>
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-[4/5] w-full rounded-xl" />
+            <Skeleton key={i} className="aspect-[4/5] w-full rounded-md" />
           ))}
         </CardGrid>
       ) : filtered && filtered.length > 0 ? (
@@ -302,7 +309,7 @@ export function AnnouncementsClient() {
           if (!next && !busy) setOpen(false);
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2 pr-6">
               <DialogTitle>
@@ -316,8 +323,8 @@ export function AnnouncementsClient() {
             </div>
           </DialogHeader>
 
-          <div className="space-y-5">
-            <Field label="Title" htmlFor="ann-title">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+            <Field label="Title" htmlFor="ann-title" className="md:col-span-2">
               <Input
                 id="ann-title"
                 value={form.title}
@@ -325,120 +332,128 @@ export function AnnouncementsClient() {
                 placeholder="Water Baptism this Saturday"
               />
             </Field>
-            <Field label="Body" htmlFor="ann-body">
-              <Textarea
-                id="ann-body"
-                rows={5}
-                value={form.body}
-                onChange={(e) => set("body", e.target.value)}
-                placeholder="Full announcement text…"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Category" htmlFor="ann-cat">
-                <Input
-                  id="ann-cat"
-                  value={form.category}
-                  onChange={(e) => set("category", e.target.value)}
-                  placeholder="General"
+
+            <div className="space-y-5">
+              <Field label="Body" htmlFor="ann-body">
+                <Textarea
+                  id="ann-body"
+                  rows={5}
+                  value={form.body}
+                  onChange={(e) => set("body", e.target.value)}
+                  placeholder="Full announcement text…"
                 />
               </Field>
-              <Field label="Priority" htmlFor="ann-priority">
-                <Select
-                  value={form.priority}
-                  onValueChange={(value) => set("priority", value as Priority)}
-                >
-                  <SelectTrigger id="ann-priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-
-            <Field label="Cover image" hint="Shown at the top of the card and in the mobile feed.">
-              <ImageUpload
-                value={form.coverImageUrl || undefined}
-                onChange={(value) => {
-                  set("coverImageUrl", value ?? "");
-                  setCoverImageTouched(true);
-                }}
-                disabled={busy}
-              />
-            </Field>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="font-body text-sm font-medium text-on-surface-variant">
-                  Links
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => set("links", [...form.links, { label: "", url: "" }])}
-                >
-                  Add link
-                </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Category" htmlFor="ann-cat">
+                  <Input
+                    id="ann-cat"
+                    value={form.category}
+                    onChange={(e) => set("category", e.target.value)}
+                    placeholder="General"
+                  />
+                </Field>
+                <Field label="Priority" htmlFor="ann-priority">
+                  <Select
+                    value={form.priority}
+                    onValueChange={(value) => set("priority", value as Priority)}
+                  >
+                    <SelectTrigger id="ann-priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
               </div>
-              <div className="mt-2 space-y-3">
-                {form.links.length === 0 && (
-                  <p className="font-body text-xs text-outline">No links.</p>
-                )}
-                {form.links.map((link, index) => (
-                  <div key={index} className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <Input
-                        aria-label="Link label"
-                        value={link.label}
-                        onChange={(e) => setLink(index, { label: e.target.value })}
-                        placeholder="Register"
-                      />
-                    </div>
-                    <div className="flex-[2]">
-                      <Input
-                        aria-label="Link URL"
-                        value={link.url}
-                        onChange={(e) => setLink(index, { url: e.target.value })}
-                        placeholder="https://…"
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => set("links", form.links.filter((_, i) => i !== index))}
-                      aria-label="Remove link"
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Start date" htmlFor="ann-start">
+                  <DatePicker
+                    id="ann-start"
+                    value={form.startDate}
+                    onChange={(value) => set("startDate", value)}
+                  />
+                </Field>
+                <Field label="End date" htmlFor="ann-end">
+                  <DatePicker
+                    id="ann-end"
+                    value={form.endDate}
+                    onChange={(value) => set("endDate", value)}
+                  />
+                </Field>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Start date" htmlFor="ann-start">
-                <Input
-                  id="ann-start"
-                  type="date"
-                  value={form.startDate}
-                  onChange={(e) => set("startDate", e.target.value)}
+            <div className="space-y-5">
+              <Field label="Cover image" hint="Shown at the top of the card and in the mobile feed.">
+                <ImageUpload
+                  value={form.coverImageUrl || undefined}
+                  onChange={(value) => {
+                    set("coverImageUrl", value ?? "");
+                    setCoverImageTouched(true);
+                  }}
+                  disabled={busy}
                 />
               </Field>
-              <Field label="End date" htmlFor="ann-end">
-                <Input
-                  id="ann-end"
-                  type="date"
-                  value={form.endDate}
-                  onChange={(e) => set("endDate", e.target.value)}
-                />
-              </Field>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="font-body text-sm font-medium text-on-surface-variant">
+                    Links
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => set("links", [...form.links, { label: "", url: "" }])}
+                  >
+                    Add link
+                  </Button>
+                </div>
+                {/* The one genuinely unbounded field in this form — capped
+                    with its own small scroll region rather than letting an
+                    admin who adds many links push the whole dialog into
+                    scrolling. */}
+                <div className="mt-2 max-h-40 space-y-3 overflow-y-auto pr-1">
+                  {form.links.length === 0 && (
+                    <p className="font-body text-xs text-outline">No links.</p>
+                  )}
+                  {form.links.map((link, index) => (
+                    <div key={index} className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Input
+                          aria-label="Link label"
+                          value={link.label}
+                          onChange={(e) => setLink(index, { label: e.target.value })}
+                          placeholder="Register"
+                        />
+                      </div>
+                      <div className="flex-[2]">
+                        <Input
+                          aria-label="Link URL"
+                          value={link.url}
+                          onChange={(e) => setLink(index, { url: e.target.value })}
+                          placeholder="https://…"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => set("links", form.links.filter((_, i) => i !== index))}
+                        aria-label="Remove link"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {error && <p className="font-body text-sm text-error">{error}</p>}
+            {error && (
+              <p className="font-body text-sm text-error md:col-span-2">{error}</p>
+            )}
           </div>
 
           <DialogFooter>
