@@ -201,6 +201,15 @@ export function RosterClient() {
         ),
     },
     {
+      key: "dateAdded",
+      header: "Date added",
+      render: ({ membership }) => (
+        <span className="whitespace-nowrap text-sm text-muted-foreground">
+          {new Date(membership._creationTime).toLocaleDateString()}
+        </span>
+      ),
+    },
+    {
       key: "addedBy",
       header: "Added by",
       render: ({ membership }) => {
