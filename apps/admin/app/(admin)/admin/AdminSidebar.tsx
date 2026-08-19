@@ -49,7 +49,16 @@ const NAV_GROUPS: NavGroup[] = [
         label: "Dashboard",
         exact: true,
         icon: (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
             <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
             <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
@@ -66,7 +75,16 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/admin/verification",
         label: "Verification queue",
         icon: (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M5 4.5h11l3 3V19a.5.5 0 0 1-.5.5h-13A.5.5 0 0 1 5 19V5a.5.5 0 0 1 .5-.5Z" />
             <path d="m9 12.5 2 2 4-4.5" />
           </svg>
@@ -76,7 +94,16 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/admin/members",
         label: "Members directory",
         icon: (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <circle cx="9" cy="8" r="3.25" />
             <path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
             <path d="M15.5 5.4a3.25 3.25 0 0 1 0 5.2" />
@@ -88,10 +115,19 @@ const NAV_GROUPS: NavGroup[] = [
         // No dedicated Administration-scoped Roster screen yet — this reuses
         // the existing department-picker → department-members flow. Repoint
         // at a purpose-built /admin/roster once that page exists.
-        href: "/admin/departments",
+        href: "/admin/roster",
         label: "Roster",
         icon: (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M4 20.5V6.5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v14" />
             <path d="M12 20.5v-9a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9" />
             <path d="M2.5 20.5h19" />
@@ -108,7 +144,16 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/admin/weekly-program",
         label: "Weekly program",
         icon: (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
             <path d="M3.5 9.5h17" />
             <path d="M8 3v3M16 3v3" />
@@ -121,7 +166,16 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/admin/events",
         label: "Events",
         icon: (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
             <path d="M3.5 9.5h17" />
             <path d="M8 3v3M16 3v3" />
@@ -133,7 +187,16 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/admin/announcements",
         label: "Announcements",
         icon: (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M4 11v3a1 1 0 0 0 1 1h1.3l1.4 4.2a1 1 0 0 0 1 .7h.9a1 1 0 0 0 .95-1.3L9.6 15H11l8-3.6v-3L11 5 4 8.6v2.4Z" />
             <path d="M19 8.4v6.2" />
           </svg>
@@ -148,7 +211,16 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/admin/year-planner",
         label: "Year planner",
         icon: (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
             <path d="M3.5 9.5h17" />
             <path d="M8 3v3M16 3v3" />
