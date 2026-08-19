@@ -38,39 +38,13 @@ import {
 } from "@/components/shadcn/select";
 import { Separator } from "@/components/shadcn/separator";
 import { Skeleton } from "@/components/shadcn/skeleton";
-import { capitalize, errorMessage, type ProfileForReview } from "../shared";
-
-// The subset of `memberProfiles` fields an admin can correct before
-// approving, per `profileEditsPatchValidator` in convex/memberProfiles.ts.
-// Nested/structured fields (dateOfBirth, nextOfKin, skills) are shown
-// read-only for now — worth dedicated editors in a follow-up pass.
-type EditableFields = {
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  phone: string;
-  sex: "male" | "female";
-  maritalStatus: "single" | "married" | "widowed" | "divorced";
-  occupation: string;
-  industry: string;
-  employer: string;
-  shortBio: string;
-};
-
-function toFormState(profile: ProfileForReview): EditableFields {
-  return {
-    firstName: profile.firstName,
-    middleName: profile.middleName ?? "",
-    lastName: profile.lastName,
-    phone: profile.phone ?? "",
-    sex: profile.sex,
-    maritalStatus: profile.maritalStatus,
-    occupation: profile.occupation ?? "",
-    industry: profile.industry ?? "",
-    employer: profile.employer ?? "",
-    shortBio: profile.shortBio ?? "",
-  };
-}
+import {
+  capitalize,
+  errorMessage,
+  toFormState,
+  type EditableFields,
+  type ProfileForReview,
+} from "../shared";
 
 export function ProfileReviewClient({ profileId }: { profileId: string }) {
   const router = useRouter();
