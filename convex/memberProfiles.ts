@@ -125,7 +125,7 @@ async function withChildrenAndLeadership(
   ctx: QueryCtx | MutationCtx,
   profile: Doc<"memberProfiles">
 ) {
-  const [children, leadershipProgress] = await Promise.all([
+  const [children, leadershipProgress, spouse] = await Promise.all([
     ctx.db
       .query("children")
       .withIndex("by_parentUserId", (q) => q.eq("parentUserId", profile.userId))
@@ -134,6 +134,9 @@ async function withChildrenAndLeadership(
       .query("leadershipProgress")
       .withIndex("by_userId", (q) => q.eq("userId", profile.userId))
       .collect(),
+    // Resolve a linked spouse's display name — `spouseUserId` alone isn't
+    // reviewable. Unset when unlinked; `spouseNameUnlinked` covers that case.
+    profile.spouseUserId ? ctx.db.get(profile.spouseUserId) : null,
   ]);
   // Resolve the uploaded photo + proof KEYS to signed URLs so a reviewing admin
   // sees the actual images. (photoUrl may be a Google account URL — passed
@@ -142,6 +145,9 @@ async function withChildrenAndLeadership(
     ...profile,
     photoUrl: await resolveMediaUrl(profile.photoUrl),
     mentorshipProofUrl: await resolveMediaUrl(profile.mentorshipProofUrl),
+    spouseName: spouse
+      ? `${spouse.firstName ?? ""} ${spouse.lastName ?? ""}`.trim() || null
+      : null,
     children,
     leadershipProgress: await Promise.all(
       leadershipProgress.map(async (lp) => ({
@@ -325,9 +331,17 @@ export const getProfileForReview = query({
 });
 
 /**
- * Verified members joined with their active role assignments. Returns a list
- * of assignments per member (not a single role) — a member may hold more than
- * one role simultaneously (e.g. Church Admin and Clan Elder at once).
+ * Verified members joined with their active role assignments AND their active
+ * department roster memberships. Returns a list of assignments/memberships
+ * per member (not a single value each) — a member may hold more than one role
+ * simultaneously (e.g. Church Admin and Clan Elder at once), and may serve on
+ * up to 3 department rosters (see MAX_ACTIVE_DEPARTMENTS in
+ * departmentMemberships.ts) without holding any leadership role at all.
+ * `activeRoles` (system_admin/clan_elder/hod/department_admin) and
+ * `departmentMemberships` (plain roster membership) are deliberately separate
+ * fields — see the "two orthogonal permission dimensions" note in
+ * docs/ROLES.md — callers that want a single "Area(s) of Service" view should
+ * combine both rather than assume roleAssignments is the whole picture.
  */
 export const listVerifiedMembersWithRoles = query({
   args: {},
@@ -350,6 +364,19 @@ export const listVerifiedMembersWithRoles = query({
       rolesByUser.set(assignment.userId, held);
     }
 
+    const activeMemberships = (
+      await ctx.db.query("departmentMemberships").collect()
+    ).filter((membership) => membership.status === "active");
+    const membershipsByUser = new Map<
+      Id<"users">,
+      Doc<"departmentMemberships">[]
+    >();
+    for (const membership of activeMemberships) {
+      const held = membershipsByUser.get(membership.userId) ?? [];
+      held.push(membership);
+      membershipsByUser.set(membership.userId, held);
+    }
+
     const results = [];
     for (const profile of verified) {
       const user = await ctx.db.get(profile.userId);
@@ -357,6 +384,7 @@ export const listVerifiedMembersWithRoles = query({
         profile,
         user,
         activeRoles: rolesByUser.get(profile.userId) ?? [],
+        departmentMemberships: membershipsByUser.get(profile.userId) ?? [],
       });
     }
     return results;
