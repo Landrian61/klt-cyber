@@ -8,6 +8,7 @@ import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
+import { Avatar } from "@/components/shadcn/avatar";
 import { Button } from "@/components/shadcn/button";
 import { Skeleton } from "@/components/shadcn/skeleton";
 import { DataTable, type Column } from "@/components/ui/DataTable";
@@ -18,10 +19,19 @@ import { downloadCsv } from "../../csv";
 
 const PAGE_SIZE = 10;
 
-// Row shape comes straight from the Convex query — no hand-rolled drift.
-type MemberProfile = NonNullable<
-  FunctionReturnType<typeof api.memberProfiles.listVerifiedMembersWithRoles>
->[number]["profile"];
+// Row shape comes straight from the joined Convex query — no hand-rolled
+// client-side join anymore (see convex/departmentMemberships.ts).
+type MemberRow = NonNullable<
+  FunctionReturnType<
+    typeof api.departmentMemberships.listDepartmentMembersWithProfiles
+  >
+>[number];
+// `profile` is only ever null if a membership row outlives its profile
+// (shouldn't happen — see the query's doc comment); narrowed away here so
+// downstream rendering doesn't need to keep re-checking it.
+type MemberRowWithProfile = MemberRow & {
+  profile: NonNullable<MemberRow["profile"]>;
+};
 
 function fullName(p: {
   firstName: string;
@@ -40,35 +50,24 @@ export function DepartmentMembersClient({
   const id = departmentId as Id<"departments">;
 
   const departments = useAuthQuery(api.departments.listDepartments);
-  const membership = useAuthQuery(api.departmentMemberships.listDepartmentMembers, {
-    departmentId: id,
-  });
-  const members = useAuthQuery(api.memberProfiles.listVerifiedMembersWithRoles);
+  const rosterRows = useAuthQuery(
+    api.departmentMemberships.listDepartmentMembersWithProfiles,
+    { departmentId: id },
+  );
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const department = departments?.find((d) => d._id === id);
 
-  const profileByUserId = useMemo(() => {
-    const map = new Map<
-      string,
-      NonNullable<typeof members>[number]["profile"]
-    >();
-    members?.forEach((m) => map.set(m.profile.userId, m.profile));
-    return map;
-  }, [members]);
-
-  // listDepartmentMembers only returns bare membership rows (userId, no
-  // name/phone/occupation) — join against the verified-members map to get
-  // displayable profile fields. Rows whose userId isn't found are skipped.
   const departmentMembers = useMemo(() => {
-    if (!membership || !members) return undefined;
+    if (!rosterRows) return undefined;
     const q = search.trim().toLowerCase();
-    const joined = membership
-      .map((m) => profileByUserId.get(m.userId))
-      .filter((profile): profile is NonNullable<typeof profile> => !!profile);
-    return joined.filter((profile) => !q || fullName(profile).toLowerCase().includes(q));
-  }, [membership, members, profileByUserId, search]);
+    return rosterRows.filter(
+      (row): row is MemberRowWithProfile =>
+        row.profile !== null &&
+        (!q || fullName(row.profile).toLowerCase().includes(q)),
+    );
+  }, [rosterRows, search]);
 
   const totalPages = departmentMembers
     ? Math.max(1, Math.ceil(departmentMembers.length / PAGE_SIZE))
@@ -89,7 +88,7 @@ export function DepartmentMembersClient({
     downloadCsv(
       `${department?.name ?? "department"}-members.csv`,
       ["Name", "Phone", "Occupation", "Joined"],
-      departmentMembers.map((profile) => [
+      departmentMembers.map(({ profile }) => [
         fullName(profile),
         profile.phone ?? "",
         profile.occupation ?? "",
@@ -110,27 +109,34 @@ export function DepartmentMembersClient({
     );
   }
 
-  const columns: Column<MemberProfile>[] = [
+  const columns: Column<MemberRowWithProfile>[] = [
     {
       key: "name",
       header: "Name",
-      render: (profile) => (
-        <span className="font-medium text-on-surface">
-          {fullName(profile)}
-        </span>
+      render: ({ profile, user }) => (
+        <div className="flex items-center gap-2.5">
+          <Avatar
+            name={fullName(profile)}
+            src={profile.photoUrl ?? user?.profilePictureUrl}
+            size="md"
+          />
+          <span className="font-medium text-on-surface">
+            {fullName(profile)}
+          </span>
+        </div>
       ),
     },
     {
       key: "phone",
       header: "Phone",
-      render: (profile) => (
+      render: ({ profile }) => (
         <span className="text-on-surface-variant">{profile.phone ?? "—"}</span>
       ),
     },
     {
       key: "occupation",
       header: "Occupation",
-      render: (profile) => (
+      render: ({ profile }) => (
         <span className="text-on-surface-variant">
           {profile.occupation ?? "—"}
         </span>
@@ -139,7 +145,7 @@ export function DepartmentMembersClient({
     {
       key: "joined",
       header: "Joined",
-      render: (profile) => (
+      render: ({ profile }) => (
         <span className="whitespace-nowrap text-on-surface-variant">
           {profile.joinDate
             ? new Date(profile.joinDate).toLocaleDateString()
@@ -194,10 +200,10 @@ export function DepartmentMembersClient({
         </Button>
       </div>
 
-      <DataTable<MemberProfile>
+      <DataTable<MemberRowWithProfile>
         columns={columns}
         rows={paginated}
-        rowKey={(profile) => profile._id}
+        rowKey={({ profile }) => profile._id}
         skeletonRows={3}
         empty={
           <EmptyState

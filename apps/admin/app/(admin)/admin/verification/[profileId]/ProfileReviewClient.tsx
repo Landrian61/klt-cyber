@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { PhoneCall } from "lucide-react";
@@ -10,6 +9,7 @@ import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Avatar } from "@/components/shadcn/avatar";
 import { Badge } from "@/components/shadcn/badge";
 import { Button } from "@/components/shadcn/button";
 import {
@@ -38,13 +38,14 @@ import {
 } from "@/components/shadcn/select";
 import { Separator } from "@/components/shadcn/separator";
 import { Skeleton } from "@/components/shadcn/skeleton";
+import { Textarea } from "@/components/shadcn/textarea";
 import {
-  capitalize,
   errorMessage,
+  fullName,
   toFormState,
   type EditableFields,
-  type ProfileForReview,
 } from "../shared";
+import { ProfileDetails } from "../ProfileDetails";
 
 export function ProfileReviewClient({ profileId }: { profileId: string }) {
   const router = useRouter();
@@ -125,12 +126,13 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1600px] space-y-6">
       <BackLink onClick={() => router.push("/admin/verification")} />
 
       <header className="flex flex-wrap items-center gap-3">
+        <Avatar name={fullName(profile)} src={profile.photoUrl} size="lg" />
         <Heading as="h1" size="2xl">
-          {profile.firstName} {profile.lastName}
+          {fullName(profile)}
         </Heading>
         {needsFollowUp && (
           <Badge variant="pending">
@@ -140,107 +142,13 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
         )}
       </header>
 
-      <div className="grid items-start gap-6 lg:grid-cols-3">
-        {/* Left: read-only context */}
-        <div className="space-y-6 lg:col-span-2">
-          <Card className="gap-5 p-6">
-            <CardHeader className="p-0">
-              <CardTitle className="font-body text-lg font-semibold text-on-surface">
-                Submission Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                <DetailRow label="Mentorship status">
-                  {capitalize(profile.mentorshipStatus.replace("_", " "))}
-                </DetailRow>
-                <DetailRow label="Certificate">
-                  {profile.mentorshipProofUrl ? (
-                    <a
-                      href={profile.mentorshipProofUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium text-primary underline underline-offset-2"
-                    >
-                      View certificate
-                    </a>
-                  ) : (
-                    "Not submitted"
-                  )}
-                </DetailRow>
-                <DetailRow label="Submitted">
-                  {new Date(profile._creationTime).toLocaleString()}
-                </DetailRow>
-                <DetailRow label="Join date">
-                  {profile.joinDate
-                    ? new Date(profile.joinDate).toLocaleDateString()
-                    : null}
-                </DetailRow>
-              </dl>
-            </CardContent>
-          </Card>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        {/* Left: full submitted profile, read-only */}
+        <ProfileDetails profile={profile} />
 
-          <Card className="gap-5 p-6">
-            <CardHeader className="p-0">
-              <CardTitle className="font-body text-lg font-semibold text-on-surface">
-                Family
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {profile.children.length === 0 ? (
-                <p className="font-body text-sm text-on-surface-variant">
-                  No children on this profile.
-                </p>
-              ) : (
-                <ul>
-                  {profile.children.map((child, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center justify-between gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-surface-low"
-                    >
-                      <span className="font-body text-sm text-on-surface">
-                        {child.name}
-                      </span>
-                      <Badge variant="neutral" className="capitalize">
-                        {child.sex}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
-          {profile.leadershipProgress.length > 0 && (
-            <Card className="gap-5 p-6">
-              <CardHeader className="p-0">
-                <CardTitle className="font-body text-lg font-semibold text-on-surface">
-                  Leadership Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ul>
-                  {profile.leadershipProgress.map((entry, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center justify-between gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-surface-low"
-                    >
-                      <span className="font-body text-sm capitalize text-on-surface">
-                        {entry.level.replace("_", " ")}
-                      </span>
-                      <Badge variant="neutral" className="capitalize">
-                        {entry.status.replace("_", " ")}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Right: editable fields + verify action */}
-        <div className="space-y-6">
+        {/* Right: editable fields + verify action — sticky so it stays in
+            view while the (now much longer) left column scrolls. */}
+        <div className="space-y-6 xl:sticky xl:top-8 xl:self-start">
           <Card className="gap-5 p-6">
             <CardHeader className="p-0">
               <CardTitle className="font-body text-lg font-semibold text-on-surface">
@@ -248,20 +156,22 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-5 p-0">
-              <Field label="First name" htmlFor="review-first-name">
-                <Input
-                  id="review-first-name"
-                  value={form.firstName}
-                  onChange={(e) => set("firstName", e.target.value)}
-                />
-              </Field>
-              <Field label="Middle name" htmlFor="review-middle-name">
-                <Input
-                  id="review-middle-name"
-                  value={form.middleName}
-                  onChange={(e) => set("middleName", e.target.value)}
-                />
-              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="First name" htmlFor="review-first-name">
+                  <Input
+                    id="review-first-name"
+                    value={form.firstName}
+                    onChange={(e) => set("firstName", e.target.value)}
+                  />
+                </Field>
+                <Field label="Middle name" htmlFor="review-middle-name">
+                  <Input
+                    id="review-middle-name"
+                    value={form.middleName}
+                    onChange={(e) => set("middleName", e.target.value)}
+                  />
+                </Field>
+              </div>
               <Field label="Last name" htmlFor="review-last-name">
                 <Input
                   id="review-last-name"
@@ -277,38 +187,49 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
                 />
               </Field>
 
-              <Field label="Sex" htmlFor="review-sex">
-                <Select
-                  value={form.sex}
-                  onValueChange={(v) => set("sex", v as EditableFields["sex"])}
-                >
-                  <SelectTrigger id="review-sex">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Sex" htmlFor="review-sex">
+                  <Select
+                    value={form.sex}
+                    onValueChange={(v) => set("sex", v as EditableFields["sex"])}
+                  >
+                    <SelectTrigger id="review-sex">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
 
-              <Field label="Marital status" htmlFor="review-marital-status">
-                <Select
-                  value={form.maritalStatus}
-                  onValueChange={(v) =>
-                    set("maritalStatus", v as EditableFields["maritalStatus"])
-                  }
-                >
-                  <SelectTrigger id="review-marital-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="single">Single</SelectItem>
-                    <SelectItem value="married">Married</SelectItem>
-                    <SelectItem value="widowed">Widowed</SelectItem>
-                    <SelectItem value="divorced">Divorced</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Field label="Marital status" htmlFor="review-marital-status">
+                  <Select
+                    value={form.maritalStatus}
+                    onValueChange={(v) =>
+                      set("maritalStatus", v as EditableFields["maritalStatus"])
+                    }
+                  >
+                    <SelectTrigger id="review-marital-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single</SelectItem>
+                      <SelectItem value="married">Married</SelectItem>
+                      <SelectItem value="widowed">Widowed</SelectItem>
+                      <SelectItem value="divorced">Divorced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+
+              <Field label="Short bio" htmlFor="review-short-bio">
+                <Textarea
+                  id="review-short-bio"
+                  rows={3}
+                  value={form.shortBio}
+                  onChange={(e) => set("shortBio", e.target.value)}
+                />
               </Field>
 
               <Separator />
@@ -320,20 +241,22 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
                   onChange={(e) => set("occupation", e.target.value)}
                 />
               </Field>
-              <Field label="Industry" htmlFor="review-industry">
-                <Input
-                  id="review-industry"
-                  value={form.industry}
-                  onChange={(e) => set("industry", e.target.value)}
-                />
-              </Field>
-              <Field label="Employer" htmlFor="review-employer">
-                <Input
-                  id="review-employer"
-                  value={form.employer}
-                  onChange={(e) => set("employer", e.target.value)}
-                />
-              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Industry" htmlFor="review-industry">
+                  <Input
+                    id="review-industry"
+                    value={form.industry}
+                    onChange={(e) => set("industry", e.target.value)}
+                  />
+                </Field>
+                <Field label="Employer" htmlFor="review-employer">
+                  <Input
+                    id="review-employer"
+                    value={form.employer}
+                    onChange={(e) => set("employer", e.target.value)}
+                  />
+                </Field>
+              </div>
             </CardContent>
           </Card>
 
@@ -407,33 +330,18 @@ function BackLink({ onClick }: { onClick: () => void }) {
   );
 }
 
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div>
-      <dt className="font-body text-xs uppercase tracking-wide text-outline">
-        {label}
-      </dt>
-      <dd className="mt-1 font-body text-sm text-on-surface">
-        {children ?? <span className="text-outline">&mdash;</span>}
-      </dd>
-    </div>
-  );
-}
-
 // Mirrors the final layout so nothing shifts on load.
 function ReviewSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Loading profile">
+    <div
+      className="mx-auto max-w-[1600px] space-y-6"
+      aria-busy="true"
+      aria-label="Loading profile"
+    >
       <Skeleton className="h-5 w-40" />
       <Skeleton className="h-9 w-64" />
-      <div className="grid items-start gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="space-y-6">
           <Skeleton className="h-64 rounded-md" />
           <Skeleton className="h-40 rounded-md" />
         </div>

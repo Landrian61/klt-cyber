@@ -15,19 +15,12 @@ import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { ReviewMode } from "./ReviewMode";
+import { fullName } from "./shared";
 
 // Row shape comes straight from the Convex query — no hand-rolled drift.
 type PendingProfile = NonNullable<
   FunctionReturnType<typeof api.memberProfiles.listPendingVerifications>
 >[number];
-
-function fullName(p: {
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-}) {
-  return [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ");
-}
 
 export function VerificationClient() {
   const router = useRouter();
@@ -54,7 +47,9 @@ export function VerificationClient() {
     {
       key: "photo",
       header: "Photo",
-      render: (profile) => <Avatar name={fullName(profile)} size="md" />,
+      render: (profile) => (
+        <Avatar name={fullName(profile)} src={profile.photoUrl} size="md" />
+      ),
     },
     {
       key: "name",

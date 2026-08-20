@@ -35,6 +35,45 @@ export function toFormState(profile: ProfileForReview): EditableFields {
   };
 }
 
+// Shared by every screen that lists or displays a submitted profile, so name
+// formatting can't drift between the queue, the detail page, and Review mode.
+export function fullName(p: {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+}): string {
+  return [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ");
+}
+
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/** "5 Mar 1994", or "5 Mar" when the member declined to share a birth year. */
+export function formatDateOfBirth(
+  dob?: { day: number; month: number; year?: number } | null,
+): string | null {
+  if (!dob) return null;
+  const month = MONTH_NAMES[dob.month - 1] ?? String(dob.month);
+  return dob.year ? `${dob.day} ${month} ${dob.year}` : `${dob.day} ${month}`;
+}
+
+/** "Plot 12, Ntinda Rd, Kampala, Uganda" — skips parts the member left blank. */
+export function formatAddress(
+  address?: {
+    line1: string;
+    city?: string;
+    district?: string;
+    country?: string;
+  } | null,
+): string | null {
+  if (!address) return null;
+  return [address.line1, address.city, address.district, address.country]
+    .filter(Boolean)
+    .join(", ");
+}
+
 export function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Info } from "lucide-react";
+import { Download } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
@@ -57,11 +57,6 @@ export function MembersClient() {
     return map;
   }, [departments]);
 
-  // `activeRoles` only covers leadership roles (system_admin, clan_elder,
-  // hod, department_admin) — convex/memberProfiles.ts does not yet join
-  // `departmentMemberships`, so an ordinary member serving in a department
-  // with no leadership role shows no roles here. Real "area(s) of service"
-  // per the spec needs that join added server-side; this is a known gap.
   function roleLabel(role: MemberEntry["activeRoles"][number]) {
     const base = ROLE_LABELS[role.roleType];
     if (role.departmentId) {
@@ -73,6 +68,19 @@ export function MembersClient() {
       return clan ? `${base} · ${clan}` : base;
     }
     return base;
+  }
+
+  // Ordinary (non-leadership) roster membership — separate from `activeRoles`
+  // per the two-permission-dimension model (docs/ROLES.md). Labelled with the
+  // department name and, if set, the member's position title.
+  function membershipLabel(
+    membership: MemberEntry["departmentMemberships"][number],
+  ) {
+    const dept =
+      departmentNameById.get(membership.departmentId) ?? "Department";
+    return membership.positionTitle
+      ? `${dept} · ${membership.positionTitle}`
+      : dept;
   }
 
   const filtered = useMemo(() => {
@@ -102,13 +110,16 @@ export function MembersClient() {
     if (!filtered) return;
     downloadCsv(
       "members.csv",
-      ["Name", "Sex", "Marital status", "Clan", "Leadership roles", "Verified"],
-      filtered.map(({ profile, activeRoles }) => [
+      ["Name", "Sex", "Marital status", "Clan", "Area(s) of Service", "Verified"],
+      filtered.map(({ profile, activeRoles, departmentMemberships }) => [
         fullName(profile),
         profile.sex,
         profile.maritalStatus,
         profile.clanId ? clanNameById.get(profile.clanId) ?? "" : "",
-        activeRoles.map(roleLabel).join("; "),
+        [
+          ...activeRoles.map(roleLabel),
+          ...departmentMemberships.map(membershipLabel),
+        ].join("; "),
         profile.verifiedAt
           ? new Date(profile.verifiedAt).toLocaleDateString()
           : "",
@@ -161,14 +172,19 @@ export function MembersClient() {
     {
       key: "areaOfService",
       header: "Area(s) of Service",
-      render: ({ activeRoles }) =>
-        activeRoles.length === 0 ? (
+      render: ({ activeRoles, departmentMemberships }) =>
+        activeRoles.length === 0 && departmentMemberships.length === 0 ? (
           <span className="text-on-surface-variant">—</span>
         ) : (
           <div className="flex flex-wrap gap-1.5">
-            {activeRoles.map((role, i) => (
-              <Badge key={i} variant="role">
+            {activeRoles.map((role) => (
+              <Badge key={role._id} variant="role">
                 {roleLabel(role)}
+              </Badge>
+            ))}
+            {departmentMemberships.map((membership) => (
+              <Badge key={membership._id} variant="neutral">
+                {membershipLabel(membership)}
               </Badge>
             ))}
           </div>
@@ -207,15 +223,6 @@ export function MembersClient() {
           verified members
         </p>
       </header>
-
-      <div className="flex items-start gap-2 rounded-md bg-surface-low p-3 text-on-surface-variant">
-        <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        <p className="font-body text-xs">
-          &quot;Area(s) of Service&quot; currently shows leadership roles
-          only (System Admin, HOD, Department Admin, Clan Elder). Ordinary
-          department membership isn&apos;t joined into this view yet.
-        </p>
-      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <SearchInput
