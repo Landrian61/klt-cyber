@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
-import { PhoneCall } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Avatar } from "@/components/shadcn/avatar";
 import { Badge } from "@/components/shadcn/badge";
 import { Button } from "@/components/shadcn/button";
 import {
@@ -41,10 +41,15 @@ import { Skeleton } from "@/components/shadcn/skeleton";
 import {
   capitalize,
   errorMessage,
+  formatAddress,
+  formatDateOfBirth,
   toFormState,
   type EditableFields,
-  type ProfileForReview,
 } from "../shared";
+
+function fullName(p: { firstName: string; lastName: string }) {
+  return `${p.firstName} ${p.lastName}`;
+}
 
 export function ProfileReviewClient({ profileId }: { profileId: string }) {
   const router = useRouter();
@@ -52,7 +57,14 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
   const profile = useAuthQuery(api.memberProfiles.getProfileForReview, {
     profileId: id,
   });
+  const clans = useAuthQuery(api.clans.listClans);
   const verifyProfile = useMutation(api.memberProfiles.verifyProfile);
+
+  const clanNameById = useMemo(() => {
+    const map = new Map<Id<"clans">, string>();
+    clans?.forEach((c) => map.set(c._id, c.name));
+    return map;
+  }, [clans]);
 
   const [form, setForm] = useState<EditableFields | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,10 +75,6 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
     if (profile) setForm(toFormState(profile));
   }, [profile]);
 
-  // `null` = no such profile (or the query resolved unauthenticated during
-  // sign-out teardown). This must be checked BEFORE the loading guard: `form`
-  // is only populated from a truthy profile, so `form === null` stays true
-  // forever in this case and would otherwise pin the screen to a skeleton.
   if (profile === null) {
     return (
       <div className="space-y-6">
@@ -83,7 +91,6 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
     return <ReviewSkeleton />;
   }
 
-  const needsFollowUp = !profile.mentorshipProofUrl;
   const dirty = JSON.stringify(form) !== JSON.stringify(toFormState(profile));
 
   function set<K extends keyof EditableFields>(
@@ -124,34 +131,61 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
     }
   }
 
+  const dob = formatDateOfBirth(profile.dateOfBirth);
+  const address = formatAddress(profile.address);
+  const clanName = profile.clanId
+    ? clanNameById.get(profile.clanId) ?? null
+    : null;
+  const spouseLabel = profile.spouseNameUnlinked
+    ? profile.spouseNameUnlinked
+    : profile.spouseUserId
+      ? "Linked member profile"
+      : null;
+
   return (
     <div className="space-y-6">
       <BackLink onClick={() => router.push("/admin/verification")} />
 
       <header className="flex flex-wrap items-center gap-3">
+        <Avatar name={fullName(profile)} src={profile.photoUrl} size="md" />
         <Heading as="h1" size="2xl">
           {profile.firstName} {profile.lastName}
         </Heading>
-        {needsFollowUp && (
-          <Badge variant="pending">
-            <PhoneCall className="mr-1 size-3" aria-hidden="true" />
-            Needs follow-up call — no mentorship certificate
-          </Badge>
-        )}
       </header>
 
       <div className="grid items-start gap-6 lg:grid-cols-3">
-        {/* Left: read-only context */}
         <div className="space-y-6 lg:col-span-2">
           <Card className="gap-5 p-6">
             <CardHeader className="p-0">
               <CardTitle className="font-body text-lg font-semibold text-on-surface">
-                Submission Details
+                Personal
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                <DetailRow label="Mentorship status">
+                <DetailRow label="Date of birth">{dob}</DetailRow>
+                <DetailRow label="Address">{address}</DetailRow>
+                <DetailRow label="Submitted">
+                  {new Date(profile._creationTime).toLocaleString()}
+                </DetailRow>
+                <DetailRow label="Join date">
+                  {profile.joinDate
+                    ? new Date(profile.joinDate).toLocaleDateString()
+                    : null}
+                </DetailRow>
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card className="gap-5 p-6">
+            <CardHeader className="p-0">
+              <CardTitle className="font-body text-lg font-semibold text-on-surface">
+                Mentorship
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                <DetailRow label="Status">
                   {capitalize(profile.mentorshipStatus.replace("_", " "))}
                 </DetailRow>
                 <DetailRow label="Certificate">
@@ -168,14 +202,6 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
                     "Not submitted"
                   )}
                 </DetailRow>
-                <DetailRow label="Submitted">
-                  {new Date(profile._creationTime).toLocaleString()}
-                </DetailRow>
-                <DetailRow label="Join date">
-                  {profile.joinDate
-                    ? new Date(profile.joinDate).toLocaleDateString()
-                    : null}
-                </DetailRow>
               </dl>
             </CardContent>
           </Card>
@@ -187,27 +213,56 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {profile.children.length === 0 ? (
-                <p className="font-body text-sm text-on-surface-variant">
-                  No children on this profile.
-                </p>
-              ) : (
-                <ul>
-                  {profile.children.map((child, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center justify-between gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-surface-low"
-                    >
-                      <span className="font-body text-sm text-on-surface">
-                        {child.name}
-                      </span>
-                      <Badge variant="neutral" className="capitalize">
-                        {child.sex}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
+              <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                <DetailRow label="Spouse">{spouseLabel}</DetailRow>
+                <DetailRow label="Anniversary">
+                  {profile.anniversaryDate
+                    ? new Date(profile.anniversaryDate).toLocaleDateString()
+                    : null}
+                </DetailRow>
+                <DetailRow label="Next of kin">
+                  {profile.nextOfKin
+                    ? `${profile.nextOfKin.fullName} — ${profile.nextOfKin.relationship} (${profile.nextOfKin.phone})`
+                    : null}
+                </DetailRow>
+              </dl>
+
+              {profile.children.length > 0 && (
+                <>
+                  <Separator className="my-4" />
+                  <p className="mb-2 font-body text-xs uppercase tracking-wide text-outline">
+                    Children
+                  </p>
+                  <ul>
+                    {profile.children.map((child, i) => (
+                      <li
+                        key={i}
+                        className="flex items-center justify-between gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-surface-low"
+                      >
+                        <span className="font-body text-sm text-on-surface">
+                          {child.name}
+                        </span>
+                        <Badge variant="neutral" className="capitalize">
+                          {child.sex}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="gap-5 p-6">
+            <CardHeader className="p-0">
+              <CardTitle className="font-body text-lg font-semibold text-on-surface">
+                Clan
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                <DetailRow label="Clan">{clanName}</DetailRow>
+              </dl>
             </CardContent>
           </Card>
 
@@ -239,7 +294,6 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
           )}
         </div>
 
-        {/* Right: editable fields + verify action */}
         <div className="space-y-6">
           <Card className="gap-5 p-6">
             <CardHeader className="p-0">
@@ -334,6 +388,21 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
                   onChange={(e) => set("employer", e.target.value)}
                 />
               </Field>
+
+              {profile.skills && profile.skills.length > 0 && (
+                <div>
+                  <p className="mb-1.5 font-body text-xs uppercase tracking-wide text-outline">
+                    Skills (submitted, not editable here)
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.skills.map((skill, i) => (
+                      <Badge key={i} variant="neutral">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -356,7 +425,6 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
         </div>
       </div>
 
-      {/* Consequential action: confirm in a centered Dialog. */}
       <Dialog
         open={confirmOpen}
         onOpenChange={(next) => {
@@ -370,8 +438,6 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
               {form.firstName} {form.lastName} will be promoted from visitor to
               member.
               {dirty && " Your edits will be saved along with the approval."}
-              {needsFollowUp &&
-                " No mentorship certificate is on file — confirm the manual follow-up call happened before approving."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -393,8 +459,6 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
   );
 }
 
-// Quiet text-link back affordance (matches the system-admin detail screens).
-// Kept as a button so the existing router.push navigation is untouched.
 function BackLink({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -426,7 +490,6 @@ function DetailRow({
   );
 }
 
-// Mirrors the final layout so nothing shifts on load.
 function ReviewSkeleton() {
   return (
     <div className="space-y-6" aria-busy="true" aria-label="Loading profile">

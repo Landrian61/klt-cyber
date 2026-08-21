@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "convex/react";
-import { PhoneCall } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
 import { Avatar } from "@/components/shadcn/avatar";
-import { Badge } from "@/components/shadcn/badge";
 import { Button } from "@/components/shadcn/button";
 import {
   Card,
@@ -31,6 +29,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import {
   capitalize,
   errorMessage,
+  formatAddress,
+  formatDateOfBirth,
   toFormState,
   type EditableFields,
 } from "./shared";
@@ -53,7 +53,14 @@ export function ReviewMode({
     api.memberProfiles.getProfileForReview,
     currentId ? { profileId: currentId } : "skip",
   );
+  const clans = useAuthQuery(api.clans.listClans);
   const verifyProfile = useMutation(api.memberProfiles.verifyProfile);
+
+  const clanNameById = useMemo(() => {
+    const map = new Map<Id<"clans">, string>();
+    clans?.forEach((c) => map.set(c._id, c.name));
+    return map;
+  }, [clans]);
 
   const [form, setForm] = useState<EditableFields | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,8 +71,6 @@ export function ReviewMode({
   }, [profile]);
 
   useEffect(() => {
-    // Profile already handled elsewhere mid-session (e.g. reviewed on
-    // another tab) — move on rather than stall the queue on a dead id.
     if (profile === null) advance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
@@ -124,6 +129,18 @@ export function ReviewMode({
     }
   }
 
+  const dob = profile ? formatDateOfBirth(profile.dateOfBirth) : null;
+  const address = profile ? formatAddress(profile.address) : null;
+  const clanName =
+    profile?.clanId ? clanNameById.get(profile.clanId) ?? null : null;
+  const spouseLabel = profile
+    ? profile.spouseNameUnlinked
+      ? profile.spouseNameUnlinked
+      : profile.spouseUserId
+        ? "Linked member profile"
+        : null
+    : null;
+
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <p className="text-center font-body text-sm text-on-surface-variant">
@@ -141,6 +158,7 @@ export function ReviewMode({
             <CardHeader className="flex flex-col items-center gap-2 p-0 text-center">
               <Avatar
                 name={`${profile.firstName} ${profile.lastName}`}
+                src={profile.photoUrl}
                 size="md"
               />
               <CardTitle className="font-body text-lg font-semibold text-on-surface">
@@ -149,12 +167,6 @@ export function ReviewMode({
               <p className="font-mono text-xs text-on-surface-variant">
                 {index + 1} of {total}
               </p>
-              {!profile.mentorshipProofUrl && (
-                <Badge variant="pending">
-                  <PhoneCall className="mr-1 size-3" aria-hidden="true" />
-                  Needs follow-up call
-                </Badge>
-              )}
             </CardHeader>
 
             <CardContent className="flex flex-col gap-4 p-0">
@@ -243,7 +255,38 @@ export function ReviewMode({
                 </Field>
               </div>
 
-              {error && <p className="font-body text-sm text-error">{error}</p>}
+              <Separator />
+
+              {/* Read-only submitted context — not part of the edit form,
+                  shown so a reviewer sees the full submission before
+                  deciding, per the Verification Queue spec. */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 font-body text-sm">
+                <ReadOnlyField label="Date of birth" value={dob} />
+                <ReadOnlyField label="Clan" value={clanName} />
+                <ReadOnlyField label="Address" value={address} span2 />
+                <ReadOnlyField label="Spouse" value={spouseLabel} />
+                <ReadOnlyField
+                  label="Anniversary"
+                  value={
+                    profile.anniversaryDate
+                      ? new Date(profile.anniversaryDate).toLocaleDateString()
+                      : null
+                  }
+                />
+                <ReadOnlyField
+                  label="Next of kin"
+                  value={
+                    profile.nextOfKin
+                      ? `${profile.nextOfKin.fullName} — ${profile.nextOfKin.relationship} (${profile.nextOfKin.phone})`
+                      : null
+                  }
+                  span2
+                />
+              </div>
+
+              {error && (
+                <p className="font-body text-sm text-error">{error}</p>
+              )}
             </CardContent>
 
             <CardFooter className="flex flex-col gap-3 p-0 pt-2">
@@ -278,6 +321,25 @@ export function ReviewMode({
           Exit to list
         </button>
       </div>
+    </div>
+  );
+}
+
+function ReadOnlyField({
+  label,
+  value,
+  span2,
+}: {
+  label: string;
+  value: string | null;
+  span2?: boolean;
+}) {
+  return (
+    <div className={span2 ? "col-span-2" : undefined}>
+      <p className="font-body text-xs uppercase tracking-wide text-outline">
+        {label}
+      </p>
+      <p className="mt-0.5 text-on-surface-variant">{value ?? "—"}</p>
     </div>
   );
 }
