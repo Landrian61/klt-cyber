@@ -11,6 +11,7 @@ import {
   getActiveRoles,
   logActivity,
 } from "./lib/authz";
+import { resolveMediaUrl } from "./lib/media";
 
 // Department roster (docs/Alignment.md, Increment 5). Membership is separate
 // from `roleAssignments`: being on a department's roster doesn't imply any
@@ -135,6 +136,53 @@ export const listDepartmentMembers = query({
         q.eq("departmentId", departmentId).eq("status", "active")
       )
       .collect(),
+});
+
+/**
+ * Same active roster as `listDepartmentMembers`, joined with each member's
+ * profile (name, phone, photo) and the display name of whoever added them.
+ * `listDepartmentMembers` returns bare membership rows only (userId, no
+ * profile data) — this is what roster/roster-detail screens actually render;
+ * kept as a separate query rather than changing `listDepartmentMembers`'
+ * shape since other callers (e.g. the dashboard's member count) only need
+ * the bare rows. `profile` is null only if a membership row outlives its
+ * profile (shouldn't happen — `addDepartmentMember` requires a verified
+ * profile — but this is a live subscription, not a transaction).
+ */
+export const listDepartmentMembersWithProfiles = query({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, { departmentId }) => {
+    const memberships = await ctx.db
+      .query("departmentMemberships")
+      .withIndex("by_departmentId_status", (q) =>
+        q.eq("departmentId", departmentId).eq("status", "active")
+      )
+      .collect();
+
+    return await Promise.all(
+      memberships.map(async (membership) => {
+        const [profile, user, addedByUser] = await Promise.all([
+          ctx.db
+            .query("memberProfiles")
+            .withIndex("by_userId", (q) => q.eq("userId", membership.userId))
+            .unique(),
+          ctx.db.get(membership.userId),
+          ctx.db.get(membership.addedBy),
+        ]);
+        return {
+          membership,
+          profile: profile
+            ? { ...profile, photoUrl: await resolveMediaUrl(profile.photoUrl) }
+            : null,
+          user,
+          addedByName: addedByUser
+            ? `${addedByUser.firstName ?? ""} ${addedByUser.lastName ?? ""}`.trim() ||
+              addedByUser.email
+            : null,
+        };
+      })
+    );
+  },
 });
 
 /** The caller's own active department memberships. Null when unauthenticated. */

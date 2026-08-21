@@ -36,8 +36,12 @@ import { errorMessage } from "../verification/shared";
 const PAGE_SIZE = 10;
 const ADMINISTRATION_DEPARTMENT_NAME = "Administration";
 
-type Membership = NonNullable<
-  FunctionReturnType<typeof api.departmentMemberships.listDepartmentMembers>
+// Row shape comes straight from the joined Convex query — no hand-rolled
+// client-side join anymore (see convex/departmentMemberships.ts).
+type RosterRow = NonNullable<
+  FunctionReturnType<
+    typeof api.departmentMemberships.listDepartmentMembersWithProfiles
+  >
 >[number];
 type MemberEntry = NonNullable<
   FunctionReturnType<typeof api.memberProfiles.listVerifiedMembersWithRoles>
@@ -57,10 +61,12 @@ export function RosterClient() {
     (d) => d.name === ADMINISTRATION_DEPARTMENT_NAME,
   );
 
-  const memberships = useAuthQuery(
-    api.departmentMemberships.listDepartmentMembers,
+  const rosterRows = useAuthQuery(
+    api.departmentMemberships.listDepartmentMembersWithProfiles,
     administrationDept ? { departmentId: administrationDept._id } : "skip",
   );
+  // Only needed to diff against the roster for "Add member" candidates —
+  // verified members who aren't already on this roster.
   const allMembers = useAuthQuery(
     api.memberProfiles.listVerifiedMembersWithRoles,
   );
@@ -73,38 +79,20 @@ export function RosterClient() {
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<{
-    membership: Membership;
-    entry?: MemberEntry;
-  } | null>(null);
+  const [selected, setSelected] = useState<RosterRow | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addSearch, setAddSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // listDepartmentMembers returns raw membership rows with no profile join —
-  // cross-referenced here against listVerifiedMembersWithRoles as a stopgap
-  // until a joined query exists on the backend.
-  const memberByUserId = useMemo(() => {
-    const map = new Map<Id<"users">, MemberEntry>();
-    allMembers?.forEach((entry) => map.set(entry.profile.userId, entry));
-    return map;
-  }, [allMembers]);
-
   const rows = useMemo(() => {
-    if (!memberships) return undefined;
+    if (!rosterRows) return undefined;
     const q = search.trim().toLowerCase();
-    return memberships
-      .map((membership) => ({
-        membership,
-        entry: memberByUserId.get(membership.userId),
-      }))
-      .filter(({ entry }) => {
-        if (!q) return true;
-        if (!entry) return false;
-        return fullName(entry.profile).toLowerCase().includes(q);
-      });
-  }, [memberships, memberByUserId, search]);
+    if (!q) return rosterRows;
+    return rosterRows.filter(
+      ({ profile }) => profile && fullName(profile).toLowerCase().includes(q),
+    );
+  }, [rosterRows, search]);
 
   const pageCount = rows ? Math.max(1, Math.ceil(rows.length / PAGE_SIZE)) : 1;
   const clampedPage = Math.min(page, pageCount);
@@ -115,15 +103,15 @@ export function RosterClient() {
 
   // Verified members not already on the roster — candidates for "Add member".
   const addCandidates = useMemo(() => {
-    if (!allMembers || !memberships) return undefined;
-    const onRoster = new Set(memberships.map((m) => m.userId));
+    if (!allMembers || !rosterRows) return undefined;
+    const onRoster = new Set(rosterRows.map((r) => r.membership.userId));
     const q = addSearch.trim().toLowerCase();
     return allMembers.filter((entry) => {
       if (onRoster.has(entry.profile.userId)) return false;
       if (!q) return true;
       return fullName(entry.profile).toLowerCase().includes(q);
     });
-  }, [allMembers, memberships, addSearch]);
+  }, [allMembers, rosterRows, addSearch]);
 
   async function handleAdd(userId: Id<"users">) {
     if (!administrationDept) return;
@@ -172,23 +160,32 @@ export function RosterClient() {
     }
   }
 
-  const columns: Column<{ membership: Membership; entry?: MemberEntry }>[] = [
+  const columns: Column<RosterRow>[] = [
     {
       key: "name",
       header: "Name",
-      render: ({ entry }) => {
-        const name = entry ? fullName(entry.profile) : "Unknown member";
+      render: ({ profile, user }) => {
+        const name = profile ? fullName(profile) : "Unknown member";
         return (
           <div className="flex items-center gap-2.5">
             <Avatar
               name={name}
-              src={entry?.user?.profilePictureUrl}
+              src={profile?.photoUrl ?? user?.profilePictureUrl}
               size="md"
             />
             <span className="font-medium">{name}</span>
           </div>
         );
       },
+    },
+    {
+      key: "phone",
+      header: "Phone",
+      render: ({ profile }) => (
+        <span className="text-sm text-muted-foreground">
+          {profile?.phone ?? "—"}
+        </span>
+      ),
     },
     {
       key: "position",
@@ -212,10 +209,7 @@ export function RosterClient() {
     {
       key: "addedBy",
       header: "Added by",
-      render: ({ membership }) => {
-        const addedBy = memberByUserId.get(membership.addedBy as Id<"users">);
-        return addedBy ? fullName(addedBy.profile) : "—";
-      },
+      render: ({ addedByName }) => addedByName ?? "—",
     },
   ];
 
@@ -292,7 +286,7 @@ export function RosterClient() {
                 No matching verified members.
               </p>
             )}
-            {addCandidates?.map((entry) => (
+            {addCandidates?.map((entry: MemberEntry) => (
               <button
                 key={entry.profile._id}
                 type="button"
@@ -320,7 +314,7 @@ export function RosterClient() {
         <SheetContent>
           <SheetHeader>
             <SheetTitle>
-              {selected?.entry ? fullName(selected.entry.profile) : "Member"}
+              {selected?.profile ? fullName(selected.profile) : "Member"}
             </SheetTitle>
             <SheetDescription>
               {selected?.membership.positionTitle ?? "No title set"} ·
