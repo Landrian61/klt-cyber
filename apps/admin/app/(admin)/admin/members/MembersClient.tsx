@@ -225,7 +225,6 @@ export function MembersClient() {
           className="min-w-64 flex-1"
         />
         <Button
-          variant="secondary"
           size="sm"
           onClick={handleExport}
           disabled={!filtered || filtered.length === 0}
