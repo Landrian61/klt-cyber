@@ -6,7 +6,6 @@ import {
   Users,
   Calendar,
   Megaphone,
-  PhoneCall,
   ArrowRight,
 } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
@@ -49,14 +48,12 @@ function StatTile({
   tone,
   label,
   value,
-  flag,
 }: {
   href: string;
   icon: React.ElementType;
   tone: keyof typeof CHIP_TONES;
   label: string;
   value: number | undefined;
-  flag?: string;
 }) {
   return (
     <Link
@@ -72,12 +69,6 @@ function StatTile({
         >
           <Icon className="size-5" aria-hidden="true" />
         </span>
-        {flag && (
-          <Badge variant="pending">
-            <PhoneCall className="mr-1 size-3" aria-hidden="true" />
-            {flag}
-          </Badge>
-        )}
       </div>
       <div>
         <div className="font-mono text-4xl font-bold leading-none text-on-surface">
@@ -128,7 +119,6 @@ export function AdminDashboardClient() {
     limit: 5,
   });
 
-  const needsFollowUp = pending?.filter((p) => !p.mentorshipProofUrl).length;
   const recentPending = pending?.slice(0, 5);
 
   const upcoming = [
@@ -168,11 +158,6 @@ export function AdminDashboardClient() {
           tone="gold"
           label="Pending verifications"
           value={pending?.length}
-          flag={
-            needsFollowUp && needsFollowUp > 0
-              ? `${needsFollowUp} need a call`
-              : undefined
-          }
         />
         <StatTile
           href="/admin/roster"
@@ -180,11 +165,6 @@ export function AdminDashboardClient() {
           tone="royal"
           label="Roster size"
           value={rosterMembers?.length}
-        />
-        <StatTile
-          href="/admin/weekly-program"
-          icon={Calendar}
-          tone="success"
           label="Programs this week"
           value={programs?.length}
         />

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PhoneCall } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@/lib/api";
 import { useAuthQuery } from "@/lib/useAuthQuery";
@@ -82,7 +81,6 @@ export function VerificationClient() {
           <Badge variant="verified">Uploaded</Badge>
         ) : (
           <Badge variant="pending">
-            <PhoneCall className="mr-1 size-3" aria-hidden="true" />
             Missing
           </Badge>
         ),
