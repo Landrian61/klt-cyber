@@ -3,9 +3,9 @@
 import Link from "next/link";
 import {
   ClipboardCheck,
-  Building2,
-  Landmark,
-  PhoneCall,
+  Users,
+  Calendar,
+  Megaphone,
   ArrowRight,
 } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
@@ -27,11 +27,15 @@ import { CountUp } from "@/components/motion/CountUp";
 import { Reveal } from "@/components/motion/Reveal";
 import { PendingSubmissionsChart } from "./PendingSubmissionsChart";
 
+const ADMINISTRATION_DEPARTMENT_NAME = "Administration";
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 // Tonal icon chips — semantic token pairs, never a raw Tailwind palette.
 const CHIP_TONES = {
   gold: "bg-primary-light text-primary",
   royal: "bg-royal-light text-royal",
   success: "bg-success-light text-success",
+  crimson: "bg-crimson-light text-crimson",
 } as const;
 
 // The bespoke StatCard (@/components/ui/StatCard) has no icon or link
@@ -44,14 +48,12 @@ function StatTile({
   tone,
   label,
   value,
-  flag,
 }: {
   href: string;
   icon: React.ElementType;
   tone: keyof typeof CHIP_TONES;
   label: string;
   value: number | undefined;
-  flag?: string;
 }) {
   return (
     <Link
@@ -67,20 +69,12 @@ function StatTile({
         >
           <Icon className="size-5" aria-hidden="true" />
         </span>
-        {flag && (
-          <Badge variant="pending">
-            <PhoneCall className="mr-1 size-3" aria-hidden="true" />
-            {flag}
-          </Badge>
-        )}
       </div>
       <div>
         <div className="font-mono text-4xl font-bold leading-none text-on-surface">
           {value === undefined ? (
             <Skeleton className="h-9 w-12" />
           ) : (
-            // Rolls up on first paint, and tweens again whenever the live
-            // Convex count changes — a number that moves reads as an event.
             <CountUp value={value} />
           )}
         </div>
@@ -103,10 +97,48 @@ function fullName(p: {
 export function AdminDashboardClient() {
   const pending = useAuthQuery(api.memberProfiles.listPendingVerifications);
   const departments = useAuthQuery(api.departments.listDepartments);
-  const facilities = useAuthQuery(api.facilities.listActiveFacilities);
+  const administrationDept = departments?.find(
+    (d) => d.name === ADMINISTRATION_DEPARTMENT_NAME,
+  );
 
-  const needsFollowUp = pending?.filter((p) => !p.mentorshipProofUrl).length;
+  const rosterMembers = useAuthQuery(
+    api.departmentMemberships.listDepartmentMembers,
+    administrationDept ? { departmentId: administrationDept._id } : "skip",
+  );
+  const programs = useAuthQuery(api.weeklyPrograms.listActivePrograms);
+  const announcements = useAuthQuery(api.announcements.listActiveAnnouncements);
+  const upcomingEvents = useAuthQuery(api.events.listUpcomingEvents, {
+    limit: 5,
+  });
+
+  // Gated to System Admin server-side (getSystemAdminOrNull in admin.ts) —
+  // returns null for Administration HOD/delegate today. Not real data for
+  // this role yet, so this stays an honest "not available" state rather
+  // than guessing at a shape it can't actually receive.
+  const recentActivity = useAuthQuery(api.admin.listRecentActivity, {
+    limit: 5,
+  });
+
   const recentPending = pending?.slice(0, 5);
+
+  const upcoming = [
+    ...(programs?.map((p) => ({
+      key: `program-${p._id}`,
+      label: DAY_LABELS[p.dayOfWeek],
+      title: p.title,
+      recurring: true,
+    })) ?? []),
+    ...(upcomingEvents?.map((e) => ({
+      key: `event-${e._id}`,
+      label: new Date(e.startDateTime).toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+      title: e.title,
+      recurring: false,
+    })) ?? []),
+  ];
 
   return (
     <div className="space-y-6">
@@ -119,34 +151,103 @@ export function AdminDashboardClient() {
         </p>
       </header>
 
-      <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           href="/admin/verification"
           icon={ClipboardCheck}
           tone="gold"
           label="Pending verifications"
           value={pending?.length}
-          flag={
-            needsFollowUp && needsFollowUp > 0
-              ? `${needsFollowUp} need a call`
-              : undefined
-          }
         />
         <StatTile
-          href="/admin/departments"
-          icon={Building2}
+          href="/admin/roster"
+          icon={Users}
           tone="royal"
-          label="Departments"
-          value={departments?.length}
+          label="Roster size"
+          value={rosterMembers?.length}
         />
         <StatTile
-          href="/admin/facilities"
-          icon={Landmark}
+          href="/admin/weekly-program"
+          icon={Calendar}
           tone="success"
-          label="Tower of Faith facilities"
-          value={facilities?.length}
+          label="Programs this week"
+          value={programs?.length}
+        />
+        <StatTile
+          href="/admin/announcements"
+          icon={Megaphone}
+          tone="crimson"
+          label="Active announcements"
+          value={announcements?.length}
         />
       </Reveal>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="gap-4 p-6">
+          <CardHeader className="p-0">
+            <CardTitle className="font-body text-lg font-semibold text-on-surface">
+              Recent activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {recentActivity === undefined ? (
+              <div className="flex flex-col gap-2" aria-hidden="true">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 rounded-lg" />
+                ))}
+              </div>
+            ) : recentActivity === null ? (
+              <p className="font-body text-sm text-on-surface-variant">
+                Recent activity isn&apos;t available for your role yet — this
+                view currently requires System Admin access.
+              </p>
+            ) : (
+              <EmptyState
+                title="Nothing recent"
+                message="Activity will appear here as it happens."
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="gap-4 p-6">
+          <CardHeader className="p-0">
+            <CardTitle className="font-body text-lg font-semibold text-on-surface">
+              Upcoming
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {programs === undefined || upcomingEvents === undefined ? (
+              <div className="flex flex-col gap-2" aria-hidden="true">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 rounded-lg" />
+                ))}
+              </div>
+            ) : upcoming.length === 0 ? (
+              <EmptyState
+                title="Nothing scheduled"
+                message="Active programs and upcoming events will appear here."
+              />
+            ) : (
+              <ul className="flex flex-col">
+                {upcoming.map((item) => (
+                  <li
+                    key={item.key}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+                  >
+                    <span className="w-16 shrink-0 font-mono text-xs text-on-surface-variant">
+                      {item.label}
+                    </span>
+                    <span className="font-body text-sm text-on-surface">
+                      {item.title}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <PendingSubmissionsChart profiles={pending} />
 
@@ -178,8 +279,6 @@ export function AdminDashboardClient() {
               message="Submitted member profiles will appear here for review."
             />
           ) : (
-            // `replayKey` re-runs the stagger when the row set changes, so
-            // rows arriving after the skeleton animate in rather than pop.
             <Reveal
               as="ul"
               className="flex flex-col"
@@ -206,8 +305,6 @@ export function AdminDashboardClient() {
                         </p>
                       </div>
                     </div>
-                    {/* Link styled as a button — never a <button> inside an
-                        <a>, which the previous markup nested. */}
                     <Link
                       href={`/admin/verification/${profile._id}`}
                       className={cn(

@@ -5,7 +5,10 @@ import { Download } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
+import type { Id } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
+import { Avatar } from "@/components/shadcn/avatar";
+import { Badge } from "@/components/shadcn/badge";
 import { Button } from "@/components/shadcn/button";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,6 +23,13 @@ type MemberEntry = NonNullable<
   FunctionReturnType<typeof api.memberProfiles.listVerifiedMembersWithRoles>
 >[number];
 
+const ROLE_LABELS: Record<MemberEntry["activeRoles"][number]["roleType"], string> = {
+  system_admin: "System Admin",
+  clan_elder: "Clan Elder",
+  hod: "HOD",
+  department_admin: "Department Admin",
+};
+
 function fullName(p: {
   firstName: string;
   middleName?: string;
@@ -30,8 +40,48 @@ function fullName(p: {
 
 export function MembersClient() {
   const members = useAuthQuery(api.memberProfiles.listVerifiedMembersWithRoles);
+  const clans = useAuthQuery(api.clans.listClans);
+  const departments = useAuthQuery(api.departments.listDepartments);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+
+  const clanNameById = useMemo(() => {
+    const map = new Map<Id<"clans">, string>();
+    clans?.forEach((c) => map.set(c._id, c.name));
+    return map;
+  }, [clans]);
+
+  const departmentNameById = useMemo(() => {
+    const map = new Map<Id<"departments">, string>();
+    departments?.forEach((d) => map.set(d._id, d.name));
+    return map;
+  }, [departments]);
+
+  function roleLabel(role: MemberEntry["activeRoles"][number]) {
+    const base = ROLE_LABELS[role.roleType];
+    if (role.departmentId) {
+      const dept = departmentNameById.get(role.departmentId);
+      return dept ? `${base} · ${dept}` : base;
+    }
+    if (role.clanId) {
+      const clan = clanNameById.get(role.clanId);
+      return clan ? `${base} · ${clan}` : base;
+    }
+    return base;
+  }
+
+  // Ordinary (non-leadership) roster membership — separate from `activeRoles`
+  // per the two-permission-dimension model (docs/ROLES.md). Labelled with the
+  // department name and, if set, the member's position title.
+  function membershipLabel(
+    membership: MemberEntry["departmentMemberships"][number],
+  ) {
+    const dept =
+      departmentNameById.get(membership.departmentId) ?? "Department";
+    return membership.positionTitle
+      ? `${dept} · ${membership.positionTitle}`
+      : dept;
+  }
 
   const filtered = useMemo(() => {
     if (!members) return undefined;
@@ -60,17 +110,29 @@ export function MembersClient() {
     if (!filtered) return;
     downloadCsv(
       "members.csv",
-      ["Name", "Phone", "Occupation", "Joined"],
-      filtered.map(({ profile }) => [
+      ["Name", "Sex", "Marital status", "Clan", "Area(s) of Service", "Verified"],
+      filtered.map(({ profile, activeRoles, departmentMemberships }) => [
         fullName(profile),
-        profile.phone ?? "",
-        profile.occupation ?? "",
-        profile.joinDate ? new Date(profile.joinDate).toLocaleDateString() : "",
+        profile.sex,
+        profile.maritalStatus,
+        profile.clanId ? clanNameById.get(profile.clanId) ?? "" : "",
+        [
+          ...activeRoles.map(roleLabel),
+          ...departmentMemberships.map(membershipLabel),
+        ].join("; "),
+        profile.verifiedAt
+          ? new Date(profile.verifiedAt).toLocaleDateString()
+          : "",
       ]),
     );
   }
 
   const columns: Column<MemberEntry>[] = [
+    {
+      key: "photo",
+      header: "Photo",
+      render: ({ profile }) => <Avatar name={fullName(profile)} size="md" />,
+    },
     {
       key: "name",
       header: "Name",
@@ -81,28 +143,60 @@ export function MembersClient() {
       ),
     },
     {
-      key: "phone",
-      header: "Phone",
+      key: "sex",
+      header: "Sex",
       render: ({ profile }) => (
-        <span className="text-on-surface-variant">{profile.phone ?? "—"}</span>
-      ),
-    },
-    {
-      key: "occupation",
-      header: "Occupation",
-      render: ({ profile }) => (
-        <span className="text-on-surface-variant">
-          {profile.occupation ?? "—"}
+        <span className="capitalize text-on-surface-variant">
+          {profile.sex}
         </span>
       ),
     },
     {
-      key: "joined",
-      header: "Joined",
+      key: "marital",
+      header: "Marital",
+      render: ({ profile }) => (
+        <span className="capitalize text-on-surface-variant">
+          {profile.maritalStatus}
+        </span>
+      ),
+    },
+    {
+      key: "clan",
+      header: "Clan",
+      render: ({ profile }) => (
+        <span className="text-on-surface-variant">
+          {profile.clanId ? clanNameById.get(profile.clanId) ?? "—" : "—"}
+        </span>
+      ),
+    },
+    {
+      key: "areaOfService",
+      header: "Area(s) of Service",
+      render: ({ activeRoles, departmentMemberships }) =>
+        activeRoles.length === 0 && departmentMemberships.length === 0 ? (
+          <span className="text-on-surface-variant">—</span>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {activeRoles.map((role) => (
+              <Badge key={role._id} variant="role">
+                {roleLabel(role)}
+              </Badge>
+            ))}
+            {departmentMemberships.map((membership) => (
+              <Badge key={membership._id} variant="neutral">
+                {membershipLabel(membership)}
+              </Badge>
+            ))}
+          </div>
+        ),
+    },
+    {
+      key: "verified",
+      header: "Verified",
       render: ({ profile }) => (
         <span className="whitespace-nowrap text-on-surface-variant">
-          {profile.joinDate
-            ? new Date(profile.joinDate).toLocaleDateString()
+          {profile.verifiedAt
+            ? new Date(profile.verifiedAt).toLocaleDateString()
             : "—"}
         </span>
       ),
@@ -138,7 +232,6 @@ export function MembersClient() {
           className="min-w-64 flex-1"
         />
         <Button
-          variant="secondary"
           size="sm"
           onClick={handleExport}
           disabled={!filtered || filtered.length === 0}
