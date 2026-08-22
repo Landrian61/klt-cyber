@@ -165,6 +165,11 @@ export function AdminDashboardClient() {
           tone="royal"
           label="Roster size"
           value={rosterMembers?.length}
+        />
+        <StatTile
+          href="/admin/weekly-program"
+          icon={Calendar}
+          tone="success"
           label="Programs this week"
           value={programs?.length}
         />
