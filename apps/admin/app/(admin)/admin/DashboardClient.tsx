@@ -124,7 +124,7 @@ export function AdminDashboardClient() {
   const upcoming = [
     ...(programs?.map((p) => ({
       key: `program-${p._id}`,
-      label: DAY_LABELS[p.dayOfWeek],
+      label: DAY_LABELS[p.daysOfWeek?.[0] ?? p.dayOfWeek ?? 0],
       title: p.title,
       recurring: true,
     })) ?? []),

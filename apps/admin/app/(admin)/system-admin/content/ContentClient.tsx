@@ -7,15 +7,13 @@ import { Heading } from "@/components/ui/Heading";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { ThemesManager } from "./ThemesManager";
-import { ProgramsManager } from "./ProgramsManager";
 import { EventsManager } from "./EventsManager";
 import { AnnouncementsManager } from "./AnnouncementsManager";
 
-type Tab = "themes" | "programs" | "events" | "announcements";
+type Tab = "themes" | "events" | "announcements";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "themes", label: "Themes" },
-  { key: "programs", label: "Programs" },
   { key: "events", label: "Events" },
   { key: "announcements", label: "Announcements" },
 ];
@@ -31,7 +29,8 @@ export function ContentClient() {
           Content
         </Heading>
         <p className="font-body text-base text-on-surface-variant">
-          Manage the theme, weekly programs, events, and announcements members see on the Home tab.
+          Manage the theme, events, and announcements members see on the Home tab. Weekly
+          programs are managed under Administration → Weekly program.
         </p>
       </header>
 
@@ -74,7 +73,6 @@ export function ContentClient() {
           </div>
 
           {tab === "themes" && <ThemesManager />}
-          {tab === "programs" && <ProgramsManager />}
           {tab === "events" && <EventsManager />}
           {tab === "announcements" && <AnnouncementsManager />}
         </>

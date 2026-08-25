@@ -650,16 +650,36 @@ periods within the same scope are an admin data-entry error, not something the s
 fine at this scale, revisit if it becomes a real problem.
  
 ### `weeklyPrograms`
-Recurring slots (Sunday Service, prayer meeting, etc.), defined once and repeating indefinitely
-until deactivated. No stored occurrences — the calendar view expands these virtually at query
-time (see below).
+Program slots (Sunday Service, prayer meeting, etc.) — either recurring (indefinitely or bounded
+to a date range) or a single one-off occurrence. No stored occurrences — the calendar view
+expands these virtually at query time (see below and `convex/lib/recurrence.ts`).
  
 ```ts
 weeklyPrograms: defineTable({
   title: v.string(),
   description: v.optional(v.string()),
-  dayOfWeek: v.number(),      // 0 = Sunday … 6 = Saturday
-  time: v.string(),           // "09:00", 24h HH:mm, church-local time (Africa/Kampala, no DST)
+
+  // DEPRECATED — superseded by daysOfWeek/startTime/recurrence below. Kept
+  // only so pre-migration rows still validate; no longer written. Remove
+  // once verifyWeeklyProgramsMigration confirms 0 remaining legacy-only
+  // rows (see convex/weeklyProgramsMigration.ts) — follow-up PR.
+  dayOfWeek: v.optional(v.number()),  // 0 = Sunday … 6 = Saturday
+  time: v.optional(v.string()),       // "09:00", 24h HH:mm
+
+  // Recurrence model. Optional at the table level for migration safety —
+  // createProgram's arg validator requires these for every new row.
+  recurrence: v.optional(v.union(
+    v.literal("once"), v.literal("weekly"), v.literal("biweekly"), v.literal("monthly")
+  )),
+  daysOfWeek: v.optional(v.array(v.number())), // 0=Sun..6=Sat; 1 entry for once/monthly, 1+ for weekly/biweekly
+  weekOfMonth: v.optional(v.union(              // weekday-position ("1st"/.../"last") — monthly only
+    v.literal(1), v.literal(2), v.literal(3), v.literal(4), v.literal(-1)
+  )),
+  startDate: v.optional(v.number()),  // unix ms, local start of day — required by the form for new rows
+  endDate: v.optional(v.number()),    // unix ms, inclusive — absent = open-ended
+  startTime: v.optional(v.string()),  // "HH:mm", church-local (Africa/Kampala, no DST) — supersedes `time`
+  endTime: v.optional(v.string()),    // "HH:mm" — optional
+
   location: v.optional(v.string()),
   coverImageUrl: v.optional(v.string()),
   active: v.boolean(),
@@ -668,17 +688,26 @@ weeklyPrograms: defineTable({
   updatedAt: v.number(),
 })
   .index("by_active", ["active"])
-  .index("by_dayOfWeek", ["dayOfWeek"])
+  .index("by_dayOfWeek", ["dayOfWeek"])  // kept until the legacy field is dropped
 ```
  
-**Deliberately no `programExceptions` table this increment.** A one-off schedule change (e.g.
-this Sunday only, service moves to 11am) is handled by creating a one-time `events` row and
-leaving the program as-is; the admin makes the change visible via title/description rather than
-the system suppressing the default occurrence. Revisit only if this proves painful in practice —
-don't build the exception machinery preemptively.
+**Recurrence types:** `once` (a single dated occurrence — `daysOfWeek` holds the one matching
+weekday, `endDate` unset), `weekly` (every week on one or more `daysOfWeek` — this is also how
+"Monday–Friday for a term" is expressed: `daysOfWeek: [1,2,3,4,5]` plus a bounded
+`startDate`/`endDate`), `biweekly` (every 2 weeks, anchored to `startDate`), `monthly` (once a
+month by weekday position — `weekOfMonth` + a single `daysOfWeek` entry, e.g. "the first Sunday").
+`startDate`/`endDate` apply uniformly across all types; either or both may be unbounded.
+ 
+**`programExceptions` remains out of scope** — a one-off *change* to an otherwise-recurring
+program (e.g. this Sunday only, service moves to 11am) is still handled by creating a one-time
+`events` row and leaving the program as-is, not by suppressing/overriding a single occurrence.
+That's a different concept from `recurrence: "once"` above, which is the base program row itself
+being non-recurring by design, not an exception to a recurring one. Revisit exceptions only if
+they prove painful in practice — don't build that machinery preemptively.
  
 **Occurrence key convention:** when a program is expanded into a calendar occurrence for a
-specific date, use `${programId}_${YYYY-MM-DD}` as its identifier. Nothing consumes this yet, but
+specific date, use `${programId}_${YYYY-MM-DD}` as its identifier (unchanged by the recurrence
+model above — it only changes which dates a program expands onto). Nothing consumes this yet, but
 future check-in / attendance features (12.3.4) will need a stable key per occurrence, so the
 expansion logic should produce this consistently from day one.
  
