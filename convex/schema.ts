@@ -126,7 +126,18 @@ export default defineSchema({
       v.literal("level_2"),
       v.literal("advanced")
     ),
-    status: v.union(v.literal("enrolled"), v.literal("completed")),
+    // TRANSITIONAL: "in_progress" was renamed to "enrolled" (see
+    // leadershipStatusValidator in convex/memberProfiles.ts and the
+    // migration in convex/leadershipMigration.ts). Kept here only so
+    // deployments still holding pre-rename rows pass schema validation —
+    // no new row is ever written with "in_progress". Remove this literal
+    // once verifyLeadershipMigration confirms 0 remaining on every
+    // deployment, and redeploy.
+    status: v.union(
+      v.literal("in_progress"),
+      v.literal("enrolled"),
+      v.literal("completed")
+    ),
     proofUrl: v.optional(v.string()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
