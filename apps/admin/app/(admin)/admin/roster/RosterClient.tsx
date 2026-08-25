@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Button } from "@/components/shadcn/button";
 import { Avatar } from "@/components/shadcn/avatar";
+import { Badge } from "@/components/shadcn/badge";
 import {
   Dialog,
   DialogContent,
@@ -164,8 +165,9 @@ export function RosterClient() {
     {
       key: "name",
       header: "Name",
-      render: ({ profile, user }) => {
+      render: ({ profile, user, membership }) => {
         const name = profile ? fullName(profile) : "Unknown member";
+        const selfAdded = membership.addedBy === membership.userId;
         return (
           <div className="flex items-center gap-2.5">
             <Avatar
@@ -173,7 +175,14 @@ export function RosterClient() {
               src={profile?.photoUrl ?? user?.profilePictureUrl}
               size="md"
             />
-            <span className="font-medium">{name}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{name}</span>
+              {selfAdded && (
+                <Badge variant="pending" className="text-xs">
+                  Self-added
+                </Badge>
+              )}
+            </div>
           </div>
         );
       },
@@ -319,6 +328,11 @@ export function RosterClient() {
             <SheetDescription>
               {selected?.membership.positionTitle ?? "No title set"} ·
               Administration
+              {selected?.membership.addedBy === selected?.membership.userId && (
+                <span className="mt-1 block text-xs text-warning">
+                  Self-added at profile submission — not yet reviewed by an HOD.
+                </span>
+              )}
             </SheetDescription>
           </SheetHeader>
 
