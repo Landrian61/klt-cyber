@@ -55,7 +55,7 @@ function validateRecurrenceFields(args: {
   recurrence: RecurrenceType;
   daysOfWeek: number[];
   weekOfMonth?: WeekOfMonth;
-  startDate: number;
+  startDate?: number;
   endDate?: number;
   startTime: string;
   endTime?: string;
@@ -89,10 +89,23 @@ function validateRecurrenceFields(args: {
     if (args.endDate !== undefined) {
       throw new Error("A one-time program can't have an end date");
     }
-    const actualDay = kampalaParts(args.startDate).dayOfWeek;
-    if (args.daysOfWeek[0] !== actualDay) {
-      throw new Error("daysOfWeek must match the weekday of startDate for a one-time program");
+    // No date yet is allowed (a draft one-time program simply never appears
+    // on the calendar until a date is set) — but if one IS given, it must
+    // actually fall on the claimed weekday.
+    if (args.startDate !== undefined) {
+      const actualDay = kampalaParts(args.startDate).dayOfWeek;
+      if (args.daysOfWeek[0] !== actualDay) {
+        throw new Error("daysOfWeek must match the weekday of startDate for a one-time program");
+      }
     }
+  }
+
+  if (args.recurrence === "biweekly" && args.startDate === undefined) {
+    // Unlike weekly/monthly, "every 2 weeks" has no meaning without an
+    // anchor date to count weeks from — startDate isn't just a display
+    // lower-bound here, it's load-bearing for the interval math itself
+    // (see weeklyProgramOccursOn in convex/lib/recurrence.ts).
+    throw new Error("A program repeating every 2 weeks needs a start date to count weeks from");
   }
 
   if (!HHMM.test(args.startTime)) {
@@ -102,11 +115,20 @@ function validateRecurrenceFields(args: {
     if (!HHMM.test(args.endTime)) {
       throw new Error("endTime must be 24h HH:mm, e.g. \"11:00\"");
     }
-    if (args.endTime <= args.startTime) {
-      throw new Error("endTime must be after startTime");
+    if (args.endTime === args.startTime) {
+      throw new Error("endTime must be different from startTime");
     }
+    // endTime <= startTime is allowed and means the program runs past
+    // midnight into the next day (e.g. 23:00 – 02:00) — a bare "HH:mm" pair
+    // has no date attached, so that's the only way to express an overnight
+    // span; there's no way to tell it apart from a same-day mistake from
+    // the strings alone, so this trusts the admin rather than rejecting it.
   }
-  if (args.endDate !== undefined && args.endDate < args.startDate) {
+  if (
+    args.endDate !== undefined &&
+    args.startDate !== undefined &&
+    args.endDate < args.startDate
+  ) {
     throw new Error("endDate must be on or after startDate");
   }
 }
@@ -145,7 +167,7 @@ export const createProgram = mutation({
     recurrence: recurrenceValidator,
     daysOfWeek: v.array(v.number()),
     weekOfMonth: v.optional(weekOfMonthValidator),
-    startDate: v.number(),
+    startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     startTime: v.string(),
     endTime: v.optional(v.string()),
@@ -164,7 +186,7 @@ export const createProgram = mutation({
       recurrence: args.recurrence,
       daysOfWeek: args.daysOfWeek,
       ...(args.weekOfMonth !== undefined ? { weekOfMonth: args.weekOfMonth } : {}),
-      startDate: args.startDate,
+      ...(args.startDate !== undefined ? { startDate: args.startDate } : {}),
       ...(args.endDate !== undefined ? { endDate: args.endDate } : {}),
       startTime: args.startTime,
       ...(args.endTime ? { endTime: args.endTime } : {}),
@@ -194,8 +216,12 @@ export const updateProgram = mutation({
     recurrence: v.optional(recurrenceValidator),
     daysOfWeek: v.optional(v.array(v.number())),
     weekOfMonth: v.optional(weekOfMonthValidator),
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
+    // `null` explicitly clears an existing value — plain omission (the
+    // ordinary meaning of v.optional) can't be distinguished from "clear
+    // it" once a value is already stored, since Convex drops undefined-
+    // valued args entirely rather than sending them.
+    startDate: v.optional(v.union(v.number(), v.null())),
+    endDate: v.optional(v.union(v.number(), v.null())),
     startTime: v.optional(v.string()),
     endTime: v.optional(v.string()),
     location: v.optional(v.string()),
@@ -207,6 +233,21 @@ export const updateProgram = mutation({
     const existing = await ctx.db.get(programId);
     if (!existing) throw new Error("Program not found");
 
+    // `null` means "clear"; resolve it to `undefined` before folding into
+    // the existing value, same shape validateRecurrenceFields expects.
+    const resolvedStartDate =
+      patch.startDate === undefined
+        ? existing.startDate
+        : patch.startDate === null
+          ? undefined
+          : patch.startDate;
+    const resolvedEndDate =
+      patch.endDate === undefined
+        ? existing.endDate
+        : patch.endDate === null
+          ? undefined
+          : patch.endDate;
+
     // Validate against the fully-resolved (existing + patch) state so a
     // partial edit can't leave the row internally inconsistent (e.g.
     // changing recurrence to "monthly" without also setting weekOfMonth).
@@ -215,11 +256,10 @@ export const updateProgram = mutation({
       patch.daysOfWeek ??
       existing.daysOfWeek ??
       (existing.dayOfWeek !== undefined ? [existing.dayOfWeek] : []);
-    const resolvedStartDate = patch.startDate ?? existing.startDate;
     const resolvedStartTime = patch.startTime ?? existing.startTime ?? existing.time;
-    if (!resolvedRecurrence || resolvedStartDate === undefined || !resolvedStartTime) {
+    if (!resolvedRecurrence || !resolvedStartTime) {
       throw new Error(
-        "This program predates the recurrence model — set recurrence, startDate, and startTime together before making other changes"
+        "This program predates the recurrence model — set recurrence and startTime together before making other changes"
       );
     }
     validateRecurrenceFields({
@@ -227,7 +267,7 @@ export const updateProgram = mutation({
       daysOfWeek: resolvedDaysOfWeek,
       weekOfMonth: patch.weekOfMonth ?? existing.weekOfMonth,
       startDate: resolvedStartDate,
-      endDate: patch.endDate ?? existing.endDate,
+      endDate: resolvedEndDate,
       startTime: resolvedStartTime,
       endTime: patch.endTime ?? existing.endTime,
     });
@@ -238,8 +278,8 @@ export const updateProgram = mutation({
     if (patch.recurrence !== undefined) fields.recurrence = patch.recurrence;
     if (patch.daysOfWeek !== undefined) fields.daysOfWeek = patch.daysOfWeek;
     if (patch.weekOfMonth !== undefined) fields.weekOfMonth = patch.weekOfMonth;
-    if (patch.startDate !== undefined) fields.startDate = patch.startDate;
-    if (patch.endDate !== undefined) fields.endDate = patch.endDate;
+    if (patch.startDate !== undefined) fields.startDate = patch.startDate === null ? undefined : patch.startDate;
+    if (patch.endDate !== undefined) fields.endDate = patch.endDate === null ? undefined : patch.endDate;
     if (patch.startTime !== undefined) fields.startTime = patch.startTime;
     if (patch.endTime !== undefined) fields.endTime = patch.endTime;
     if (patch.location !== undefined) fields.location = patch.location;

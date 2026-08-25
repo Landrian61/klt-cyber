@@ -32,18 +32,6 @@ export function fromDateInput(value: string, endOfDay = false): number {
   return new Date(`${value}${suffix}`).getTime();
 }
 
-/** unix ms → "YYYY-MM-DDTHH:mm" (local) for <input type="datetime-local">. */
-export function toDateTimeInput(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** "YYYY-MM-DDTHH:mm" → unix ms. */
-export function fromDateTimeInput(value: string): number {
-  if (!value) return Number.NaN;
-  return new Date(value).getTime();
-}
-
 /** "12 Jul 2026" */
 export function formatDate(ms: number): string {
   return new Date(ms).toLocaleDateString("en-GB", {
