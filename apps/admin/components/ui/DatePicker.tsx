@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/shadcn/popover";
+import { TimePicker } from "@/components/ui/TimePicker";
 import { cn } from "@/lib/utils";
 
 const fmt = (ms: number) =>
@@ -93,9 +94,9 @@ export interface DateTimePickerProps {
  * shadcn-composed replacement for <input type="datetime-local">. Splits date
  * and time into two controls rather than building a bespoke calendar with an
  * embedded clock; combines them back into one unix-ms value. The time field
- * is a raw <input> (not the shadcn Input) because Input's wrapper carries its
- * own ghost-bottom-border chrome with no way to opt out — wrong look sitting
- * next to DatePicker's tonal trigger.
+ * is the shared TimePicker (Popover + Select), hour-only — same as Weekly
+ * Programs' picker (TimePicker still supports a `minuteStep` for finer
+ * timing, just unused here).
  */
 export function DateTimePicker({
   id,
@@ -140,13 +141,12 @@ export function DateTimePicker({
         disabled={disabled}
         className="flex-1"
       />
-      <input
-        type="time"
-        aria-label="Time"
+      <TimePicker
+        id={id ? `${id}-time` : undefined}
         value={time}
-        onChange={(e) => setTimePart(e.target.value)}
+        onChange={setTimePart}
         disabled={disabled}
-        className="h-11 w-24 shrink-0 rounded-md bg-surface-low px-2 text-center font-body text-base text-on-surface outline-none focus-visible:brightness-95 disabled:opacity-50"
+        className="w-auto shrink-0"
       />
     </div>
   );
