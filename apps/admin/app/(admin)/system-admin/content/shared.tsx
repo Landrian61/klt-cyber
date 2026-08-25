@@ -64,26 +64,6 @@ export function formatDateTime(ms: number): string {
   });
 }
 
-export const DAY_OPTIONS = [
-  { value: "0", label: "Sunday" },
-  { value: "1", label: "Monday" },
-  { value: "2", label: "Tuesday" },
-  { value: "3", label: "Wednesday" },
-  { value: "4", label: "Thursday" },
-  { value: "5", label: "Friday" },
-  { value: "6", label: "Saturday" },
-];
-
-export const DAY_LABELS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
 /** A labelled form field wrapper. */
 export function Field({
   label,

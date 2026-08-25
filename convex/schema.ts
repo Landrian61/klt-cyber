@@ -213,13 +213,48 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_scope_period", ["scope", "periodStart"]),
 
-  // Recurring weekly slots (Sunday Service, prayer meeting, …). No stored
-  // occurrences — the calendar expands these virtually at query time.
+  // Recurring (or one-off) program slots (Sunday Service, prayer meeting,
+  // …). No stored occurrences — the calendar expands these virtually at
+  // query time (see convex/lib/recurrence.ts).
   weeklyPrograms: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
-    dayOfWeek: v.number(), // 0 = Sunday … 6 = Saturday
-    time: v.string(), // "09:00", 24h HH:mm, church-local (Africa/Kampala, no DST)
+
+    // DEPRECATED — superseded by daysOfWeek/startTime/recurrence below.
+    // Kept only so pre-migration rows still validate; createProgram/
+    // updateProgram never write these anymore. Remove once
+    // verifyWeeklyProgramsMigration confirms 0 remaining legacy-only rows
+    // (see convex/weeklyProgramsMigration.ts) — follow-up PR.
+    dayOfWeek: v.optional(v.number()), // 0 = Sunday … 6 = Saturday
+    time: v.optional(v.string()), // "09:00", 24h HH:mm
+
+    // Recurrence model. Optional at the table level for migration safety —
+    // createProgram's arg validator requires these for every new row.
+    recurrence: v.optional(
+      v.union(
+        v.literal("once"),
+        v.literal("weekly"),
+        v.literal("biweekly"),
+        v.literal("monthly")
+      )
+    ),
+    daysOfWeek: v.optional(v.array(v.number())), // 0=Sun..6=Sat; 1 entry for once/monthly, 1+ for weekly/biweekly
+    // Weekday-position within the month (1st/2nd/3rd/4th, -1 = last) — only
+    // meaningful when recurrence === "monthly".
+    weekOfMonth: v.optional(
+      v.union(
+        v.literal(1),
+        v.literal(2),
+        v.literal(3),
+        v.literal(4),
+        v.literal(-1)
+      )
+    ),
+    startDate: v.optional(v.number()), // unix ms, local start of day — required by the form for new rows
+    endDate: v.optional(v.number()), // unix ms, inclusive — absent = open-ended
+    startTime: v.optional(v.string()), // "HH:mm", church-local (Africa/Kampala, no DST) — supersedes `time`
+    endTime: v.optional(v.string()), // "HH:mm" — optional
+
     location: v.optional(v.string()),
     coverImageUrl: v.optional(v.string()),
     active: v.boolean(),
@@ -228,7 +263,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_active", ["active"])
-    .index("by_dayOfWeek", ["dayOfWeek"]),
+    .index("by_dayOfWeek", ["dayOfWeek"]), // kept until the legacy field is dropped
 
   // One-off events. Separate from weeklyPrograms — events grow event-specific
   // features (ICS export, RSVPs) that programs never need.

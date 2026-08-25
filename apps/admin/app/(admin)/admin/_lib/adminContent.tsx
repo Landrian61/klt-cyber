@@ -100,6 +100,87 @@ export const DAY_LABELS = [
   "Saturday",
 ];
 
+export const FREQUENCY_OPTIONS = [
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 weeks" },
+  { value: "monthly", label: "Once a month" },
+] as const;
+
+export const WEEK_OF_MONTH_OPTIONS = [
+  { value: "1", label: "1st" },
+  { value: "2", label: "2nd" },
+  { value: "3", label: "3rd" },
+  { value: "4", label: "4th" },
+  { value: "-1", label: "Last" },
+] as const;
+
+const WEEK_OF_MONTH_LABEL: Record<number, string> = {
+  1: "1st",
+  2: "2nd",
+  3: "3rd",
+  4: "4th",
+  [-1]: "last",
+};
+
+/** "9:00 AM – 11:00 AM", or just "9:00 AM" when there's no end time. */
+export function formatProgramTimeRange(startTime: string, endTime?: string): string {
+  return endTime
+    ? `${formatTime(startTime)} – ${formatTime(endTime)}`
+    : formatTime(startTime);
+}
+
+/**
+ * A one-line recurrence description for a program's card/row meta line —
+ * e.g. "Sunday", "Weekdays (Mon–Fri)", "Every 2 weeks on Sunday",
+ * "Monthly (1st Sunday)", "One-time · 25 Aug 2026" — with a bounded date
+ * range appended when the program has an end date.
+ */
+export function formatRecurrenceSummary(program: {
+  recurrence?: string;
+  daysOfWeek?: number[];
+  dayOfWeek?: number;
+  weekOfMonth?: number;
+  startDate?: number;
+  endDate?: number;
+}): string {
+  const days =
+    program.daysOfWeek ?? (program.dayOfWeek !== undefined ? [program.dayOfWeek] : []);
+  const recurrence = program.recurrence ?? "weekly";
+
+  if (recurrence === "once") {
+    return program.startDate !== undefined
+      ? `One-time · ${formatDate(program.startDate)}`
+      : "One-time";
+  }
+
+  const sortedDays = [...days].sort((a, b) => a - b);
+  const isWeekdays = sortedDays.length === 5 && sortedDays.every((d, i) => d === i + 1);
+  const dayLabel = isWeekdays
+    ? "Weekdays (Mon–Fri)"
+    : sortedDays.length === 7
+      ? "Every day"
+      : sortedDays.map((d) => DAY_LABELS[d]).join(", ");
+
+  let summary: string;
+  if (recurrence === "biweekly") {
+    summary = `Every 2 weeks on ${dayLabel}`;
+  } else if (recurrence === "monthly") {
+    const position = program.weekOfMonth !== undefined ? WEEK_OF_MONTH_LABEL[program.weekOfMonth] : "";
+    summary = position ? `Monthly (${position} ${dayLabel})` : `Monthly (${dayLabel})`;
+  } else {
+    summary = dayLabel;
+  }
+
+  if (program.endDate !== undefined) {
+    summary +=
+      program.startDate !== undefined
+        ? ` · ${formatDate(program.startDate)} – ${formatDate(program.endDate)}`
+        : ` · until ${formatDate(program.endDate)}`;
+  }
+
+  return summary;
+}
+
 export const MONTH_LABELS = [
   "January",
   "February",
