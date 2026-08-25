@@ -50,7 +50,7 @@ export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBanner
               Your profile is under review
             </Text>
             <Text style={[styles.pendingBody, { color: Colors.onSurfaceVariant }]}>
-              A church admin is verifying your details — you&apos;ll join the family once approved.
+              A church admin is verifying your details. You&apos;ll join the family once approved.
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={Colors.outline} />
@@ -85,15 +85,10 @@ export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBanner
             pointerEvents="none"
           />
           <View style={styles.heroContent}>
-            <View style={styles.heroHead}>
-              <View style={styles.heroIcon}>
-                <Ionicons name="sparkles" size={20} color="#EDB63C" />
-              </View>
-              <Text style={styles.heroLabel}>KLT CHURCH FAMILY</Text>
-            </View>
+            <Text style={styles.heroLabel}>KLT CHURCH FAMILY</Text>
             <Text style={styles.heroTitle}>There&apos;s room for you in the family</Text>
             <Text style={styles.heroBody}>
-              Complete your member profile and belong — grow, connect, and serve with the church.
+              Complete your member profile and belong. Grow, connect, and serve with the church.
             </Text>
             <Pressable
               onPress={go}
@@ -127,26 +122,13 @@ const styles = StyleSheet.create({
   heroContent: {
     padding: Spacing[5],
   },
-  heroHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[2],
-    marginBottom: Spacing[3],
-  },
-  heroIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   heroLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
     lineHeight: 15.4,
     letterSpacing: 0.6,
     color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: Spacing[3],
   },
   heroTitle: {
     fontFamily: FontFamily.display,
