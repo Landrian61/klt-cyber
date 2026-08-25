@@ -176,6 +176,29 @@ export function ProfileDetails({ profile }: { profile: ProfileForReview }) {
       <Card className="gap-5 p-6">
         <CardHeader className="p-0">
           <CardTitle className="font-body text-lg font-semibold text-on-surface">
+            Areas of Service
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {profile.departmentMemberships.length === 0 ? (
+            <p className="font-body text-sm text-on-surface-variant">
+              No departments claimed at submission.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {profile.departmentMemberships.map((membership) => (
+                <Badge key={membership._id} variant="role">
+                  {membership.departmentName ?? "Unknown department"}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="gap-5 p-6">
+        <CardHeader className="p-0">
+          <CardTitle className="font-body text-lg font-semibold text-on-surface">
             Mentorship &amp; Leadership
           </CardTitle>
         </CardHeader>
