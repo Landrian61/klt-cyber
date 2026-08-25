@@ -19,7 +19,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
-import { useWizardDraft, type WizardDraft } from './_layout';
+import { useWizardDraft, LEADERSHIP_LEVELS, type WizardDraft } from './_layout';
 import type { DobValue } from '@/components/ui/dob-field';
 
 // Each editable section jumps to its wizard step in edit mode (`returnTo=1`);
@@ -30,6 +30,7 @@ type StepRoutePath =
   | '/profile-completion/mentorship'
   | '/profile-completion/leadership'
   | '/profile-completion/clan'
+  | '/profile-completion/departments'
   | '/profile-completion/profession';
 
 const SEX_LABEL: Record<string, string> = { male: 'Male', female: 'Female' };
@@ -40,7 +41,10 @@ const LEVEL_LABEL: Record<string, string> = {
   level_1: 'Level 1', level_2: 'Level 2', advanced: 'Advanced',
 };
 const LEADERSHIP_STATUS_LABEL: Record<string, string> = {
-  in_progress: 'In Progress', completed: 'Completed',
+  not_enrolled: 'Not Enrolled', enrolled: 'Enrolled', completed: 'Completed',
+};
+const MENTORSHIP_STATUS_LABEL: Record<string, string> = {
+  not_enrolled: 'Not Enrolled', enrolled: 'Enrolled', completed: 'Completed',
 };
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -86,7 +90,7 @@ function buildSubmitArgs(draft: WizardDraft) {
     lastName: draft.lastName.trim(),
     sex: draft.sex!,
     maritalStatus: draft.maritalStatus!,
-    mentorshipStatus: 'completed' as const,
+    mentorshipStatus: draft.mentorshipStatus!,
 
     // Optional — Step 1
     ...(draft.middleName.trim() ? { middleName: draft.middleName.trim() } : {}),
@@ -127,13 +131,13 @@ function buildSubmitArgs(draft: WizardDraft) {
         }
       : {}),
 
-    // Optional — Step 3 proof
-    ...(draft.mentorshipProofKey ? { mentorshipProofUrl: draft.mentorshipProofKey } : {}),
-
     // Optional — Step 5
     ...(draft.clanId ? { clanId: draft.clanId } : {}),
 
     // Optional — Step 6
+    ...(draft.departmentIds.length ? { departmentIds: draft.departmentIds } : {}),
+
+    // Optional — Step 7
     ...(draft.occupation.trim() ? { occupation: draft.occupation.trim() } : {}),
     ...(draft.industry.trim() ? { industry: draft.industry.trim() } : {}),
     ...(draft.employer.trim() ? { employer: draft.employer.trim() } : {}),
@@ -147,13 +151,15 @@ function buildSubmitArgs(draft: WizardDraft) {
         sex: c.sex!,
         ...(isoToMs(c.dobISO) !== undefined ? { dateOfBirth: isoToMs(c.dobISO) } : {}),
       })),
-    leadershipEntries: draft.leadership
-      .filter((e) => e.level && e.status)
-      .map((e) => ({
-        level: e.level!,
-        status: e.status!,
-        ...(e.proofKey ? { proofUrl: e.proofKey } : {}),
-      })),
+    // Only enrolled/completed levels are sent — "not_enrolled" is the UI
+    // default and is represented by the absence of a row, same convention
+    // as everywhere else `leadershipProgress` is documented.
+    leadershipEntries: LEADERSHIP_LEVELS.filter(
+      (level) => draft.leadership[level] !== 'not_enrolled',
+    ).map((level) => ({
+      level,
+      status: draft.leadership[level] as 'enrolled' | 'completed',
+    })),
   };
 }
 
@@ -250,6 +256,7 @@ export default function ReviewStep() {
 
   const submitProfile = useMutation(api.memberProfiles.submitProfile);
   const clans = useQuery(api.clans.listClans);
+  const departments = useQuery(api.departments.listDepartments);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -261,11 +268,12 @@ export default function ReviewStep() {
     !!draft.lastName.trim() &&
     !!draft.sex &&
     !!draft.maritalStatus &&
-    draft.mentorshipStatus === 'completed';
+    !!draft.mentorshipStatus;
 
   const args = useMemo(() => (ready ? buildSubmitArgs(draft) : null), [draft, ready]);
 
   const clanName = clans?.find((c) => c._id === draft.clanId)?.name;
+  const departmentNames = (departments ?? []).filter((d) => draft.departmentIds.includes(d._id));
 
   const handleSubmit = async () => {
     if (!args) return;
@@ -302,7 +310,6 @@ export default function ReviewStep() {
     .join(' ');
 
   const completeChildren = draft.children.filter((c) => c.name.trim() && c.sex);
-  const completeLeadership = draft.leadership.filter((e) => e.level && e.status);
   const nokComplete =
     !!draft.nextOfKinName.trim() && !!draft.nextOfKinRelationship.trim() && !!draft.nextOfKinPhone.trim();
   const address = formatAddressFromDraft(draft);
@@ -357,26 +364,33 @@ export default function ReviewStep() {
         </Section>
 
         <Section title="MENTORSHIP" editPath="/profile-completion/mentorship" delay={120}>
-          <Row label="Status" value="Completed" />
-          <Row label="Certificate" value={draft.mentorshipProofKey ? 'Uploaded' : 'Not uploaded'} muted={!draft.mentorshipProofKey} />
+          <Row
+            label="Status"
+            value={draft.mentorshipStatus ? MENTORSHIP_STATUS_LABEL[draft.mentorshipStatus] : '—'}
+          />
         </Section>
 
         <Section title="LEADERSHIP" editPath="/profile-completion/leadership" delay={160}>
-          {completeLeadership.length > 0 ? (
-            completeLeadership.map((e) => (
-              <Row
-                key={e.key}
-                label={e.level ? LEVEL_LABEL[e.level] : ''}
-                value={e.status ? LEADERSHIP_STATUS_LABEL[e.status] : ''}
-              />
-            ))
-          ) : (
-            <Row label="Levels" value="None added" muted />
-          )}
+          {LEADERSHIP_LEVELS.map((level) => (
+            <Row
+              key={level}
+              label={LEVEL_LABEL[level]}
+              value={LEADERSHIP_STATUS_LABEL[draft.leadership[level]]}
+              muted={draft.leadership[level] === 'not_enrolled'}
+            />
+          ))}
         </Section>
 
         <Section title="CLAN" editPath="/profile-completion/clan" delay={200}>
           <Row label="Clan" value={clanName || 'None selected'} muted={!clanName} />
+        </Section>
+
+        <Section title="AREAS OF SERVICE" editPath="/profile-completion/departments" delay={220}>
+          <Row
+            label="Departments"
+            value={departmentNames.length ? departmentNames.map((d) => d.name).join(', ') : 'None selected'}
+            muted={!departmentNames.length}
+          />
         </Section>
 
         <Section title="PROFESSION" editPath="/profile-completion/profession" delay={240}>

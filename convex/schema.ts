@@ -82,7 +82,8 @@ export default defineSchema({
       })
     ),
 
-    // Mentorship — Step 3. Hard gate: `submitProfile` rejects unless completed.
+    // Mentorship — Step 3. Self-reported; `submitProfile` no longer requires
+    // this to be "completed" before a profile can be submitted.
     mentorshipStatus: v.union(
       v.literal("not_enrolled"),
       v.literal("enrolled"),
@@ -125,7 +126,7 @@ export default defineSchema({
       v.literal("level_2"),
       v.literal("advanced")
     ),
-    status: v.union(v.literal("in_progress"), v.literal("completed")),
+    status: v.union(v.literal("enrolled"), v.literal("completed")),
     proofUrl: v.optional(v.string()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),

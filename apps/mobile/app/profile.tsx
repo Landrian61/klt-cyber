@@ -30,7 +30,7 @@ const LEVEL_LABEL: Record<string, string> = {
   level_1: 'Level 1', level_2: 'Level 2', advanced: 'Advanced',
 };
 const LEAD_STATUS_LABEL: Record<string, string> = {
-  in_progress: 'In Progress', completed: 'Completed',
+  enrolled: 'Enrolled', completed: 'Completed',
 };
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',

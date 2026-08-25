@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
+import { MAX_ACTIVE_DEPARTMENTS } from "@klt-cyber/shared";
 import {
   canManageChurchAdmin,
   getAdministrationAuthorityOrNull,
@@ -49,8 +50,11 @@ const leadershipLevelValidator = v.union(
   v.literal("level_2"),
   v.literal("advanced")
 );
+// "not_enrolled" isn't a stored value — a level with no `leadershipProgress`
+// row for the user is implicitly not enrolled (see the "don't store negative
+// space" convention on that table in convex/schema.ts).
 const leadershipStatusValidator = v.union(
-  v.literal("in_progress"),
+  v.literal("enrolled"),
   v.literal("completed")
 );
 
@@ -162,25 +166,26 @@ async function withChildrenAndLeadership(
 
 /**
  * Visitor → pending-member submission. Creates the caller's `memberProfiles`
- * row, plus any `children` / `leadershipProgress` rows, in one mutation. Does
- * NOT promote the caller — that happens only once Church Admin verifies via
- * `verifyProfile`. Hard-gated server-side on mentorship completion and on not
- * already having a profile (no resubmission path).
+ * row, plus any `children` / `leadershipProgress` / `departmentMemberships`
+ * rows, in one mutation. Does NOT promote the caller — that happens only
+ * once Church Admin verifies via `verifyProfile`. Hard-gated server-side
+ * only on not already having a profile (no resubmission path) — mentorship
+ * status is self-reported and no longer required to be "completed".
  */
 export const submitProfile = mutation({
   args: {
     ...profileEditableFields,
     children: v.optional(v.array(childEntryValidator)),
     leadershipEntries: v.optional(v.array(leadershipEntryValidator)),
+    // Areas of Service — Step 6. Self-selected, up to MAX_ACTIVE_DEPARTMENTS.
+    // Written directly to `departmentMemberships` below (see that table's
+    // comment in convex/departmentMemberships.ts) rather than living on
+    // `memberProfiles` — department membership is deliberately not a
+    // profile field.
+    departmentIds: v.optional(v.array(v.id("departments"))),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-
-    if (args.mentorshipStatus !== "completed") {
-      throw new Error(
-        "Mentorship must be completed before a profile can be submitted"
-      );
-    }
 
     const existing = await ctx.db
       .query("memberProfiles")
@@ -188,7 +193,8 @@ export const submitProfile = mutation({
       .unique();
     if (existing) throw new Error("Profile already submitted");
 
-    const { children, leadershipEntries, ...profileFields } = args;
+    const { children, leadershipEntries, departmentIds, ...profileFields } =
+      args;
     const now = Date.now();
 
     const profileId = await ctx.db.insert("memberProfiles", {
@@ -239,6 +245,34 @@ export const submitProfile = mutation({
             : {}),
           createdAt: now,
           updatedAt: now,
+        });
+      }
+    }
+
+    if (departmentIds && departmentIds.length > 0) {
+      const uniqueDepartmentIds = Array.from(new Set(departmentIds));
+      if (uniqueDepartmentIds.length > MAX_ACTIVE_DEPARTMENTS) {
+        throw new Error(
+          `You can select at most ${MAX_ACTIVE_DEPARTMENTS} areas of service`
+        );
+      }
+      // Self-service roster join — intentionally NOT `addDepartmentMember`,
+      // which requires department authority and an already-verified
+      // profile. Neither holds here: the caller is the member themself,
+      // submitting for the first time.
+      for (const departmentId of uniqueDepartmentIds) {
+        const membershipId = await ctx.db.insert("departmentMemberships", {
+          userId: user._id,
+          departmentId,
+          addedBy: user._id,
+          status: "active",
+        });
+        await logActivity(ctx, {
+          actorUserId: user._id,
+          action: "department.member_added",
+          targetType: "departmentMemberships",
+          targetId: membershipId,
+          metadata: { userId: user._id, departmentId, selfService: true },
         });
       }
     }
