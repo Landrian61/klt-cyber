@@ -52,7 +52,10 @@ const leadershipLevelValidator = v.union(
 );
 // "not_enrolled" isn't a stored value — a level with no `leadershipProgress`
 // row for the user is implicitly not enrolled (see the "don't store negative
-// space" convention on that table in convex/schema.ts).
+// space" convention on that table in convex/schema.ts). This validator is
+// intentionally narrower than the table's own status union: schema.ts still
+// accepts a legacy "in_progress" (pre-rename) on existing rows, but no new
+// submission may ever write it — see convex/leadershipMigration.ts.
 const leadershipStatusValidator = v.union(
   v.literal("enrolled"),
   v.literal("completed")

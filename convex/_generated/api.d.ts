@@ -23,6 +23,7 @@ import type * as departments from "../departments.js";
 import type * as events from "../events.js";
 import type * as facilities from "../facilities.js";
 import type * as http from "../http.js";
+import type * as leadershipMigration from "../leadershipMigration.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_media from "../lib/media.js";
 import type * as memberProfiles from "../memberProfiles.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   facilities: typeof facilities;
   http: typeof http;
+  leadershipMigration: typeof leadershipMigration;
   "lib/authz": typeof lib_authz;
   "lib/media": typeof lib_media;
   memberProfiles: typeof memberProfiles;
