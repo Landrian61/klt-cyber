@@ -16,7 +16,12 @@ import type { Id } from '@/lib/api';
 
 export type MentorshipStatus = 'not_enrolled' | 'enrolled' | 'completed';
 export type LeadershipLevel = 'level_1' | 'level_2' | 'advanced';
-export type LeadershipStatus = 'in_progress' | 'completed';
+// Same three-way vocabulary as mentorship. "not_enrolled" is UI-only — it's
+// never sent to `submitProfile`; a level stays that way by simply having no
+// `leadershipEntries` row for it (see the "don't store negative space"
+// convention on `leadershipProgress` in docs/DATA_MODEL.md).
+export type LeadershipStatus = 'not_enrolled' | 'enrolled' | 'completed';
+export const LEADERSHIP_LEVELS: LeadershipLevel[] = ['level_1', 'level_2', 'advanced'];
 
 // ── Draft state shared across all seven wizard steps ─────────────────────────
 // Nothing here is persisted to Convex until the final `submitProfile` on the
@@ -29,14 +34,6 @@ export interface ChildDraft {
   name: string;
   sex?: Sex;
   dobISO?: string; // YYYY-MM-DD
-}
-
-/** A repeatable leadership (KLLII) row, each with its own proof slot. */
-export interface LeadershipDraft {
-  key: string; // local list key only
-  level?: LeadershipLevel;
-  status?: LeadershipStatus;
-  proofKey?: string; // R2 object key
 }
 
 export interface WizardDraft {
@@ -71,17 +68,19 @@ export interface WizardDraft {
   nextOfKinRelationship: string;
   nextOfKinPhone: string;
 
-  // Step 3 — Mentorship (hard gate)
+  // Step 3 — Mentorship
   mentorshipStatus?: MentorshipStatus;
-  mentorshipProofKey?: string;
 
-  // Step 4 — Leadership (KLLII)
-  leadership: LeadershipDraft[];
+  // Step 4 — Leadership (KLLII). One fixed status per level, no add/remove.
+  leadership: Record<LeadershipLevel, LeadershipStatus>;
 
   // Step 5 — Clan
   clanId?: Id<'clans'>;
 
-  // Step 6 — Profession
+  // Step 6 — Areas of Service (up to MAX_ACTIVE_DEPARTMENTS departments)
+  departmentIds: Id<'departments'>[];
+
+  // Step 7 — Profession
   occupation: string;
   industry: string;
   employer: string;
@@ -104,7 +103,8 @@ const EMPTY_DRAFT: WizardDraft = {
   nextOfKinName: '',
   nextOfKinRelationship: '',
   nextOfKinPhone: '',
-  leadership: [],
+  leadership: { level_1: 'not_enrolled', level_2: 'not_enrolled', advanced: 'not_enrolled' },
+  departmentIds: [],
   occupation: '',
   industry: '',
   employer: '',
@@ -132,6 +132,7 @@ export const STEPS = [
   'mentorship',
   'leadership',
   'clan',
+  'departments',
   'profession',
 ] as const;
 
@@ -209,6 +210,7 @@ export default function ProfileCompletionLayout() {
           <Stack.Screen name="mentorship" />
           <Stack.Screen name="leadership" />
           <Stack.Screen name="clan" />
+          <Stack.Screen name="departments" />
           <Stack.Screen name="profession" />
           <Stack.Screen name="review" />
           <Stack.Screen name="pending" />

@@ -11,7 +11,6 @@ import { FontFamily, Spacing, Radius, Duration, HeavenGradient, ShadowE2 } from 
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MemberGate } from '@/components/member-gate';
 import {
   getPinnedAnnouncements,
   getRegularAnnouncements,
@@ -156,13 +155,10 @@ function UpdatesScreen() {
   );
 }
 
-// Member-only: visitors see the "Complete your profile" nudge instead of the feed.
+// Open to everyone, including visitors pre-verification — only the Community
+// (member directory) surface stays gated behind MemberGate.
 export default function UpdatesTab() {
-  return (
-    <MemberGate featureLabel="the weekly announcements">
-      <UpdatesScreen />
-    </MemberGate>
-  );
+  return <UpdatesScreen />;
 }
 
 const styles = StyleSheet.create({

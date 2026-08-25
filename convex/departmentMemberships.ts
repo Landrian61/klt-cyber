@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { MAX_ACTIVE_DEPARTMENTS } from "@klt-cyber/shared";
 import {
   requireUser,
   getCurrentUser,
@@ -17,9 +18,11 @@ import { resolveMediaUrl } from "./lib/media";
 // from `roleAssignments`: being on a department's roster doesn't imply any
 // administrative authority, and holding hod/department_admin for a
 // department implies roster membership (enforced in roles.ts assignRoleCore)
-// but not the reverse.
-
-const MAX_ACTIVE_DEPARTMENTS = 3;
+// but not the reverse. A roster row can also be self-added by the member
+// during profile submission (see convex/memberProfiles.ts `submitProfile`) —
+// that path writes directly to this table rather than going through
+// `addDepartmentMember` below, so it isn't gated on department authority or
+// on the profile already being verified.
 
 export const addDepartmentMember = mutation({
   args: {
@@ -146,8 +149,12 @@ export const listDepartmentMembers = query({
  * kept as a separate query rather than changing `listDepartmentMembers`'
  * shape since other callers (e.g. the dashboard's member count) only need
  * the bare rows. `profile` is null only if a membership row outlives its
- * profile (shouldn't happen — `addDepartmentMember` requires a verified
- * profile — but this is a live subscription, not a transaction).
+ * profile (shouldn't happen — a profile row and its membership rows are
+ * always created together, whether admin-added via `addDepartmentMember`
+ * or self-added via `submitProfile` — but this is a live subscription, not
+ * a transaction). Note the joined `profile.profileStatus` may be
+ * `"pending_verification"`, not just `"verified"` — self-added members
+ * appear on the roster before Church Admin verifies their profile.
  */
 export const listDepartmentMembersWithProfiles = query({
   args: { departmentId: v.id("departments") },

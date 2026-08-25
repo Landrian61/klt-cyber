@@ -873,15 +873,21 @@ memberProfiles: defineTable({
     phone: v.string(),
   })),
 
-  // Mentorship — Step 3. Hard gate: mobile client blocks submission unless status is "completed".
+  // Mentorship — Step 3. Self-reported; no submission gate on status.
   mentorshipStatus: v.union(
     v.literal("not_enrolled"), v.literal("enrolled"), v.literal("completed")
   ),
   mentorshipProofUrl: v.optional(v.string()),     // absent = admin must follow up manually
 
-  // Departments / Clan — Steps 5–6
-  departmentId: v.optional(v.id("departments")),
+  // Clan — Step 5
   clanId: v.optional(v.id("clans")),
+
+  // Note: Areas of Service (Step 6) is NOT a field here. The wizard writes
+  // up to MAX_ACTIVE_DEPARTMENTS selections directly into
+  // `departmentMemberships` as part of `submitProfile` (self-added,
+  // `addedBy` = the member) — see the `departmentMemberships` section below.
+  // `memberProfiles` never had a `departmentId` field; an earlier draft of
+  // this doc incorrectly showed one.
 
   // Profession — Step 7
   occupation: v.optional(v.string()),
@@ -916,7 +922,7 @@ progresses through Level 1 → Level 2 → Advanced.
 leadershipProgress: defineTable({
   userId: v.id("users"),
   level: v.union(v.literal("level_1"), v.literal("level_2"), v.literal("advanced")),
-  status: v.union(v.literal("in_progress"), v.literal("completed")),
+  status: v.union(v.literal("enrolled"), v.literal("completed")),
   proofUrl: v.optional(v.string()),
   completedAt: v.optional(v.number()),
   createdAt: v.number(),
@@ -926,8 +932,11 @@ leadershipProgress: defineTable({
 ```
 
 No row for a level = not enrolled in it — same "don't store negative space" convention as
-`roleAssignments`. Sequential ordering (can't be mid-Level-2 without a completed Level 1) isn't
-enforced at the schema level; treat it as a mutation-time check if you want it enforced at all.
+`roleAssignments`. The mobile wizard's Leadership step shows a third "Not Enrolled" choice per
+level (matching mentorship's vocabulary), but it's UI-only: choosing it just omits that level from
+`submitProfile`'s `leadershipEntries`, rather than persisting a third status value. Sequential
+ordering (can't be mid-Level-2 without a completed Level 1) isn't enforced at the schema level;
+treat it as a mutation-time check if you want it enforced at all.
 
 ---
 
