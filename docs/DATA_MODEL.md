@@ -922,7 +922,13 @@ progresses through Level 1 → Level 2 → Advanced.
 leadershipProgress: defineTable({
   userId: v.id("users"),
   level: v.union(v.literal("level_1"), v.literal("level_2"), v.literal("advanced")),
-  status: v.union(v.literal("enrolled"), v.literal("completed")),
+  // TRANSITIONAL: "in_progress" was renamed to "enrolled". The schema still
+  // accepts it so deployments with pre-rename rows pass validation, but no
+  // new row is ever written with it — see convex/leadershipMigration.ts for
+  // the one-time data fix and the removal plan for this literal.
+  status: v.union(
+    v.literal("in_progress"), v.literal("enrolled"), v.literal("completed")
+  ),
   proofUrl: v.optional(v.string()),
   completedAt: v.optional(v.number()),
   createdAt: v.number(),
