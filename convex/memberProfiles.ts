@@ -129,7 +129,7 @@ async function withChildrenAndLeadership(
   ctx: QueryCtx | MutationCtx,
   profile: Doc<"memberProfiles">
 ) {
-  const [children, leadershipProgress, spouse] = await Promise.all([
+  const [children, leadershipProgress, spouse, departmentMemberships] = await Promise.all([
     ctx.db
       .query("children")
       .withIndex("by_parentUserId", (q) => q.eq("parentUserId", profile.userId))
@@ -141,6 +141,16 @@ async function withChildrenAndLeadership(
     // Resolve a linked spouse's display name — `spouseUserId` alone isn't
     // reviewable. Unset when unlinked; `spouseNameUnlinked` covers that case.
     profile.spouseUserId ? ctx.db.get(profile.spouseUserId) : null,
+    // Areas of Service claimed at submission — self-added directly into
+    // `departmentMemberships` by `submitProfile`, not a field on this table
+    // (see that mutation). Included here so every admin verification read
+    // gets it for free, same as children/leadershipProgress.
+    ctx.db
+      .query("departmentMemberships")
+      .withIndex("by_userId_status", (q) =>
+        q.eq("userId", profile.userId).eq("status", "active")
+      )
+      .collect(),
   ]);
   // Resolve the uploaded photo + proof KEYS to signed URLs so a reviewing admin
   // sees the actual images. (photoUrl may be a Google account URL — passed
@@ -157,6 +167,12 @@ async function withChildrenAndLeadership(
       leadershipProgress.map(async (lp) => ({
         ...lp,
         proofUrl: await resolveMediaUrl(lp.proofUrl),
+      }))
+    ),
+    departmentMemberships: await Promise.all(
+      departmentMemberships.map(async (membership) => ({
+        ...membership,
+        departmentName: (await ctx.db.get(membership.departmentId))?.name ?? null,
       }))
     ),
   };
