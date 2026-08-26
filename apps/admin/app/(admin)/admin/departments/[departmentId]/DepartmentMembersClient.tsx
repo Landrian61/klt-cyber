@@ -15,6 +15,14 @@ import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { SearchInput } from "@/components/ui/SearchInput";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shadcn/sheet";
+import { MembershipTitleEditor } from "@/components/admin/MembershipTitleEditor";
 import { downloadCsv } from "../../csv";
 
 const PAGE_SIZE = 10;
@@ -58,6 +66,7 @@ export function DepartmentMembersClient({
   const rosterRows = roster?.members;
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<MemberRowWithProfile | null>(null);
 
   const department = roster?.department;
 
@@ -89,11 +98,12 @@ export function DepartmentMembersClient({
     if (!departmentMembers) return;
     downloadCsv(
       `${department?.name ?? "department"}-members.csv`,
-      ["Name", "Phone", "Occupation", "Joined"],
-      departmentMembers.map(({ profile }) => [
+      ["Name", "Phone", "Occupation", "Position", "Joined"],
+      departmentMembers.map(({ profile, membership }) => [
         fullName(profile),
         profile.phone ?? "",
         profile.occupation ?? "",
+        membership.positionTitle ?? "",
         profile.joinDate ? new Date(profile.joinDate).toLocaleDateString() : "",
       ]),
     );
@@ -146,6 +156,16 @@ export function DepartmentMembersClient({
           {profile.occupation ?? "—"}
         </span>
       ),
+    },
+    {
+      key: "position",
+      header: "Position",
+      render: ({ membership }) =>
+        membership.positionTitle ? (
+          <span className="text-on-surface">{membership.positionTitle}</span>
+        ) : (
+          <span className="text-on-surface-variant">—</span>
+        ),
     },
     {
       key: "joined",
@@ -209,6 +229,7 @@ export function DepartmentMembersClient({
         columns={columns}
         rows={paginated}
         rowKey={({ profile }) => profile._id}
+        onRowClick={setSelected}
         skeletonRows={3}
         empty={
           <EmptyState
@@ -232,6 +253,38 @@ export function DepartmentMembersClient({
           />
         </div>
       )}
+
+      {/* Member detail — the only place a System Admin can re-title a member
+          of a department other than Administration, since departments have no
+          portals of their own yet. Additive edit, so a Sheet (house rule). */}
+      <Sheet
+        open={selected !== null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      >
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>
+              {selected ? fullName(selected.profile) : "Member"}
+            </SheetTitle>
+            <SheetDescription>
+              {selected?.membership.positionTitle ?? "No title set"}
+              {department ? ` · ${department.name}` : ""}
+            </SheetDescription>
+          </SheetHeader>
+
+          {selected && (
+            <div className="px-4">
+              {/* key: remount on a different member so the input reseeds. */}
+              <MembershipTitleEditor
+                key={selected.membership._id}
+                membershipId={selected.membership._id}
+                currentTitle={selected.membership.positionTitle}
+                onSaved={() => setSelected(null)}
+              />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

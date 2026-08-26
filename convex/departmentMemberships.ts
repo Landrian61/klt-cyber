@@ -76,6 +76,70 @@ export const addDepartmentMember = mutation({
   },
 });
 
+/**
+ * Change a roster member's position title, in place.
+ *
+ * hod (or system_admin) only — the same authority as removal, since roster
+ * composition is the department head's call. Deliberately NOT
+ * `requireDepartmentAuthority`: department_admin delegates can add members
+ * but do not re-title them.
+ *
+ * This exists because the alternative was destructive. With only add and
+ * remove available, "change a title" meant removeDepartmentMember followed by
+ * addDepartmentMember — and removal cascade-revokes any hod/department_admin
+ * role the member holds in that department (see below). Editing a title would
+ * silently strip their authority, and reset `_creationTime` so the roster's
+ * "Date added" column started lying.
+ *
+ * `positionTitle` is the whole payload and the field is optional on the row,
+ * so omitting it (or passing blank) CLEARS the title rather than leaving it
+ * untouched.
+ */
+export const updateDepartmentMembership = mutation({
+  args: {
+    membershipId: v.id("departmentMemberships"),
+    positionTitle: v.optional(v.string()),
+  },
+  handler: async (ctx, { membershipId, positionTitle }) => {
+    const membership = await ctx.db.get(membershipId);
+    if (!membership) throw new Error("Membership not found");
+    if (membership.status !== "active") {
+      throw new Error("Cannot re-title a membership that has been removed");
+    }
+
+    const actor = await requireDepartmentHod(ctx, membership.departmentId); // hod or system_admin ONLY
+
+    // Blank and whitespace-only both mean "no title", matching how
+    // addDepartmentMember treats an empty string.
+    const trimmed = positionTitle?.trim();
+    const nextTitle = trimmed ? trimmed : undefined;
+
+    // No-op edits shouldn't write an audit entry.
+    if (nextTitle === membership.positionTitle) {
+      return { ok: true as const, changed: false as const };
+    }
+
+    // Convex removes an optional field when patched to undefined, which is
+    // how a title gets cleared.
+    await ctx.db.patch(membershipId, { positionTitle: nextTitle });
+
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "department.member_title_updated",
+      targetType: "departmentMemberships",
+      targetId: membershipId,
+      metadata: {
+        userId: membership.userId,
+        departmentId: membership.departmentId,
+        from: membership.positionTitle ?? null,
+        to: nextTitle ?? null,
+      },
+    });
+
+    return { ok: true as const, changed: true as const };
+  },
+});
+
 export const removeDepartmentMember = mutation({
   args: { membershipId: v.id("departmentMemberships") },
   handler: async (ctx, { membershipId }) => {
