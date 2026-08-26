@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useMutation } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { Card } from "@/components/shadcn/card";
@@ -17,13 +18,24 @@ import {
 import { Field } from "@/components/shadcn/field";
 import { Textarea } from "@/components/shadcn/textarea";
 import { displayName, formatDate, roleLabel } from "@/lib/format";
-import { AssignRoleSheet } from "./AssignRoleSheet";
 import {
   CardHeading,
   errorMessage,
   type ActiveRoleAssignment,
   type UserDetail,
 } from "./shared";
+
+// The assign Sheet statically imports the @klt-cyber/shared barrel for its
+// discriminated-union payload validator, which drags zod's full runtime
+// (~64 KB gzip) onto this route. The Sheet is dialog-gated and most visits
+// never open it, so it loads on first open instead. It is rendered only once
+// `assignMounted` flips — otherwise next/dynamic would resolve it on mount
+// (a rendered `open={false}` still renders) — and never unmounts after that,
+// so the Sheet keeps its exit animation.
+const AssignRoleSheet = dynamic(
+  () => import("./AssignRoleSheet").then((m) => m.AssignRoleSheet),
+  { ssr: false },
+);
 
 // Active + past role assignments with the module's canonical interaction
 // split: assigning (non-destructive) opens a right Sheet; revoking
@@ -38,6 +50,9 @@ export function RolesCard({
   const revokeRole = useMutation(api.roles.revokeRole);
 
   const [assignOpen, setAssignOpen] = useState(false);
+  // Latches true on first open and never resets, so the Sheet mounts (and its
+  // chunk loads) on demand but survives closing.
+  const [assignMounted, setAssignMounted] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ActiveRoleAssignment | null>(
     null,
   );
@@ -122,7 +137,13 @@ export function RolesCard({
         variant="secondary"
         size="sm"
         className="mt-5 w-full"
-        onClick={() => setAssignOpen(true)}
+        onClick={() => {
+          setAssignMounted(true);
+          setAssignOpen(true);
+        }}
+        // Start fetching the Sheet chunk on intent, so the click opens instantly.
+        onMouseEnter={() => setAssignMounted(true)}
+        onFocus={() => setAssignMounted(true)}
       >
         Assign role
       </Button>
@@ -153,12 +174,14 @@ export function RolesCard({
       )}
 
       {/* Non-destructive: assign via Sheet */}
-      <AssignRoleSheet
-        open={assignOpen}
-        onClose={() => setAssignOpen(false)}
-        userId={userId}
-        profileCompleted={detail.user.profileCompleted}
-      />
+      {assignMounted && (
+        <AssignRoleSheet
+          open={assignOpen}
+          onClose={() => setAssignOpen(false)}
+          userId={userId}
+          profileCompleted={detail.user.profileCompleted}
+        />
+      )}
 
       {/* Destructive: revoke via Dialog */}
       <Dialog
