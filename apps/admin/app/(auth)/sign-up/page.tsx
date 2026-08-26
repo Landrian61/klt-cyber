@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signUpInputSchema } from "@klt-cyber/shared";
+import { loadValidators, warmValidators } from "@/lib/validators";
 import { authClient } from "@/lib/auth";
 import { Card } from "@/components/shadcn/card";
 import { Input } from "@/components/shadcn/input";
@@ -32,6 +32,11 @@ export default function SignUpPage() {
     setFormError(null);
     setFieldErrors({});
 
+    // Held from here rather than after validation: the validator import is
+    // awaited, and Button disables on `loading`, so this keeps the awaited
+    // gap from leaving the submit button live for a second click.
+    setLoading(true);
+    const { signUpInputSchema } = await loadValidators();
     const parsed = signUpInputSchema.safeParse({
       firstName,
       lastName,
@@ -39,6 +44,7 @@ export default function SignUpPage() {
       password,
     });
     if (!parsed.success) {
+      setLoading(false);
       const flat = parsed.error.flatten().fieldErrors;
       setFieldErrors({
         firstName: flat.firstName?.[0],
@@ -49,7 +55,6 @@ export default function SignUpPage() {
       return;
     }
 
-    setLoading(true);
     // Sign-up (docs/DATA_MODEL.md, Increment 1): first/last name + email +
     // password. A fresh account is still a *visitor* (no church profile yet).
     // Better Auth stores a single `name`; the Convex onCreate trigger splits it
@@ -99,7 +104,14 @@ export default function SignUpPage() {
           Tell us your name, then an email and password to get started.
         </p>
 
-        <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
+        {/* Warm the validator chunk once the user starts filling the form, so
+            the dynamic import in handleSubmit is already resolved by submit. */}
+        <form
+          onSubmit={handleSubmit}
+          onFocusCapture={warmValidators}
+          noValidate
+          className="mt-8 space-y-6"
+        >
           <div className="grid grid-cols-2 gap-4">
             <Field
               label="First name"
