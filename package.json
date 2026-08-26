@@ -18,7 +18,7 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "convex": "1.39.1"
+    "convex": "1.42.3"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.2",

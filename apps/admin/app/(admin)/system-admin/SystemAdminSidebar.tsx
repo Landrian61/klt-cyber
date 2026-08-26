@@ -93,7 +93,7 @@ export function SystemAdminSidebar() {
           className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
         >
           <Image
-            src="/logo-circle.png"
+            src="/logo-circle-96.png"
             alt="KLT Cyber Church"
             width={36}
             height={36}

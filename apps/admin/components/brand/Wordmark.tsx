@@ -28,7 +28,7 @@ export function Wordmark({
         style={{ width: size, height: size }}
       >
         <Image
-          src="/logo-circle.png"
+          src="/logo-circle-192.png"
           alt="KLT Cyber Church"
           width={size}
           height={size}

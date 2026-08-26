@@ -23,7 +23,7 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "better-auth": "1.6.11",
-    "convex": "1.39.1",
+    "convex": "1.42.3",
     "expo": "~54.0.33",
     "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.13",
