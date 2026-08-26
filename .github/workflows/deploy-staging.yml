@@ -58,8 +58,13 @@ jobs:
       # Runs at the workspace root (exists before checkout); fails fast if the
       # token is missing before doing any real work.
       - name: Check for EXPO_TOKEN
+        # Read through the environment, not `${{ }}` interpolation — same
+        # reasoning as the publish step below, and it keeps the secret's value
+        # out of the generated script file on the runner.
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+          if [ -z "$EXPO_TOKEN" ]; then
             echo "Missing EXPO_TOKEN secret. Add it in repo Settings → Secrets and variables → Actions."
             exit 1
           fi
@@ -99,7 +104,29 @@ jobs:
       # `preview` profile env (binary builds) to avoid drift.
       - name: Publish EAS Update (staging)
         working-directory: apps/mobile
-        run: eas update --branch staging --message "${{ github.event.head_commit.message }}" --non-interactive
+        shell: bash
         env:
+          # The commit message is passed as an ENV VAR, never interpolated into
+          # the run script. `${{ }}` substitution happens before bash parses the
+          # line, so a message containing a quote, a backtick or a newline used
+          # to be spliced in as shell syntax — backticks executed as command
+          # substitution and the rest broke out of the quoting, which is how
+          # this job started failing on longer commit messages.
+          #
+          # It is also a script-injection hole, not just a formatting bug: this
+          # runner holds EXPO_TOKEN, and anyone who can land a commit on main
+          # controls the message. Env vars are set by the runner rather than
+          # pasted into the script, so the value can never be parsed as code.
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           EXPO_PUBLIC_CONVEX_URL: ${{ vars.EXPO_PUBLIC_CONVEX_URL_STAGING }}
           EXPO_PUBLIC_CONVEX_SITE_URL: ${{ vars.EXPO_PUBLIC_CONVEX_SITE_URL_STAGING }}
+        run: |
+          # Subject line only, length-capped. `eas update --message` is a short
+          # changelog label shown in the Expo dashboard — a full commit body
+          # exceeds what it accepts and reads as noise there. Pure bash
+          # expansion (no cut/head) so multi-byte characters can't be split.
+          SUBJECT="${COMMIT_MESSAGE%%$'\n'*}"
+          SUBJECT="${SUBJECT:0:180}"
+          # Merge commits and amends can leave this empty; fall back to the SHA.
+          [ -n "$SUBJECT" ] || SUBJECT="${GITHUB_SHA:0:7}"
+          eas update --branch staging --message "$SUBJECT" --non-interactive
