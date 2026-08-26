@@ -279,18 +279,39 @@ A user signs into the web admin portal.
 1. Web UI (Next.js) captures credentials, calls Better Auth on the client.
 2. Better Auth authenticates against its Convex component; session
    established server-side.
-3. Client redirects to `/select-role`.
-4. Route middleware (`apps/admin/middleware.ts`) enforces the web-portal
-   authorization invariant: it fetches the user's active role assignments
-   via Convex and checks that the count is ≥ 1.
-5. If ≥ 1: request proceeds. `/select-role` renders the picker.
-6. If 0: middleware redirects to `/unauthorized`. User is signed out (or
+3. Client redirects to `/areas-of-service`.
+4. Route middleware (`apps/admin/middleware.ts`) checks only that a session
+   cookie is present, with no network call. No session → `/sign-in`.
+5. The server component for the requested route enforces the web-portal
+   authorization invariant, using the `activeRoles` it already fetches for
+   its own rendering:
+   - `/admin/*` — `app/(admin)/admin/layout.tsx`
+   - `/system-admin/*` — `app/(admin)/system-admin/layout.tsx`
+   - `/areas-of-service` — the page itself
+   - `/departments/{id}` — `getDepartmentAccess` in Convex
+6. If 0 active roles: redirect to `/unauthorized`. User is signed out (or
    given the option to sign out) and directed toward the mobile app.
-7. When the user picks a role, the URL prefix (`/system-admin/...`,
-   `/elder/{clanId}/...`) scopes the rest of the portal experience.
+7. When the user picks an Area of Service, the URL prefix (`/admin/...`,
+   `/system-admin/...`, `/departments/{id}`) scopes the rest of the portal
+   experience.
 
-Middleware re-checks on every request, so a user whose last role is revoked
-mid-session gets kicked out on their next navigation.
+The check lives beside a Convex call the route was making anyway, so a
+protected navigation costs one round trip before HTML rather than two.
+
+**Revocation window.** Middleware used to re-check on every request, so a
+revoked user was ejected on their next navigation. A layout does not re-run
+when navigating *within* the segment it already rendered, so that user now
+keeps the portal shell until they cross segments, hard-navigate, or refresh.
+They lose access to data immediately in every case — each gated Convex
+function throws for an authenticated caller without authority — so what
+persists is chrome, not information. Accepted deliberately; a
+`router.refresh()` on a Convex authorization error would close it.
+
+**Routing is not the security boundary.** Middleware and layouts are UX: they
+decide what to render and where to send someone. Authorization is enforced
+inside the Convex functions, per operation, and holds regardless of how the
+request was routed — including for clients that call Convex directly and
+never pass through Next at all.
 
 ### 5.3 Real-time reactivity — Radio broadcast published
 
@@ -437,9 +458,14 @@ carry an embedded `{ status, verifiedBy?, verifiedAt?, note? }` object rather
 than scattered fields. Starting with `memberProfiles.clanApproval`; extends
 across future modules.
 
-**Web authorization is invariant on role assignments.** Middleware plus
-route-group layouts enforce: a valid web session requires ≥ 1 active
-`roleAssignments` record. Never work around this — extend it.
+**Web authorization is invariant on role assignments.** A valid web session
+requires ≥ 1 active `roleAssignments` record. Enforced by the server component
+for each route — the two portal layouts, the `/areas-of-service` page, and
+`getDepartmentAccess` for `/departments/{id}` — and re-checked inside every
+gated Convex function. Middleware only checks that a session cookie exists.
+Never work around this — extend it. If you add a route under `app/(admin)/`,
+it does **not** inherit the gate: enforce the invariant in its own server
+component, and put the real check in the Convex function it reads from.
 
 **Mobile gating is friendly, not blocking.** Visitors have real access to
 Home, Radio, and Library. Member-only tabs surface a soft nudge, not a wall.
