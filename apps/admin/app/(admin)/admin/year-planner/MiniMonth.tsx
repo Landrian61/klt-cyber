@@ -41,7 +41,7 @@ export function MiniMonth({
   return (
     <div
       className={cn(
-        "rounded-md p-2.5 shadow-e1",
+        "rounded-md border border-border p-2.5 shadow-e1",
         isCurrent ? "bg-primary-light" : "bg-surface-lowest",
       )}
     >

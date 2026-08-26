@@ -276,7 +276,8 @@ export function SwitchField({
  * Image-led card (docs/Admin-portal.html `.ev-card`) — the shared shell for
  * Events and Announcements. Cover image on top (a gold-toned gradient
  * placeholder when there's none yet), title + meta below, optional corner
- * marker (e.g. a featured star) and badge row.
+ * marker (e.g. a featured star) and badge row. Edge reads from a hairline
+ * border, not the shadow (Hairline Border Rule — see globals.css).
  */
 export function ContentCard({
   coverImageUrl,
@@ -297,9 +298,9 @@ export function ContentCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-md bg-surface-lowest text-left shadow-e1 transition hover:-translate-y-0.5 hover:shadow-e2"
+      className="group flex flex-col overflow-hidden rounded-md border border-border bg-surface-lowest text-left shadow-e1 transition hover:-translate-y-0.5 hover:shadow-e2"
     >
-      <div className="relative aspect-[16/9] w-full overflow-hidden bg-primary-light">
+      <div className="relative aspect-square w-full overflow-hidden bg-primary-light">
         {coverImageUrl ? (
           // Signed R2 URLs change per session/domain — plain <img>, same
           // convention as components/ui/ImageUpload.tsx's own preview.

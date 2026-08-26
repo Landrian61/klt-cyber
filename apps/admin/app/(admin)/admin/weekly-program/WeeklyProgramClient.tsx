@@ -78,7 +78,7 @@ export function WeeklyProgramClient() {
       {!shown ? (
         <CardGrid>
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-[4/5] w-full rounded-md" />
+            <Skeleton key={i} className="aspect-[3/5] w-full rounded-md" />
           ))}
         </CardGrid>
       ) : shown.length === 0 ? (

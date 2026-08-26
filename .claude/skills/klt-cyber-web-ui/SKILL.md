@@ -29,18 +29,21 @@ Reach for an existing component before writing markup. Reach for a token before 
 ### The Warm Parchment Rule
 Page backgrounds are warm parchment, **never cold white or grey**. `#FFFFFF` is reserved for `surface-lowest` — the "lifted parchment" cards that float above the page. Text is `on-surface` (`#1c1c18`), never pure black.
 
-### The No-Line Rule
-**No 1px solid borders for structure.** Depth comes from tonal surface steps plus an ambient shadow:
+### The Hairline Border Rule (replaces the old No-Line Rule)
+**Structure now reads primarily from a hairline border, with only a whisper of shadow behind it — not the other way around.** The old all-shadow "No-Line Rule" (heavy 12–26px blue-tinted glows) read as heavy; this is the corrected direction, mobile is unaffected:
 
 ```tsx
-// correct — lifted parchment
+// correct — hairline edge, whisper of shadow
+<div className="rounded-xl border border-border bg-surface-lowest shadow-e1" />
+
+// wrong — shadow doing all the work, no defined edge
 <div className="rounded-xl bg-surface-lowest shadow-[0_8px_32px_rgba(28,28,24,0.04)]" />
 
-// wrong — hard line
-<div className="rounded-xl border border-border bg-white" />
+// still wrong — a stark, full-contrast line (that's not this system either)
+<div className="rounded-xl border border-on-surface bg-white" />
 ```
 
-Before writing any `border-*`, ask whether a tonal shift (`bg-surface-low`, `hover:bg-surface-low`) or a shadcn `Separator` says it better. Table row separation, card edges, and section boundaries all use tone, not lines.
+`border-border` is the one border colour to reach for — `--color-border` (`globals.css`) is a warm-ink hairline at low opacity, tuned to be visible on sight without reading as office-suite grey. Every `components/ui/` and `components/shadcn/` card-, dialog-, sheet-, dropdown-, popover-, and select-surface already carries it — **so does every `Button` variant except `link`, `ActionButton`, `FilterChip`, `SegmentedFilter`, `Avatar` (both variants, photo and initials-fallback alike), and every circular icon button** (dialog/sheet close, top-bar bell, avatar/department triggers). Reuse those rather than hand-rolling a bordered `<div>`, button, or avatar. Table row separation still uses tone (`bg-surface-low` head, hover shift) — the border belongs on the table's outer shell, not between rows.
 
 ### Never redefine the tokens
 Style with the global tokens. **Do not introduce a scoped palette override** (e.g. a `[data-section="…"]` block in `globals.css` that resets `--color-primary`/`--color-background`). The Administration portal used to do exactly that and drifted into a different product; it was deleted. One token set, one look.
@@ -58,6 +61,7 @@ Defined in `@theme` at the top of `apps/admin/app/globals.css` — read it befor
 |---|---|
 | Surfaces | `parchment` (page), `surface-low` (sections/deeper page), `surface-lowest` (lifted cards), `surface-container`, `surface-high` (hover/pressed) |
 | Text | `on-surface`, `on-surface-variant` (secondary), `outline` (captions/quiet) |
+| Structure | `border` (the hairline edge — see the Hairline Border Rule) |
 | Primary (gold) | `primary`, `primary-container`, `primary-light`, `primary-dim`, `brand` |
 | Accents | `crimson`/`crimson-light`, `royal`/`royal-light` |
 | Semantic | `success`, `warning`, `error` (+ `-light` variants) |
@@ -143,7 +147,7 @@ Hover/press feedback is CSS, not anime.js: `transition-all hover:-translate-y-0.
 
 ## 5. Before you submit web UI code
 
-1. No `border` used as a structural line — tone or `Separator` instead.
+1. Cards, dialogs/sheets/dropdowns/popovers/selects, buttons, and pills/chips all carry `border-border` plus (where elevated) a shadow-e* tier — not shadow alone, and not left bare. Table row separation still uses tone, not a border. If you add a new button-like or card-like primitive, give it a border on sight, don't rely on `hover:` alone.
 2. No raw Tailwind palette colours, no hex literals; semantic tokens only.
 3. No new scoped token override blocks in `globals.css`.
 4. `font-display` only ≥18px headings; every numeral in `font-mono`.

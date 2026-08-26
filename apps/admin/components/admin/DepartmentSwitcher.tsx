@@ -68,7 +68,7 @@ export function DepartmentSwitcher({
         <button
           type="button"
           aria-label="Switch Area of Service"
-          className="flex max-w-[15rem] items-center gap-2 rounded-full bg-surface-low/70 px-3 py-1.5 font-body text-sm font-semibold text-on-surface outline-none transition-colors hover:bg-surface-low focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex max-w-[15rem] items-center gap-2 rounded-full border border-border bg-surface-low/70 px-3 py-1.5 font-body text-sm font-semibold text-on-surface outline-none transition-colors hover:bg-surface-low focus-visible:ring-2 focus-visible:ring-primary"
         >
           <LayoutGrid className="h-4 w-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
           <span className="truncate">{label}</span>

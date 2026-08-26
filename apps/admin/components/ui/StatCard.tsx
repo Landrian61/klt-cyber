@@ -22,7 +22,7 @@ export function StatCard({ label, value, hint, trend, className }: StatCardProps
   return (
     <div
       className={cn(
-        "rounded-md bg-surface-lowest p-6 shadow-e1",
+        "rounded-md border border-border bg-surface-lowest p-6 shadow-e1",
         className,
       )}
     >

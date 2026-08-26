@@ -78,7 +78,7 @@ export function EventsClient() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="aspect-[4/5] animate-pulse rounded-md bg-surface-lowest"
+              className="aspect-[3/5] animate-pulse rounded-md bg-surface-lowest"
             />
           ))}
         </CardGrid>
