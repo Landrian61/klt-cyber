@@ -8,6 +8,7 @@ import {
   getCurrentUser,
   requireDepartmentAuthority,
   requireDepartmentHod,
+  getAdministrationAuthorityOrNull,
   isActiveSystemAdmin,
   hasActiveDepartmentRole,
   getActiveRoles,
@@ -156,10 +157,14 @@ async function resolveRosterDepartment(
  * Active roster of a single department, plus the department itself so callers
  * don't need a separate lookup for its name. Omit `departmentId` to get the
  * Administration department's roster.
+ *
+ * Gated: Administration authority (see the note above `listDepartmentHods`).
  */
 export const listDepartmentMembers = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, { departmentId }) => {
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
+
     const department = await resolveRosterDepartment(ctx, departmentId);
     if (!department) return null;
 
@@ -189,10 +194,16 @@ export const listDepartmentMembers = query({
  * a transaction). Note the joined `profile.profileStatus` may be
  * `"pending_verification"`, not just `"verified"` — self-added members
  * appear on the roster before Church Admin verifies their profile.
+ *
+ * Gated: Administration authority. This is the most sensitive read in the
+ * file — it joins each roster row to the member's profile (name, phone,
+ * signed photo URL) and their user row.
  */
 export const listDepartmentMembersWithProfiles = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, { departmentId }) => {
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
+
     const department = await resolveRosterDepartment(ctx, departmentId);
     if (!department) return null;
 
@@ -246,11 +257,32 @@ export const getMyDepartmentMemberships = query({
   },
 });
 
-/** Active hod(s) of a department — expect at most one, per cardinality rules. */
+/**
+ * Active hod(s) of a department — expect at most one, per cardinality rules.
+ *
+ * Gated: Administration authority — system_admin, or the Administration
+ * department's hod/department_admin, which is the portal-wide authority per
+ * docs/Alignment.md. That matches every caller of the three roster reads
+ * today: all of them render under `app/(admin)/admin/*`, whose layout already
+ * requires exactly this. When departments get their own portals, the gate
+ * will need to widen to "…or this department's own hod/department_admin" —
+ * deliberately not anticipated here.
+ *
+ * `getAdministrationAuthorityOrNull` (not `requireAdministrationAuthority`)
+ * because these are live subscriptions: on sign-out the token drops while the
+ * subscription is still mounted, and the unauthenticated re-run must resolve
+ * to null rather than surface as a client error. An authenticated caller
+ * without the authority still throws — that is a real violation.
+ *
+ * NOTE: this query currently has no callers. Gated rather than deleted so the
+ * whole file is consistent; removing it is a separate cleanup.
+ */
 export const listDepartmentHods = query({
   args: { departmentId: v.id("departments") },
-  handler: async (ctx, { departmentId }) =>
-    await ctx.db
+  handler: async (ctx, { departmentId }) => {
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
+
+    return await ctx.db
       .query("roleAssignments")
       .withIndex("by_departmentId", (q) => q.eq("departmentId", departmentId))
       .filter((q) =>
@@ -259,7 +291,8 @@ export const listDepartmentHods = query({
           q.eq(q.field("roleType"), "hod")
         )
       )
-      .collect(),
+      .collect();
+  },
 });
 
 // ── Post-login department picker (docs/Alignment.md, "Part 2") ──────────────
