@@ -27,7 +27,6 @@ import { CountUp } from "@/components/motion/CountUp";
 import { Reveal } from "@/components/motion/Reveal";
 import { PendingSubmissionsChart } from "./PendingSubmissionsChart";
 
-const ADMINISTRATION_DEPARTMENT_NAME = "Administration";
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Tonal icon chips — semantic token pairs, never a raw Tailwind palette.
@@ -96,14 +95,14 @@ function fullName(p: {
 
 export function AdminDashboardClient() {
   const pending = useAuthQuery(api.memberProfiles.listPendingVerifications);
-  const departments = useAuthQuery(api.departments.listDepartments);
-  const administrationDept = departments?.find(
-    (d) => d.name === ADMINISTRATION_DEPARTMENT_NAME,
-  );
-
-  const rosterMembers = useAuthQuery(
+  // One call, not two: the query resolves the Administration department
+  // server-side. Previously this fetched all 13 departments, matched on name
+  // client-side, then issued a second dependent query for the roster — a
+  // waterfall on the portal's landing page, with each hop paying the full
+  // authz gate.
+  const roster = useAuthQuery(
     api.departmentMemberships.listDepartmentMembers,
-    administrationDept ? { departmentId: administrationDept._id } : "skip",
+    {},
   );
   const programs = useAuthQuery(api.weeklyPrograms.listActivePrograms);
   const announcements = useAuthQuery(api.announcements.listActiveAnnouncements);
@@ -164,7 +163,7 @@ export function AdminDashboardClient() {
           icon={Users}
           tone="royal"
           label="Roster size"
-          value={rosterMembers?.length}
+          value={roster?.members.length}
         />
         <StatTile
           href="/admin/weekly-program"

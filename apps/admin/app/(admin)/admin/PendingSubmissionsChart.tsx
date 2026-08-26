@@ -1,14 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import {
   Card,
   CardContent,
@@ -47,13 +40,19 @@ function bucketByDay(profiles: PendingProfile[]) {
   return days.map(({ label, count }) => ({ label, count }));
 }
 
-// Axis/label styling is driven by the design tokens rather than raw hex so the
-// chart shifts with the palette. Recharts needs inline values, not classes.
-const axisTick = {
-  fontSize: 12,
-  fontFamily: "var(--font-body)",
-  fill: "var(--color-on-surface-variant)",
-};
+// The chart body carries recharts (~103 KB gzip, used by no other route), so
+// it loads on demand rather than sitting in /admin's entry graph. `ssr: false`
+// because recharts measures the DOM to size itself — there is nothing useful
+// to render on the server. The fallback is the same skeleton the `undefined`
+// data state already uses, and CardContent below fixes the box at h-56, so the
+// deferred load costs latency without shifting layout.
+const PendingSubmissionsChartBody = dynamic(
+  () =>
+    import("./PendingSubmissionsChartBody").then(
+      (m) => m.PendingSubmissionsChartBody,
+    ),
+  { ssr: false, loading: () => <Skeleton className="size-full rounded-lg" /> },
+);
 
 export function PendingSubmissionsChart({
   profiles,
@@ -85,41 +84,7 @@ export function PendingSubmissionsChart({
         {data === undefined ? (
           <Skeleton className="size-full rounded-lg" />
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
-              <XAxis
-                dataKey="label"
-                axisLine={false}
-                tickLine={false}
-                tick={axisTick}
-              />
-              <YAxis
-                allowDecimals={false}
-                axisLine={false}
-                tickLine={false}
-                tick={{ ...axisTick, fontFamily: "var(--font-mono)" }}
-                width={24}
-              />
-              <Tooltip
-                cursor={{ fill: "var(--color-surface-low)" }}
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "none",
-                  backgroundColor: "var(--color-surface-lowest)",
-                  boxShadow: "0 16px 40px -12px rgba(28, 28, 24, 0.22)",
-                  fontFamily: "var(--font-body)",
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: "var(--color-on-surface)" }}
-                itemStyle={{ color: "var(--color-on-surface-variant)" }}
-              />
-              <Bar
-                dataKey="count"
-                fill="var(--color-primary)"
-                radius={[6, 6, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <PendingSubmissionsChartBody data={data} />
         )}
       </CardContent>
     </Card>

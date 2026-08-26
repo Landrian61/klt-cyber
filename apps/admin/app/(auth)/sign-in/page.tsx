@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signInInputSchema } from "@klt-cyber/shared";
+import { loadValidators, warmValidators } from "@/lib/validators";
 import { authClient } from "@/lib/auth";
 import { Card } from "@/components/shadcn/card";
 import { Input } from "@/components/shadcn/input";
@@ -28,8 +28,14 @@ export default function SignInPage() {
     setFormError(null);
     setFieldErrors({});
 
+    // Held from here rather than after validation: the validator import is
+    // awaited, and Button disables on `loading`, so this keeps the awaited
+    // gap from leaving the submit button live for a second click.
+    setLoading(true);
+    const { signInInputSchema } = await loadValidators();
     const parsed = signInInputSchema.safeParse({ email, password });
     if (!parsed.success) {
+      setLoading(false);
       const flat = parsed.error.flatten().fieldErrors;
       setFieldErrors({
         email: flat.email?.[0],
@@ -38,7 +44,6 @@ export default function SignInPage() {
       return;
     }
 
-    setLoading(true);
     const { error } = await authClient.signIn.email({
       email: parsed.data.email,
       password: parsed.data.password,
@@ -84,7 +89,14 @@ export default function SignInPage() {
           Sign in to continue your stewardship.
         </p>
 
-        <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
+        {/* Warm the validator chunk once the user starts filling the form, so
+            the dynamic import in handleSubmit is already resolved by submit. */}
+        <form
+          onSubmit={handleSubmit}
+          onFocusCapture={warmValidators}
+          noValidate
+          className="mt-8 space-y-6"
+        >
           <Field
             label="Email address"
             htmlFor="email"

@@ -29,6 +29,18 @@ export default async function AreasOfServicePage() {
 
   const { user, activeRoles } = account;
 
+  // The web portal authorization invariant (docs/DATA_MODEL.md): a portal
+  // session is valid only when the caller holds >=1 active roleAssignments
+  // record. Stated here in its canonical form rather than being inferred from
+  // "no tiles to show" further down — this route previously leaned on
+  // middleware for it, and middleware no longer performs the check.
+  //
+  // Checked before the queries below so a caller who fails it costs one Convex
+  // round trip rather than three.
+  if (activeRoles.length === 0) {
+    redirect("/unauthorized");
+  }
+
   // Null if the session lapsed between the account fetch and this one — treat
   // it as "no departments", which falls through to the /unauthorized redirect
   // below rather than crashing the render.
@@ -62,6 +74,11 @@ export default async function AreasOfServicePage() {
       href: `/elder/${role.clanId}`,
     }));
 
+  // Secondary guard, not the invariant: a role-holder should always have at
+  // least one tile (system_admin sees all 13; hod/department_admin are added
+  // to their department's roster by assignRoleCore; clan_elder gets a clan
+  // tile), so reaching here means something is inconsistent. Kept so that
+  // case lands on /unauthorized rather than an empty screen.
   if (departments.length === 0 && clanTiles.length === 0) {
     redirect("/unauthorized");
   }

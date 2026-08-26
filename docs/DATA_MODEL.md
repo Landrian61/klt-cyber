@@ -321,13 +321,24 @@ leadership-institute progress, and other authority-verified records. Each adds a
 Captured here so no future increment violates it.
 
 > **A web portal session is valid only when the user has ≥1 active `roleAssignments`
-> record.** Middleware enforces this on every request. After successful sign-in, the
-> post-auth handler checks the user's active assignments; if there are none, the session
-> is terminated and the user is redirected to a public `/unauthorized` page with a
-> friendly message directing them to the mobile app.
+> record.** Enforced by the server component for each route — the two portal layouts,
+> the `/areas-of-service` page, and `getDepartmentAccess` for `/departments/{id}` —
+> and re-checked inside every gated Convex function. If there are none, the user is
+> redirected to a public `/unauthorized` page with a friendly message directing them
+> to the mobile app.
+
+Middleware only checks that a session cookie is present; it does not read roles.
+Routing is UX, not the security boundary — the enforceable check is the one inside
+the Convex function, which holds even for a client that calls Convex directly.
+
+A route added under `app/(admin)/` does **not** inherit the gate. Enforce the
+invariant in its own server component, and put the real check in the Convex
+function it reads from.
 
 **Consequences**
-- A user whose last role is revoked while signed in is kicked out at their next request.
+- A user whose last role is revoked while signed in loses data access immediately
+  (every gated Convex function throws), but keeps the portal shell until they cross
+  route segments, hard-navigate, or refresh. See `docs/ARCHITECTURE.md` §5.2.
 - A user who signs up via web and is never assigned a role cannot enter the portal.
 - The mobile app is unaffected — it has its own gating (tab-level, based on
   `users.profileCompleted`).
@@ -509,8 +520,9 @@ schema-level type union is updated in the same migration.
 
 **Indexes**
 - `by_userId` on `["userId"]` — the central query: "what roles does this user hold?"
-  Used by middleware on every web request, by the role-picker, and by the user-detail
-  view in the admin dashboard.
+  Used by the authorization helpers in `convex/lib/authz.ts` (and so by every gated
+  query and mutation), by the Areas of Service picker, and by the user-detail view in
+  the admin dashboard.
 - `by_roleType` on `["roleType"]` — "all system admins," "all clan elders"
 - `by_clanId` on `["clanId"]` — "who is elder of clan X?" (only meaningful for
   `clan_elder` rows)

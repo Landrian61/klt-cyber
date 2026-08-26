@@ -14,9 +14,9 @@ has the standing to do it.
 
 **Administration's Head of Department (HOD).** The person System Admin appoints to
 run Administration. Can do everything below, plus the handful of things that are
-reserved for the head specifically: removing someone from the roster, appointing
-delegates, and — because Administration is the church's operational hub — naming
-the heads of the other 12 departments.
+reserved for the head specifically: removing someone from the roster, re-titling a
+roster member, appointing delegates, and — because Administration is the church's
+operational hub — naming the heads of the other 12 departments.
 
 **Administration's delegate (`department_admin`).** Someone the HOD has appointed
 to help run day-to-day work. Full access to the routine parts of every page below,
@@ -171,7 +171,9 @@ in the search but can't be picked, with a short explanation why.
 **Actions and who can do them:**
 - Add a member — HOD and delegate
 - Open a row to view the person's full profile — HOD, delegate, and System Admin
-- Change someone's title, from within their sheet — HOD and delegate
+- Change someone's title, from within their sheet — **HOD only.** Re-titling is
+  the head's call, the same as removal. A delegate can add someone (with a
+  title typed at that moment) but cannot re-title them afterwards.
 - Remove a member, from within their sheet — **HOD only.** If the person removed
   also held a leadership role in Administration, that's taken away in the same
   step, automatically.

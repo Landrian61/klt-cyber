@@ -32,10 +32,10 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/shadcn/sheet";
+import { MembershipTitleEditor } from "@/components/admin/MembershipTitleEditor";
 import { errorMessage } from "../verification/shared";
 
 const PAGE_SIZE = 10;
-const ADMINISTRATION_DEPARTMENT_NAME = "Administration";
 
 // Row shape comes straight from the joined Convex query — no hand-rolled
 // client-side join anymore (see convex/departmentMemberships.ts).
@@ -43,7 +43,7 @@ type RosterRow = NonNullable<
   FunctionReturnType<
     typeof api.departmentMemberships.listDepartmentMembersWithProfiles
   >
->[number];
+>["members"][number];
 type MemberEntry = NonNullable<
   FunctionReturnType<typeof api.memberProfiles.listVerifiedMembersWithRoles>
 >[number];
@@ -57,20 +57,16 @@ function fullName(p: {
 }
 
 export function RosterClient() {
-  const departments = useAuthQuery(api.departments.listDepartments);
-  const administrationDept = departments?.find(
-    (d) => d.name === ADMINISTRATION_DEPARTMENT_NAME,
-  );
-
-  const rosterRows = useAuthQuery(
+  // One call, not two: the query resolves the Administration department
+  // server-side and returns it alongside the roster, so the client no longer
+  // fetches all 13 departments and matches on name just to issue a second,
+  // dependent query.
+  const roster = useAuthQuery(
     api.departmentMemberships.listDepartmentMembersWithProfiles,
-    administrationDept ? { departmentId: administrationDept._id } : "skip",
+    {},
   );
-  // Only needed to diff against the roster for "Add member" candidates —
-  // verified members who aren't already on this roster.
-  const allMembers = useAuthQuery(
-    api.memberProfiles.listVerifiedMembersWithRoles,
-  );
+  const administrationDept = roster?.department;
+  const rosterRows = roster?.members;
 
   const addMember = useMutation(api.departmentMemberships.addDepartmentMember);
   const removeMember = useMutation(
@@ -85,6 +81,15 @@ export function RosterClient() {
   const [addSearch, setAddSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Only needed to diff against the roster for "Add member" candidates —
+  // verified members who aren't already on this roster. Subscribed only while
+  // that dialog is open: it reads every verified member, and most visits to
+  // this screen never open it. Declared after `addOpen` for that reason.
+  const allMembers = useAuthQuery(
+    api.memberProfiles.listVerifiedMembersWithRoles,
+    addOpen ? {} : "skip",
+  );
 
   const rows = useMemo(() => {
     if (!rosterRows) return undefined;
@@ -305,7 +310,7 @@ export function RosterClient() {
               >
                 <Avatar
                   name={fullName(entry.profile)}
-                  src={entry.user?.profilePictureUrl}
+                  src={entry.profilePictureUrl ?? undefined}
                   size="sm"
                 />
                 {fullName(entry.profile)}
@@ -337,6 +342,18 @@ export function RosterClient() {
           </SheetHeader>
 
           {error && <p className="px-4 text-sm text-destructive">{error}</p>}
+
+          {selected && (
+            <div className="px-4">
+              {/* key: remount on a different member so the input reseeds. */}
+              <MembershipTitleEditor
+                key={selected.membership._id}
+                membershipId={selected.membership._id}
+                currentTitle={selected.membership.positionTitle}
+                onSaved={() => setSelected(null)}
+              />
+            </div>
+          )}
 
           <SheetFooter className="flex-col gap-2">
             {/*

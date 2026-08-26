@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { MAX_ACTIVE_DEPARTMENTS } from "@klt-cyber/shared";
@@ -7,9 +8,10 @@ import {
   getCurrentUser,
   requireDepartmentAuthority,
   requireDepartmentHod,
+  getAdministrationAuthorityOrNull,
   isActiveSystemAdmin,
-  hasActiveDepartmentRole,
   getActiveRoles,
+  getAdministrationDepartmentId,
   logActivity,
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
@@ -74,6 +76,70 @@ export const addDepartmentMember = mutation({
   },
 });
 
+/**
+ * Change a roster member's position title, in place.
+ *
+ * hod (or system_admin) only — the same authority as removal, since roster
+ * composition is the department head's call. Deliberately NOT
+ * `requireDepartmentAuthority`: department_admin delegates can add members
+ * but do not re-title them.
+ *
+ * This exists because the alternative was destructive. With only add and
+ * remove available, "change a title" meant removeDepartmentMember followed by
+ * addDepartmentMember — and removal cascade-revokes any hod/department_admin
+ * role the member holds in that department (see below). Editing a title would
+ * silently strip their authority, and reset `_creationTime` so the roster's
+ * "Date added" column started lying.
+ *
+ * `positionTitle` is the whole payload and the field is optional on the row,
+ * so omitting it (or passing blank) CLEARS the title rather than leaving it
+ * untouched.
+ */
+export const updateDepartmentMembership = mutation({
+  args: {
+    membershipId: v.id("departmentMemberships"),
+    positionTitle: v.optional(v.string()),
+  },
+  handler: async (ctx, { membershipId, positionTitle }) => {
+    const membership = await ctx.db.get(membershipId);
+    if (!membership) throw new Error("Membership not found");
+    if (membership.status !== "active") {
+      throw new Error("Cannot re-title a membership that has been removed");
+    }
+
+    const actor = await requireDepartmentHod(ctx, membership.departmentId); // hod or system_admin ONLY
+
+    // Blank and whitespace-only both mean "no title", matching how
+    // addDepartmentMember treats an empty string.
+    const trimmed = positionTitle?.trim();
+    const nextTitle = trimmed ? trimmed : undefined;
+
+    // No-op edits shouldn't write an audit entry.
+    if (nextTitle === membership.positionTitle) {
+      return { ok: true as const, changed: false as const };
+    }
+
+    // Convex removes an optional field when patched to undefined, which is
+    // how a title gets cleared.
+    await ctx.db.patch(membershipId, { positionTitle: nextTitle });
+
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "department.member_title_updated",
+      targetType: "departmentMemberships",
+      targetId: membershipId,
+      metadata: {
+        userId: membership.userId,
+        departmentId: membership.departmentId,
+        from: membership.positionTitle ?? null,
+        to: nextTitle ?? null,
+      },
+    });
+
+    return { ok: true as const, changed: true as const };
+  },
+});
+
 export const removeDepartmentMember = mutation({
   args: { membershipId: v.id("departmentMemberships") },
   handler: async (ctx, { membershipId }) => {
@@ -129,16 +195,51 @@ export const removeDepartmentMember = mutation({
   },
 });
 
-/** Active roster of a single department. */
+/**
+ * Which department a roster read is about: the explicit `departmentId` when
+ * one is given, otherwise the fixed "Administration" department resolved
+ * server-side.
+ *
+ * The admin portal's own roster screens are always about Administration, but
+ * the client had no way to name it without first fetching all 13 departments
+ * and matching on `name` — a second, dependent round trip before the roster
+ * query could even start, each hop paying the full authz gate. Resolving it
+ * here collapses that to one call. Returns null when Administration has not
+ * been seeded yet, matching the "reactive queries resolve rather than throw"
+ * convention used across this file.
+ */
+async function resolveRosterDepartment(
+  ctx: QueryCtx,
+  departmentId?: Id<"departments">
+) {
+  const id = departmentId ?? (await getAdministrationDepartmentId(ctx));
+  return id ? await ctx.db.get(id) : null;
+}
+
+/**
+ * Active roster of a single department, plus the department itself so callers
+ * don't need a separate lookup for its name. Omit `departmentId` to get the
+ * Administration department's roster.
+ *
+ * Gated: Administration authority (see the note above `listDepartmentHods`).
+ */
 export const listDepartmentMembers = query({
-  args: { departmentId: v.id("departments") },
-  handler: async (ctx, { departmentId }) =>
-    await ctx.db
+  args: { departmentId: v.optional(v.id("departments")) },
+  handler: async (ctx, { departmentId }) => {
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
+
+    const department = await resolveRosterDepartment(ctx, departmentId);
+    if (!department) return null;
+
+    const members = await ctx.db
       .query("departmentMemberships")
       .withIndex("by_departmentId_status", (q) =>
-        q.eq("departmentId", departmentId).eq("status", "active")
+        q.eq("departmentId", department._id).eq("status", "active")
       )
-      .collect(),
+      .collect();
+
+    return { department, members };
+  },
 });
 
 /**
@@ -148,25 +249,35 @@ export const listDepartmentMembers = query({
  * profile data) — this is what roster/roster-detail screens actually render;
  * kept as a separate query rather than changing `listDepartmentMembers`'
  * shape since other callers (e.g. the dashboard's member count) only need
- * the bare rows. `profile` is null only if a membership row outlives its
+ * the bare rows. Omit `departmentId` for the Administration department, same
+ * as `listDepartmentMembers`. `profile` is null only if a membership row outlives its
  * profile (shouldn't happen — a profile row and its membership rows are
  * always created together, whether admin-added via `addDepartmentMember`
  * or self-added via `submitProfile` — but this is a live subscription, not
  * a transaction). Note the joined `profile.profileStatus` may be
  * `"pending_verification"`, not just `"verified"` — self-added members
  * appear on the roster before Church Admin verifies their profile.
+ *
+ * Gated: Administration authority. This is the most sensitive read in the
+ * file — it joins each roster row to the member's profile (name, phone,
+ * signed photo URL) and their user row.
  */
 export const listDepartmentMembersWithProfiles = query({
-  args: { departmentId: v.id("departments") },
+  args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, { departmentId }) => {
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
+
+    const department = await resolveRosterDepartment(ctx, departmentId);
+    if (!department) return null;
+
     const memberships = await ctx.db
       .query("departmentMemberships")
       .withIndex("by_departmentId_status", (q) =>
-        q.eq("departmentId", departmentId).eq("status", "active")
+        q.eq("departmentId", department._id).eq("status", "active")
       )
       .collect();
 
-    return await Promise.all(
+    const members = await Promise.all(
       memberships.map(async (membership) => {
         const [profile, user, addedByUser] = await Promise.all([
           ctx.db
@@ -189,6 +300,8 @@ export const listDepartmentMembersWithProfiles = query({
         };
       })
     );
+
+    return { department, members };
   },
 });
 
@@ -207,11 +320,32 @@ export const getMyDepartmentMemberships = query({
   },
 });
 
-/** Active hod(s) of a department — expect at most one, per cardinality rules. */
+/**
+ * Active hod(s) of a department — expect at most one, per cardinality rules.
+ *
+ * Gated: Administration authority — system_admin, or the Administration
+ * department's hod/department_admin, which is the portal-wide authority per
+ * docs/Alignment.md. That matches every caller of the three roster reads
+ * today: all of them render under `app/(admin)/admin/*`, whose layout already
+ * requires exactly this. When departments get their own portals, the gate
+ * will need to widen to "…or this department's own hod/department_admin" —
+ * deliberately not anticipated here.
+ *
+ * `getAdministrationAuthorityOrNull` (not `requireAdministrationAuthority`)
+ * because these are live subscriptions: on sign-out the token drops while the
+ * subscription is still mounted, and the unauthenticated re-run must resolve
+ * to null rather than surface as a client error. An authenticated caller
+ * without the authority still throws — that is a real violation.
+ *
+ * NOTE: this query currently has no callers. Gated rather than deleted so the
+ * whole file is consistent; removing it is a separate cleanup.
+ */
 export const listDepartmentHods = query({
   args: { departmentId: v.id("departments") },
-  handler: async (ctx, { departmentId }) =>
-    await ctx.db
+  handler: async (ctx, { departmentId }) => {
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
+
+    return await ctx.db
       .query("roleAssignments")
       .withIndex("by_departmentId", (q) => q.eq("departmentId", departmentId))
       .filter((q) =>
@@ -220,7 +354,8 @@ export const listDepartmentHods = query({
           q.eq(q.field("roleType"), "hod")
         )
       )
-      .collect(),
+      .collect();
+  },
 });
 
 // ── Post-login department picker (docs/Alignment.md, "Part 2") ──────────────
@@ -311,7 +446,26 @@ export const getDepartmentAccess = query({
   args: { departmentId: v.id("departments") },
   handler: async (ctx, { departmentId }) => {
     const actor = await requireUser(ctx);
-    const isSystemAdmin = await isActiveSystemAdmin(ctx, actor._id);
+    const activeRoles = await getActiveRoles(ctx, actor._id);
+
+    // The web portal authorization invariant (docs/DATA_MODEL.md): a portal
+    // session is valid only when the caller holds >=1 active roleAssignments
+    // record. Enforced HERE, not just in routing.
+    //
+    // This used to be carried entirely by middleware, which is why the check
+    // below could pass on roster membership alone. It cannot: roster
+    // membership is not authority (see the note at the top of this file), and
+    // `submitProfile` self-inserts roster rows for ordinary members who hold
+    // no role at all. Such a member belongs in the mobile app; without this
+    // check, moving the role gate out of middleware would let them into the
+    // portal.
+    if (activeRoles.length === 0) {
+      throw new Error("Not authorized to view this department");
+    }
+
+    const isSystemAdmin = activeRoles.some(
+      (role) => role.roleType === "system_admin"
+    );
 
     if (!isSystemAdmin) {
       const isMember = await ctx.db
@@ -321,11 +475,12 @@ export const getDepartmentAccess = query({
         )
         .filter((q) => q.eq(q.field("departmentId"), departmentId))
         .first();
-      const hasAuthority = await hasActiveDepartmentRole(
-        ctx,
-        actor._id,
-        departmentId,
-        ["hod", "department_admin"]
+      // Derived from the roles we already loaded rather than a second indexed
+      // read, which is what hasActiveDepartmentRole would have cost.
+      const hasAuthority = activeRoles.some(
+        (role) =>
+          (role.roleType === "hod" || role.roleType === "department_admin") &&
+          role.departmentId === departmentId
       );
       if (!isMember && !hasAuthority) {
         throw new Error("Not authorized to view this department");

@@ -1,59 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { getToken } from "@convex-dev/better-auth/utils";
-import { fetchQuery } from "convex/nextjs";
-import { api } from "@/lib/api";
 
 /*
-  Enforces the web portal authorization invariant (docs/DATA_MODEL.md,
-  Increment 2): "A web portal session is valid only when the user has ≥1
-  active roleAssignments record."
+  Cheap, non-authoritative routing gate. It answers one question — "does this
+  request carry a session cookie at all?" — and does it without a network
+  call, so no protected navigation pays a round trip here.
 
-  Two layers, same optimistic-then-real split as PR 3:
-  - `getSessionCookie` is a fast, unvalidated presence check — routes
-    unauthenticated traffic to /sign-in without a network call.
-  - For every other protected path we do a REAL Convex round trip: exchange
-    the first-party session cookie for a Convex JWT and call
-    `api.roles.getMyRoles`. 0 active roles → /unauthorized.
+  It deliberately does NOT check roles.
 
-  Role-check approach chosen: (a) a Convex round trip per navigation, not
-  (b) a session/JWT-baked role cache. Rationale: `getToken` re-exported from
-  lib/auth-server.ts (and `fetchAuthQuery`) depend on next/headers(), which
-  is unavailable in middleware. But the lower-level `getToken(siteUrl,
-  headers, opts)` from "@convex-dev/better-auth/utils" takes headers
-  explicitly and does a plain `fetch` — no next/headers, no Node APIs — so
-  it runs fine here. Paired with `fetchQuery` from "convex/nextjs" (also
-  plain-fetch), this gives a real, un-cached role check from middleware
-  without needing a Node.js middleware runtime or a JWT-embedded role cache.
-  Trade-off: one extra Convex query per navigation to a protected route —
-  acceptable for an internal admin portal's traffic volume.
+  The web portal authorization invariant (docs/DATA_MODEL.md) — a portal
+  session is valid only when the user holds >=1 active `roleAssignments`
+  record — is still enforced, but at the points that can actually enforce it:
+
+    /admin/*             app/(admin)/admin/layout.tsx
+    /system-admin/*      app/(admin)/system-admin/layout.tsx
+    /areas-of-service    the page itself, right after its account fetch
+    /departments/[id]    convex getDepartmentAccess
+
+  Those first three already made the same Convex call this file used to make,
+  so the role check here was a second, serial round trip that produced an
+  answer the layout was about to fetch anyway. Removing it halves the
+  pre-HTML round trips (two to one) on every protected navigation — which
+  matters most on the connections this portal is actually used over.
+
+  `getSessionCookie` is an unvalidated presence check by design: it reads the
+  cookie without verifying the signature. That is fine here precisely because
+  this is not the security boundary. A forged or expired cookie gets past this
+  file and is rejected by the real gates above, which do verify — and by every
+  Convex function behind them, which re-checks identity and authority per
+  operation regardless of how the request was routed.
+
+  Trade-off worth knowing: middleware ran on every navigation, whereas a
+  layout does not re-run when navigating within the segment it already
+  rendered. So a user whose last role is revoked mid-session keeps the portal
+  shell until they cross segments, hard-navigate, or refresh. They lose access
+  to data immediately — every gated Convex query throws for an authenticated
+  caller without authority — but the chrome lingers. Accepted deliberately;
+  see docs/ARCHITECTURE.md §5.2.
 */
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
-const convexSiteUrl =
-  process.env.NEXT_PUBLIC_CONVEX_SITE_URL ??
-  convexUrl.replace(/\.convex\.cloud$/, ".convex.site");
-
-/**
- * null = no valid session (stale/invalid cookie, or the Convex round trip
- * failed even after a retry — fails closed rather than crashing the request).
- */
-async function activeRoleCount(request: NextRequest): Promise<number | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const { token } = await getToken(convexSiteUrl, new Headers(request.headers));
-      if (!token) return null;
-      const roles = await fetchQuery(api.roles.getMyRoles, {}, { token, url: convexUrl });
-      return roles.length;
-    } catch (error) {
-      if (attempt === 1) {
-        console.error("middleware: role check failed", error);
-        return null;
-      }
-    }
-  }
-  return null;
-}
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -80,14 +64,6 @@ export default async function middleware(request: NextRequest) {
 
   if (!sessionCookie) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
-  }
-
-  const roleCount = await activeRoleCount(request);
-  if (roleCount === null) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
-  }
-  if (roleCount === 0) {
-    return NextResponse.redirect(new URL("/unauthorized", request.url));
   }
 
   return NextResponse.next();

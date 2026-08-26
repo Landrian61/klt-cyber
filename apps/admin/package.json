@@ -26,7 +26,7 @@
     "better-auth": "1.6.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "1.39.1",
+    "convex": "1.42.3",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.27.0",
     "next": "16.2.6",
