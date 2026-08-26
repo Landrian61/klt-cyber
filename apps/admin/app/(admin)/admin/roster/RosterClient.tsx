@@ -32,6 +32,7 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/shadcn/sheet";
+import { MembershipTitleEditor } from "@/components/admin/MembershipTitleEditor";
 import { errorMessage } from "../verification/shared";
 
 const PAGE_SIZE = 10;
@@ -341,6 +342,18 @@ export function RosterClient() {
           </SheetHeader>
 
           {error && <p className="px-4 text-sm text-destructive">{error}</p>}
+
+          {selected && (
+            <div className="px-4">
+              {/* key: remount on a different member so the input reseeds. */}
+              <MembershipTitleEditor
+                key={selected.membership._id}
+                membershipId={selected.membership._id}
+                currentTitle={selected.membership.positionTitle}
+                onSaved={() => setSelected(null)}
+              />
+            </div>
+          )}
 
           <SheetFooter className="flex-col gap-2">
             {/*
