@@ -185,6 +185,22 @@ export async function requireAdministrationAuthority(
 ): Promise<Doc<"users">> {
   const user = await getCurrentUser(ctx);
   if (!user) throw new Error("Not authenticated");
+  return await assertAdministrationAuthority(ctx, user);
+}
+
+/**
+ * The authority check for an **already-resolved** caller. Split out of
+ * {@link requireAdministrationAuthority} so callers that have had to resolve
+ * the user themselves don't pay for it twice: `getCurrentUser` is three
+ * document reads plus two cross-component subqueries into the Better Auth
+ * component (session lookup, then auth-user lookup), and this gate fronts
+ * eight of the portal's highest-traffic queries. Same checks, same order,
+ * same error message as before — only the redundant re-resolution is gone.
+ */
+async function assertAdministrationAuthority(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<"users">
+): Promise<Doc<"users">> {
   if (await isActiveSystemAdmin(ctx, user._id)) return user;
   const adminDeptId = await getAdministrationDepartmentId(ctx);
   if (
@@ -220,7 +236,9 @@ export async function getAdministrationAuthorityOrNull(
 ): Promise<Doc<"users"> | null> {
   const user = await getCurrentUser(ctx);
   if (!user) return null;
-  return await requireAdministrationAuthority(ctx);
+  // Reuse the user we just resolved rather than calling
+  // requireAdministrationAuthority, which would resolve it a second time.
+  return await assertAdministrationAuthority(ctx, user);
 }
 
 /**

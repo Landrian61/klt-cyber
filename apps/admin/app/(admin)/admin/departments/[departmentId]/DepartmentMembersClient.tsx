@@ -25,7 +25,7 @@ type MemberRow = NonNullable<
   FunctionReturnType<
     typeof api.departmentMemberships.listDepartmentMembersWithProfiles
   >
->[number];
+>["members"][number];
 // `profile` is only ever null if a membership row outlives its profile
 // (shouldn't happen — see the query's doc comment); narrowed away here so
 // downstream rendering doesn't need to keep re-checking it.
@@ -49,15 +49,17 @@ export function DepartmentMembersClient({
   const router = useRouter();
   const id = departmentId as Id<"departments">;
 
-  const departments = useAuthQuery(api.departments.listDepartments);
-  const rosterRows = useAuthQuery(
+  // The roster query now returns its department alongside the rows, so this
+  // no longer fetches all 13 departments just to read one name.
+  const roster = useAuthQuery(
     api.departmentMemberships.listDepartmentMembersWithProfiles,
     { departmentId: id },
   );
+  const rosterRows = roster?.members;
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const department = departments?.find((d) => d._id === id);
+  const department = roster?.department;
 
   const departmentMembers = useMemo(() => {
     if (!rosterRows) return undefined;
@@ -97,7 +99,10 @@ export function DepartmentMembersClient({
     );
   }
 
-  if (departments !== undefined && !department) {
+  // The query resolves to null when the id doesn't match a department, so the
+  // server settles "not found" directly — no need to load every department
+  // and check for a client-side match.
+  if (roster === null) {
     return (
       <div className="space-y-6">
         <BackLink onClick={() => router.push("/admin/departments")} />

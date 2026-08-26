@@ -35,7 +35,6 @@ import {
 import { errorMessage } from "../verification/shared";
 
 const PAGE_SIZE = 10;
-const ADMINISTRATION_DEPARTMENT_NAME = "Administration";
 
 // Row shape comes straight from the joined Convex query — no hand-rolled
 // client-side join anymore (see convex/departmentMemberships.ts).
@@ -43,7 +42,7 @@ type RosterRow = NonNullable<
   FunctionReturnType<
     typeof api.departmentMemberships.listDepartmentMembersWithProfiles
   >
->[number];
+>["members"][number];
 type MemberEntry = NonNullable<
   FunctionReturnType<typeof api.memberProfiles.listVerifiedMembersWithRoles>
 >[number];
@@ -57,15 +56,16 @@ function fullName(p: {
 }
 
 export function RosterClient() {
-  const departments = useAuthQuery(api.departments.listDepartments);
-  const administrationDept = departments?.find(
-    (d) => d.name === ADMINISTRATION_DEPARTMENT_NAME,
-  );
-
-  const rosterRows = useAuthQuery(
+  // One call, not two: the query resolves the Administration department
+  // server-side and returns it alongside the roster, so the client no longer
+  // fetches all 13 departments and matches on name just to issue a second,
+  // dependent query.
+  const roster = useAuthQuery(
     api.departmentMemberships.listDepartmentMembersWithProfiles,
-    administrationDept ? { departmentId: administrationDept._id } : "skip",
+    {},
   );
+  const administrationDept = roster?.department;
+  const rosterRows = roster?.members;
   // Only needed to diff against the roster for "Add member" candidates —
   // verified members who aren't already on this roster.
   const allMembers = useAuthQuery(
