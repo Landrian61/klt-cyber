@@ -66,11 +66,6 @@ export function RosterClient() {
   );
   const administrationDept = roster?.department;
   const rosterRows = roster?.members;
-  // Only needed to diff against the roster for "Add member" candidates —
-  // verified members who aren't already on this roster.
-  const allMembers = useAuthQuery(
-    api.memberProfiles.listVerifiedMembersWithRoles,
-  );
 
   const addMember = useMutation(api.departmentMemberships.addDepartmentMember);
   const removeMember = useMutation(
@@ -85,6 +80,15 @@ export function RosterClient() {
   const [addSearch, setAddSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Only needed to diff against the roster for "Add member" candidates —
+  // verified members who aren't already on this roster. Subscribed only while
+  // that dialog is open: it reads every verified member, and most visits to
+  // this screen never open it. Declared after `addOpen` for that reason.
+  const allMembers = useAuthQuery(
+    api.memberProfiles.listVerifiedMembersWithRoles,
+    addOpen ? {} : "skip",
+  );
 
   const rows = useMemo(() => {
     if (!rosterRows) return undefined;
@@ -305,7 +309,7 @@ export function RosterClient() {
               >
                 <Avatar
                   name={fullName(entry.profile)}
-                  src={entry.user?.profilePictureUrl}
+                  src={entry.profilePictureUrl ?? undefined}
                   size="sm"
                 />
                 {fullName(entry.profile)}

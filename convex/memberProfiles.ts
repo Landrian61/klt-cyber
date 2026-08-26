@@ -385,7 +385,16 @@ export const getProfileForReview = query({
 
 /**
  * Verified members joined with their active role assignments AND their active
- * department roster memberships. Returns a list of assignments/memberships
+ * department roster memberships.
+ *
+ * Returns a NARROW PROJECTION, not whole documents — only the fields the
+ * directory and the roster's add-member picker actually render. The omitted
+ * fields (contact details, address, next of kin, employment, auth identity)
+ * are deliberately withheld, not accidentally missing: adding one back means
+ * disclosing it to every Administration-authority session. See the projection
+ * in the handler.
+ *
+ * Returns a list of assignments/memberships
  * per member (not a single value each) — a member may hold more than one role
  * simultaneously (e.g. Church Admin and Clan Elder at once), and may serve on
  * up to 3 department rosters (see MAX_ACTIVE_DEPARTMENTS in
@@ -430,16 +439,52 @@ export const listVerifiedMembersWithRoles = query({
       membershipsByUser.set(membership.userId, held);
     }
 
-    const results = [];
-    for (const profile of verified) {
-      const user = await ctx.db.get(profile.userId);
-      results.push({
-        profile,
-        user,
-        activeRoles: rolesByUser.get(profile.userId) ?? [],
-        departmentMemberships: membershipsByUser.get(profile.userId) ?? [],
-      });
-    }
-    return results;
+    // One await per member, resolved together rather than in sequence. Only
+    // `profilePictureUrl` is taken from the user row — see the projection
+    // below for why the rest never leaves the server.
+    const users = await Promise.all(
+      verified.map((profile) => ctx.db.get(profile.userId))
+    );
+
+    return verified.map((profile, index) => ({
+      // Projected, not the whole document. The full `memberProfiles` row
+      // carries phone, dateOfBirth, address, nextOfKin (name + phone),
+      // shortBio, occupation, employer, skills and the mentorship proof URL;
+      // the full `users` row carries authId, email, role and status. None of
+      // that is rendered by any consumer, and shipping it meant every
+      // Administration-authority browser received the contact details and
+      // home address of every verified member on page load. Treat this list
+      // as a projection first and a payload reduction second — widening it
+      // is a disclosure decision, not a convenience.
+      profile: {
+        _id: profile._id,
+        userId: profile.userId,
+        firstName: profile.firstName,
+        middleName: profile.middleName,
+        lastName: profile.lastName,
+        sex: profile.sex,
+        maritalStatus: profile.maritalStatus,
+        clanId: profile.clanId,
+        verifiedAt: profile.verifiedAt,
+      },
+      // Flattened off the user row so the row itself isn't returned. Used by
+      // the roster's "add member" candidate list for its avatar.
+      profilePictureUrl: users[index]?.profilePictureUrl ?? null,
+      activeRoles: (rolesByUser.get(profile.userId) ?? []).map(
+        (assignment) => ({
+          _id: assignment._id,
+          roleType: assignment.roleType,
+          clanId: assignment.clanId,
+          departmentId: assignment.departmentId,
+        })
+      ),
+      departmentMemberships: (
+        membershipsByUser.get(profile.userId) ?? []
+      ).map((membership) => ({
+        _id: membership._id,
+        departmentId: membership.departmentId,
+        positionTitle: membership.positionTitle,
+      })),
+    }));
   },
 });
