@@ -116,9 +116,10 @@ looks like. This is the orthogonality from §2 in action.
 
 ## 5. URL structure and route-level scoping
 
-Each role has a URL prefix on the web portal. The chosen role from the
-picker navigates to that prefix. Middleware validates that the caller has an
-active `roleAssignment` matching the prefix.
+Each role has a URL prefix on the web portal. The chosen Area of Service from
+the picker navigates to that prefix. The prefix's own server component (its
+route-group layout, or the page where there is no layout) validates that the
+caller holds an active `roleAssignment` matching it — see §9.
 
 **MVP prefixes**
 
@@ -126,7 +127,7 @@ active `roleAssignment` matching the prefix.
 |------|-----------|---------|
 | `system_admin` | `/system-admin/*` | None — path is fixed |
 | `church_administrator` | `/church-admin/*` | None |
-| `clan_elder` | `/elder/{clanId}/*` | `clanId` in path; middleware verifies caller has active `clan_elder` assignment for *that* clan |
+| `clan_elder` | `/elder/{clanId}/*` | `clanId` in path; the route's server component verifies the caller has an active `clan_elder` assignment for *that* clan |
 | `radio_admin` | `/radio-admin/*` | None |
 
 **Post-MVP prefixes (anticipated)**
@@ -209,9 +210,11 @@ Any active `roleAssignments` row can be revoked by a user with the
 
 - Patches `status: "revoked"`, sets `revokedBy` and `revokedAt`.
 - Writes an `activityLogs` entry with `action: "role.revoked"`.
-- Takes effect on the target's *next request*. A user whose last role is
-  revoked mid-session is redirected to `/unauthorized` on their next
-  navigation via the middleware invariant.
+- Takes effect on the target's *next Convex call* for data: every gated query
+  and mutation re-checks authority, so access to information stops at once.
+  The portal shell persists until they cross route segments, hard-navigate, or
+  refresh — that is when a layout re-runs and redirects them to
+  `/unauthorized`. See `docs/ARCHITECTURE.md` §5.2.
 
 Revocation does not delete the record — it flips its status. This preserves
 the assignment history for audit and future reporting.
@@ -272,16 +275,29 @@ documented here is a role that no reviewer can check for correctness.
 Permissions are enforced at three layers. Understanding this helps when
 debugging why something is or isn't accessible.
 
-**Layer 1 — Middleware (per request).** Enforces the top-level invariant:
-authenticated + has ≥ 1 active role assignment. Users failing this land on
-`/unauthorized`. This is the coarse gate that keeps role-less users out of
-the portal entirely.
+**Layer 1 — Middleware (per request).** Checks only that a session cookie is
+present, with no network call. No cookie → `/sign-in`. It does **not** read
+roles; the cookie is not signature-verified here. This is a routing
+convenience, not a gate.
 
-**Layer 2 — Route group layouts (per module).** Each module's route group
-(e.g. `/system-admin/*`) has a layout that verifies the caller has the
-specific role type required for that module. Users signed in with an
-`clan_elder` role who try to navigate to `/system-admin` are server-side
-redirected out.
+**Layer 2 — Server components (per route).** The top-level invariant —
+authenticated + ≥ 1 active role assignment — is enforced by the server
+component for each route, alongside the module-specific role check:
+
+| Route | Enforced in |
+|---|---|
+| `/admin/*` | `app/(admin)/admin/layout.tsx` |
+| `/system-admin/*` | `app/(admin)/system-admin/layout.tsx` |
+| `/areas-of-service` | the page itself |
+| `/departments/{id}` | `getDepartmentAccess` (Convex) |
+
+Users failing the invariant land on `/unauthorized`; users holding a role but
+not the one a module requires are redirected to `/areas-of-service`. Each of
+these already fetches the caller's `activeRoles` for its own rendering, so the
+check costs nothing extra.
+
+A new route under `app/(admin)/` does **not** inherit this. Enforce the
+invariant in its own server component.
 
 **Layer 3 — Convex functions (per operation).** Every mutation and
 sensitive query verifies the caller's identity and role via
@@ -291,7 +307,10 @@ the ultimate guard — even if a client-side check is bypassed, the server
 rejects unauthorized operations.
 
 Never rely on any single layer. Each is a check, not a substitute for the
-others.
+others — and only Layer 3 is a security boundary. Layers 1 and 2 decide what
+to render and where to send someone; a client that calls Convex directly
+never passes through either, so any query or mutation returning non-public
+data must gate itself.
 
 ---
 
