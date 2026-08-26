@@ -1,7 +1,8 @@
 import {
-  View, Text, Pressable, ImageBackground, ScrollView, StyleSheet,
+  View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQuery } from 'convex/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,14 +11,28 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
-import { getProgramById } from '@/data/programs';
+import { Cover } from '@/components/ui/cover';
+import { api } from '@/lib/api';
+import { formatProgramSchedule, formatTime } from '@/lib/content-format';
 
 export default function ProgramDetailScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const program = getProgramById(id ?? '');
+  const programs = useQuery(api.weeklyPrograms.listActivePrograms);
+  const isLoading = programs === undefined;
+  const program = programs?.find((p) => p._id === id);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: Colors.surface, paddingTop: insets.top }]}>
+        <View style={styles.fallback}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   if (!program) {
     return (
@@ -30,22 +45,17 @@ export default function ProgramDetailScreen() {
     );
   }
 
-  const timeDisplay = [
-    program.day,
-    program.time,
-    program.endTime ? `– ${program.endTime}` : null,
-    program.duration ? `(${program.duration})` : null,
+  const schedule = formatProgramSchedule(program);
+  const timeRange = [
+    program.startTime ? formatTime(program.startTime) : null,
+    program.endTime ? `– ${formatTime(program.endTime)}` : null,
   ].filter(Boolean).join(' ');
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface }]}>
       <StatusBar style="light" />
       {/* Hero Image */}
-      <ImageBackground
-        source={program.image}
-        resizeMode="cover"
-        style={styles.hero}
-      >
+      <Cover uri={program.coverImageUrl} index={0} imageRadius={0} style={styles.hero}>
         <View style={styles.heroScrim}>
           {/* Back button */}
           <Pressable
@@ -62,57 +72,42 @@ export default function ProgramDetailScreen() {
 
           {/* Title on image */}
           <View style={styles.heroContent}>
-            <Text style={styles.heroName}>{program.name}</Text>
+            <Text style={styles.heroName}>{program.title}</Text>
           </View>
         </View>
-      </ImageBackground>
+      </Cover>
 
       {/* Content */}
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing[6] }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Time */}
         <Animated.View entering={FadeInUp.duration(300).delay(100)} style={styles.detailRow}>
           <Ionicons name="time-outline" size={20} color={Colors.primary} />
-          <Text style={[styles.detailText, { color: Colors.onSurface }]}>{timeDisplay}</Text>
+          <Text style={[styles.detailText, { color: Colors.onSurface }]}>
+            {schedule}{timeRange ? `, ${timeRange}` : ''}
+          </Text>
         </Animated.View>
 
         {/* Location */}
-        <Animated.View entering={FadeInUp.duration(300).delay(160)} style={styles.detailRow}>
-          <Ionicons name="location-outline" size={20} color={Colors.primary} />
-          <Text style={[styles.detailText, { color: Colors.onSurface }]}>{program.location}</Text>
-        </Animated.View>
-
-        {/* Online URL */}
-        {program.onlineUrl && (
-          <Animated.View entering={FadeInUp.duration(300).delay(220)} style={styles.detailRow}>
-            <Ionicons name="globe-outline" size={20} color={Colors.primary} />
-            <Text style={[styles.detailText, { color: Colors.onSurface }]}>{program.onlineUrl}</Text>
+        {program.location && (
+          <Animated.View entering={FadeInUp.duration(300).delay(160)} style={styles.detailRow}>
+            <Ionicons name="location-outline" size={20} color={Colors.primary} />
+            <Text style={[styles.detailText, { color: Colors.onSurface }]}>{program.location}</Text>
           </Animated.View>
         )}
 
         {/* Description */}
-        <Animated.View entering={FadeInUp.duration(300).delay(280)} style={styles.descriptionSection}>
-          <Text style={[styles.descriptionLabel, { color: Colors.outline }]}>ABOUT</Text>
-          <Text style={[styles.descriptionText, { color: Colors.onSurface }]}>
-            {program.description}
-          </Text>
-        </Animated.View>
+        {program.description && (
+          <Animated.View entering={FadeInUp.duration(300).delay(220)} style={styles.descriptionSection}>
+            <Text style={[styles.descriptionLabel, { color: Colors.outline }]}>ABOUT</Text>
+            <Text style={[styles.descriptionText, { color: Colors.onSurface }]}>
+              {program.description}
+            </Text>
+          </Animated.View>
+        )}
       </ScrollView>
-
-      {/* Fixed bottom CTA */}
-      <Animated.View
-        entering={FadeInUp.duration(300).delay(350)}
-        style={[styles.bottomBar, { paddingBottom: insets.bottom + Spacing[4], backgroundColor: Colors.surface }]}
-      >
-        <Button
-          label="Clock in"
-          variant="ghost"
-          fullWidth
-          onPress={() => {}}
-        />
-      </Animated.View>
     </View>
   );
 }
@@ -196,14 +191,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 15,
     lineHeight: 24,
-  },
-  // Bottom bar
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: Spacing[5],
-    paddingTop: Spacing[3],
   },
 });

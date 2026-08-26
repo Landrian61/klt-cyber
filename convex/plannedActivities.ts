@@ -7,6 +7,7 @@ import {
   logActivity,
 } from "./lib/authz";
 import { DAY_MS, kampalaParts, occurrenceInstant, ymd } from "./calendar";
+import { weeklyProgramOccursOn } from "./lib/recurrence";
 
 // Year Planner (docs/Admin_Portal.md). Internal planning records, never shown
 // to members — distinct from the member-facing `weeklyPrograms`/`events`
@@ -75,7 +76,8 @@ export const getYearPlannerRange = query({
           occurrenceKey: string;
           programId: string;
           title: string;
-          time: string;
+          startTime: string;
+          endTime?: string;
           location?: string;
         }
       | {
@@ -110,12 +112,14 @@ export const getYearPlannerRange = query({
     for (; dayCursor <= endDate; dayCursor += DAY_MS) {
       const parts = kampalaParts(dayCursor);
       for (const program of programs) {
-        if (program.dayOfWeek !== parts.dayOfWeek) continue;
+        if (!weeklyProgramOccursOn(program, dayCursor, parts)) continue;
+        const startTime = program.startTime ?? program.time;
+        if (!startTime) continue; // shouldn't happen post-migration; defensive
         const instant = occurrenceInstant(
           parts.year,
           parts.month,
           parts.day,
-          program.time
+          startTime
         );
         if (instant < startDate || instant > endDate) continue;
         const date = ymd(parts.year, parts.month, parts.day);
@@ -126,7 +130,8 @@ export const getYearPlannerRange = query({
           occurrenceKey: `${program._id}_${date}`,
           programId: program._id,
           title: program.title,
-          time: program.time,
+          startTime,
+          ...(program.endTime ? { endTime: program.endTime } : {}),
           ...(program.location ? { location: program.location } : {}),
         });
       }

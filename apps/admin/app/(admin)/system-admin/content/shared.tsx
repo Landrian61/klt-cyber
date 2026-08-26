@@ -32,18 +32,6 @@ export function fromDateInput(value: string, endOfDay = false): number {
   return new Date(`${value}${suffix}`).getTime();
 }
 
-/** unix ms → "YYYY-MM-DDTHH:mm" (local) for <input type="datetime-local">. */
-export function toDateTimeInput(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** "YYYY-MM-DDTHH:mm" → unix ms. */
-export function fromDateTimeInput(value: string): number {
-  if (!value) return Number.NaN;
-  return new Date(value).getTime();
-}
-
 /** "12 Jul 2026" */
 export function formatDate(ms: number): string {
   return new Date(ms).toLocaleDateString("en-GB", {
@@ -63,26 +51,6 @@ export function formatDateTime(ms: number): string {
     minute: "2-digit",
   });
 }
-
-export const DAY_OPTIONS = [
-  { value: "0", label: "Sunday" },
-  { value: "1", label: "Monday" },
-  { value: "2", label: "Tuesday" },
-  { value: "3", label: "Wednesday" },
-  { value: "4", label: "Thursday" },
-  { value: "5", label: "Friday" },
-  { value: "6", label: "Saturday" },
-];
-
-export const DAY_LABELS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
 
 /** A labelled form field wrapper. */
 export function Field({
@@ -144,7 +112,7 @@ export function ContentRow({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-md bg-surface-lowest px-4 py-3 shadow-e1">
+    <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-surface-lowest px-4 py-3 shadow-e1">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-body text-sm font-semibold text-on-surface">

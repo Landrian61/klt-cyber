@@ -58,7 +58,7 @@ function StatTile({
   return (
     <Link
       href={href}
-      className="flex flex-col gap-4 rounded-md bg-surface-lowest p-6 shadow-e1 transition-all hover:-translate-y-0.5 hover:shadow-e2"
+      className="flex flex-col gap-4 rounded-md border border-border bg-surface-lowest p-6 shadow-e1 transition-all hover:-translate-y-0.5 hover:shadow-e2"
     >
       <div className="flex items-center justify-between gap-3">
         <span
@@ -124,7 +124,7 @@ export function AdminDashboardClient() {
   const upcoming = [
     ...(programs?.map((p) => ({
       key: `program-${p._id}`,
-      label: DAY_LABELS[p.dayOfWeek],
+      label: DAY_LABELS[p.daysOfWeek?.[0] ?? p.dayOfWeek ?? 0],
       title: p.title,
       recurring: true,
     })) ?? []),

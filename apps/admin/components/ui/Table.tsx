@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // Composable table parts (INTERFACE_SPEC §1.6 tonal layering, §1.7 Editorial
-// Card): the table sits on a lifted parchment shell with the ambient shadow.
-// No borders anywhere — the head is separated by a tonal background shift and
-// rows by padding plus a hover shift.
+// Card): the table shell reads from a hairline border (Hairline Border Rule)
+// plus a whisper of shadow. Inside the shell, rows stay line-free — separated
+// by a tonal head background shift and a hover shift, not row dividers.
 
 export function Table({
   className,
@@ -16,7 +16,7 @@ export function Table({
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-md bg-surface-lowest shadow-e1",
+        "overflow-x-auto rounded-md border border-border bg-surface-lowest shadow-e1",
         className,
       )}
     >

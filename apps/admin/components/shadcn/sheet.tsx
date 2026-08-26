@@ -59,19 +59,19 @@ function SheetContent({
           "fixed z-50 flex flex-col gap-6 bg-card p-6 text-card-foreground shadow-e3 transition ease-in-out",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-400",
           side === "right" &&
-            "inset-y-0 right-0 h-full w-full max-w-md data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+            "inset-y-0 right-0 h-full w-full max-w-md border-l border-border data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
           side === "left" &&
-            "inset-y-0 left-0 h-full w-full max-w-md data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+            "inset-y-0 left-0 h-full w-full max-w-md border-r border-border data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
           side === "top" &&
-            "inset-x-0 top-0 h-auto data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+            "inset-x-0 top-0 h-auto border-b border-border data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
           side === "bottom" &&
-            "inset-x-0 bottom-0 h-auto data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+            "inset-x-0 bottom-0 h-auto border-t border-border data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
           className,
         )}
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-outline transition-colors hover:bg-surface-low hover:text-on-surface focus:outline-none">
+        <SheetPrimitive.Close className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-border text-outline transition-colors hover:bg-surface-low hover:text-on-surface focus:outline-none">
           <X className="h-4 w-4" aria-hidden="true" />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>

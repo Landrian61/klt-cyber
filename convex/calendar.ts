@@ -1,6 +1,7 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { resolveCoverUrls } from "./lib/media";
+import { weeklyProgramOccursOn } from "./lib/recurrence";
 
 // Calendar is a query, not a table — it avoids a redundant store that could
 // drift from `events` / `weeklyPrograms`. It expands active weekly programs into
@@ -47,10 +48,12 @@ export function ymd(year: number, month: number, day: number): string {
 
 /**
  * Merged, sorted calendar for [startDate, endDate] (unix ms, inclusive).
- * Programs are expanded into occurrences only on matching weekdays that fall
- * within the range; each carries a stable `occurrenceKey` of
- * `${programId}_${YYYY-MM-DD}` (per the occurrence-key convention). Events are
- * those whose `startDateTime` falls in range. Both are tagged with `type`.
+ * Programs are expanded into occurrences per their recurrence pattern (see
+ * convex/lib/recurrence.ts — once/weekly/biweekly/monthly, each optionally
+ * bounded by its own startDate/endDate) that fall within the queried range;
+ * each carries a stable `occurrenceKey` of `${programId}_${YYYY-MM-DD}` (per
+ * the occurrence-key convention). Events are those whose `startDateTime`
+ * falls in range. Both are tagged with `type`.
  */
 export const getCalendarRange = query({
   args: { startDate: v.number(), endDate: v.number() },
@@ -82,7 +85,8 @@ export const getCalendarRange = query({
           description?: string;
           location?: string;
           coverImageUrl?: string;
-          time: string;
+          startTime: string;
+          endTime?: string;
           dayOfWeek: number;
           date: string;
         }
@@ -109,12 +113,14 @@ export const getCalendarRange = query({
     for (; dayCursor <= endDate; dayCursor += DAY_MS) {
       const parts = kampalaParts(dayCursor);
       for (const program of programs) {
-        if (program.dayOfWeek !== parts.dayOfWeek) continue;
+        if (!weeklyProgramOccursOn(program, dayCursor, parts)) continue;
+        const startTime = program.startTime ?? program.time;
+        if (!startTime) continue; // shouldn't happen post-migration; defensive
         const instant = occurrenceInstant(
           parts.year,
           parts.month,
           parts.day,
-          program.time
+          startTime
         );
         if (instant < startDate || instant > endDate) continue;
         const date = ymd(parts.year, parts.month, parts.day);
@@ -129,8 +135,9 @@ export const getCalendarRange = query({
           ...(program.coverImageUrl
             ? { coverImageUrl: program.coverImageUrl }
             : {}),
-          time: program.time,
-          dayOfWeek: program.dayOfWeek,
+          startTime,
+          ...(program.endTime ? { endTime: program.endTime } : {}),
+          dayOfWeek: parts.dayOfWeek,
           date,
         });
       }

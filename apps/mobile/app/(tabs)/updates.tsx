@@ -1,5 +1,6 @@
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from 'convex/react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -11,20 +12,15 @@ import { FontFamily, Spacing, Radius, Duration, HeavenGradient, ShadowE2 } from 
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  getPinnedAnnouncements,
-  getRegularAnnouncements,
-  type Announcement,
-} from '@/data/announcements';
+import { api, type Doc } from '@/lib/api';
+import { formatFullDate } from '@/lib/content-format';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const CATEGORY_BADGE: Record<string, { label: string; variant: 'member' | 'priority' | 'pastoral' | 'hod' | 'visitor' }> = {
-  general: { label: 'General', variant: 'member' },
-  program: { label: 'Program', variant: 'pastoral' },
-  event: { label: 'Event', variant: 'hod' },
-  admin: { label: 'Admin', variant: 'visitor' },
-  youth: { label: 'Youth', variant: 'member' },
+const PRIORITY_BADGE: Record<string, { label: string; variant: 'priority' | 'member' | 'pending' }> = {
+  high: { label: 'Priority', variant: 'priority' },
+  normal: { label: 'Update', variant: 'member' },
+  low: { label: 'Notice', variant: 'pending' },
 };
 
 function AnnouncementCard({
@@ -32,7 +28,7 @@ function AnnouncementCard({
   index,
   onPress,
 }: {
-  item: Announcement;
+  item: Doc<'announcements'>;
   index: number;
   onPress: () => void;
 }) {
@@ -41,8 +37,7 @@ function AnnouncementCard({
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
-  const badge = CATEGORY_BADGE[item.category];
-  const hasLink = !!item.linkedProgramId || !!item.linkedEventId;
+  const badge = PRIORITY_BADGE[item.priority ?? 'normal'];
 
   return (
     // Wrapper carries the entering animation; press-scale stays on the pressable.
@@ -68,10 +63,8 @@ function AnnouncementCard({
           {item.body}
         </Text>
         <View style={styles.announcementFooter}>
-          <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
-          {hasLink && (
-            <Ionicons name="chevron-forward" size={16} color={Colors.outline} />
-          )}
+          <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
+          <Ionicons name="chevron-forward" size={16} color={Colors.outline} />
         </View>
       </AnimatedPressable>
     </Animated.View>
@@ -81,8 +74,13 @@ function AnnouncementCard({
 function UpdatesScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
-  const pinned = getPinnedAnnouncements();
-  const regular = getRegularAnnouncements();
+  const announcements = useQuery(api.announcements.listActiveAnnouncements);
+  const isLoading = announcements === undefined;
+
+  // "Pinned" isn't a stored flag — the highest-priority announcements read
+  // as pinned, matching the priority badge shown everywhere else.
+  const pinned = (announcements ?? []).filter((a) => a.priority === 'high');
+  const regular = (announcements ?? []).filter((a) => a.priority !== 'high');
 
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -104,10 +102,16 @@ function UpdatesScreen() {
             />
             <Text style={styles.heroLabel}>WEEKLY</Text>
             <Text style={styles.heroTitle}>KLT Announcements</Text>
-            <Text style={styles.heroDate}>Week of 29 March 2026 · Shalom, Saints!</Text>
+            <Text style={styles.heroDate}>Shalom, Saints!</Text>
           </LinearGradient>
         </View>
       </Animated.View>
+
+      {isLoading && (
+        <View style={styles.loading}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      )}
 
       {/* Pinned Announcements */}
       {pinned.length > 0 && (
@@ -115,10 +119,10 @@ function UpdatesScreen() {
           <Text style={[styles.sectionLabel, { color: Colors.onSurface }]}>Pinned</Text>
           {pinned.map((item) => (
             <Pressable
-              key={item.id}
+              key={item._id}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push(`/announcement-detail?id=${item.id}`);
+                router.push(`/announcement-detail?id=${item._id}`);
               }}
             >
               <Card variant="priority" style={styles.pinnedCard}>
@@ -129,7 +133,7 @@ function UpdatesScreen() {
                 <Text style={[styles.pinnedBody, { color: Colors.onSurfaceVariant }]} numberOfLines={4}>
                   {item.body}
                 </Text>
-                <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
+                <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
               </Card>
             </Pressable>
           ))}
@@ -137,18 +141,30 @@ function UpdatesScreen() {
       )}
 
       {/* All Announcements */}
-      <Animated.View entering={FadeInUp.duration(400).delay(320)} style={[styles.section, { marginTop: Spacing[6] }]}>
-        <Text style={[styles.sectionLabel, { color: Colors.onSurface }]}>All announcements</Text>
-      </Animated.View>
-      {regular.map((item, index) => (
-        <View key={item.id} style={styles.announcementPad}>
-          <AnnouncementCard
-            item={item}
-            index={index}
-            onPress={() => router.push(`/announcement-detail?id=${item.id}`)}
-          />
-        </View>
-      ))}
+      {!isLoading && (
+        <>
+          <Animated.View entering={FadeInUp.duration(400).delay(320)} style={[styles.section, { marginTop: Spacing[6] }]}>
+            <Text style={[styles.sectionLabel, { color: Colors.onSurface }]}>All announcements</Text>
+          </Animated.View>
+          {regular.length > 0 ? (
+            regular.map((item, index) => (
+              <View key={item._id} style={styles.announcementPad}>
+                <AnnouncementCard
+                  item={item}
+                  index={index}
+                  onPress={() => router.push(`/announcement-detail?id=${item._id}`)}
+                />
+              </View>
+            ))
+          ) : pinned.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="megaphone-outline" size={40} color={Colors.outline} />
+              <Text style={[styles.emptyTitle, { color: Colors.onSurfaceVariant }]}>No announcements right now</Text>
+              <Text style={[styles.emptySubtitle, { color: Colors.outline }]}>New announcements from the church office will show up here.</Text>
+            </View>
+          ) : null}
+        </>
+      )}
 
       <View style={{ height: Spacing[6] }} />
     </ScrollView>
@@ -164,6 +180,10 @@ export default function UpdatesTab() {
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
+  },
+  loading: {
+    paddingVertical: Spacing[8],
+    alignItems: 'center',
   },
   section: {
     paddingHorizontal: Spacing[5],
@@ -271,5 +291,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15.4,
     marginTop: Spacing[2],
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: Spacing[10],
+    paddingHorizontal: Spacing[8],
+  },
+  emptyTitle: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: Spacing[3],
+  },
+  emptySubtitle: {
+    fontFamily: FontFamily.body,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: Spacing[1],
+    textAlign: 'center',
   },
 });

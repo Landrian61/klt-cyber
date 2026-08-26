@@ -23,8 +23,10 @@ import type * as departments from "../departments.js";
 import type * as events from "../events.js";
 import type * as facilities from "../facilities.js";
 import type * as http from "../http.js";
+import type * as leadershipMigration from "../leadershipMigration.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_media from "../lib/media.js";
+import type * as lib_recurrence from "../lib/recurrence.js";
 import type * as memberProfiles from "../memberProfiles.js";
 import type * as plannedActivities from "../plannedActivities.js";
 import type * as profile from "../profile.js";
@@ -34,6 +36,7 @@ import type * as themes from "../themes.js";
 import type * as uploads from "../uploads.js";
 import type * as users from "../users.js";
 import type * as weeklyPrograms from "../weeklyPrograms.js";
+import type * as weeklyProgramsMigration from "../weeklyProgramsMigration.js";
 
 import type {
   ApiFromModules,
@@ -57,8 +60,10 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   facilities: typeof facilities;
   http: typeof http;
+  leadershipMigration: typeof leadershipMigration;
   "lib/authz": typeof lib_authz;
   "lib/media": typeof lib_media;
+  "lib/recurrence": typeof lib_recurrence;
   memberProfiles: typeof memberProfiles;
   plannedActivities: typeof plannedActivities;
   profile: typeof profile;
@@ -68,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   uploads: typeof uploads;
   users: typeof users;
   weeklyPrograms: typeof weeklyPrograms;
+  weeklyProgramsMigration: typeof weeklyProgramsMigration;
 }>;
 
 /**

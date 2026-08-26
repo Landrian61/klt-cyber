@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // Filter row (INTERFACE_SPEC §1.7 Badges & Pills, Segmented Controls, Text
-// Link): tonal pills and a gold-gradient segmented control — separation by
-// background shift, never a border.
+// Link): tonal pills and a gold-gradient segmented control, each with a
+// hairline border (Hairline Border Rule).
 
 export interface FilterBarProps {
   children: ReactNode;
@@ -49,7 +49,7 @@ export function FilterChip({ selected, onClick, children }: FilterChipProps) {
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        "h-9 rounded-full px-4 font-body text-sm font-medium transition-colors",
+        "h-9 rounded-full border border-border px-4 font-body text-sm font-medium transition-colors",
         selected
           ? "bg-primary-dim text-primary"
           : "bg-surface-low text-on-surface-variant hover:bg-surface-high",
@@ -77,7 +77,7 @@ export function SegmentedFilter({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="inline-flex rounded-full bg-surface-low p-1"
+      className="inline-flex rounded-full border border-border bg-surface-low p-1"
     >
       {options.map((option) => {
         const active = option.value === value;

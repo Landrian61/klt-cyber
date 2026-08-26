@@ -1,7 +1,8 @@
 import {
-  View, Text, Pressable, ImageBackground, ScrollView, StyleSheet,
+  View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQuery } from 'convex/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,14 +11,28 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
-import { getEventById } from '@/data/programs';
+import { Cover } from '@/components/ui/cover';
+import { api } from '@/lib/api';
+import { formatFullDate, formatClockTime } from '@/lib/content-format';
 
 export default function EventDetailScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const event = getEventById(id ?? '');
+  const events = useQuery(api.events.listUpcomingEvents, {});
+  const isLoading = events === undefined;
+  const event = events?.find((e) => e._id === id);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: Colors.surface, paddingTop: insets.top }]}>
+        <View style={styles.fallback}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   if (!event) {
     return (
@@ -30,15 +45,13 @@ export default function EventDetailScreen() {
     );
   }
 
+  const timeRange = `${formatClockTime(event.startDateTime)} – ${formatClockTime(event.endDateTime)}`;
+
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface }]}>
       <StatusBar style="light" />
       {/* Hero Image */}
-      <ImageBackground
-        source={event.image}
-        resizeMode="cover"
-        style={styles.hero}
-      >
+      <Cover uri={event.coverImageUrl} index={0} imageRadius={0} style={styles.hero}>
         <View style={styles.heroScrim}>
           <Pressable
             onPress={() => router.back()}
@@ -53,10 +66,10 @@ export default function EventDetailScreen() {
           </Pressable>
 
           <View style={styles.heroContent}>
-            <Text style={styles.heroName}>{event.name}</Text>
+            <Text style={styles.heroName}>{event.title}</Text>
           </View>
         </View>
-      </ImageBackground>
+      </Cover>
 
       {/* Content */}
       <ScrollView
@@ -66,28 +79,32 @@ export default function EventDetailScreen() {
         {/* Date */}
         <Animated.View entering={FadeInUp.duration(300).delay(100)} style={styles.detailRow}>
           <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
-          <Text style={[styles.detailText, { color: Colors.onSurface }]}>{event.dateRange}</Text>
+          <Text style={[styles.detailText, { color: Colors.onSurface }]}>{formatFullDate(event.startDateTime)}</Text>
         </Animated.View>
 
         {/* Time */}
         <Animated.View entering={FadeInUp.duration(300).delay(160)} style={styles.detailRow}>
           <Ionicons name="time-outline" size={20} color={Colors.primary} />
-          <Text style={[styles.detailText, { color: Colors.onSurface }]}>{event.time}</Text>
+          <Text style={[styles.detailText, { color: Colors.onSurface }]}>{timeRange}</Text>
         </Animated.View>
 
         {/* Location */}
-        <Animated.View entering={FadeInUp.duration(300).delay(220)} style={styles.detailRow}>
-          <Ionicons name="location-outline" size={20} color={Colors.primary} />
-          <Text style={[styles.detailText, { color: Colors.onSurface }]}>{event.location}</Text>
-        </Animated.View>
+        {event.location && (
+          <Animated.View entering={FadeInUp.duration(300).delay(220)} style={styles.detailRow}>
+            <Ionicons name="location-outline" size={20} color={Colors.primary} />
+            <Text style={[styles.detailText, { color: Colors.onSurface }]}>{event.location}</Text>
+          </Animated.View>
+        )}
 
         {/* Description */}
-        <Animated.View entering={FadeInUp.duration(300).delay(280)} style={styles.descriptionSection}>
-          <Text style={[styles.descriptionLabel, { color: Colors.outline }]}>ABOUT</Text>
-          <Text style={[styles.descriptionText, { color: Colors.onSurface }]}>
-            {event.description}
-          </Text>
-        </Animated.View>
+        {event.description && (
+          <Animated.View entering={FadeInUp.duration(300).delay(280)} style={styles.descriptionSection}>
+            <Text style={[styles.descriptionLabel, { color: Colors.outline }]}>ABOUT</Text>
+            <Text style={[styles.descriptionText, { color: Colors.onSurface }]}>
+              {event.description}
+            </Text>
+          </Animated.View>
+        )}
       </ScrollView>
     </View>
   );

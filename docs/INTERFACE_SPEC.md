@@ -98,9 +98,11 @@ The three sacred KLT colours — **Gold, Red, Blue** (from the Kingdom Life Tabe
 --color-unread:             #C10810   /* unread counts are red */
 ```
 
-#### The "No-Line" Rule
+#### The "No-Line" Rule (mobile)
 
-**1px solid high-contrast borders are strictly prohibited throughout the entire application.**
+**1px solid high-contrast borders are strictly prohibited throughout the mobile app.**
+
+> **Web admin diverges here.** As of the card-height/shadow pass (Aug 2026), `apps/admin` replaced this with the **Hairline Border Rule**: structure reads primarily from a low-opacity warm-ink border (`--color-border` / `border-border`), with only a whisper of shadow behind it — the earlier all-shadow approach (12–26px blue-tinted glows) read as heavy. This section still governs the mobile app unchanged; see the `klt-cyber-web-ui` skill and `apps/admin/app/globals.css`'s Elevation comment for the web admin specifics.
 
 Boundaries are defined exclusively by:
 1. **Background Shifts:** A `--color-surface-lowest` card on a `--color-surface` page. The tonal difference defines the edge.
@@ -1171,7 +1173,7 @@ Every list or data area that can be empty must have a designed empty state:
 - Use more than two typefaces on one screen.
 - Use `--font-mono` outside of amounts, timers, and reference numbers.
 
-### 12.8 The "No-Line" Enforcement
+### 12.8 The "No-Line" Enforcement (mobile — see §1.2 for the web admin's Hairline Border Rule)
 
 Before writing any `border: 1px solid`, stop. Ask:
 1. Can I use a background shift instead? (`--color-surface-low` vs `--color-surface-lowest`)

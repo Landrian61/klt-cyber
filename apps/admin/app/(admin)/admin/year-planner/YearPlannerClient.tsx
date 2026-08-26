@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Id } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { Heading } from "@/components/ui/Heading";
 import { Button } from "@/components/shadcn/button";
 import { SegmentedFilter } from "@/components/ui/FilterBar";
@@ -23,6 +24,7 @@ import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
 import { DayPopup } from "./DayPopup";
 import { ActivityDialog, type EditingActivity } from "./ActivityDialog";
+import { PLANNER_TYPE_COLOR, PLANNER_TYPES } from "./plannerColors";
 import type { ActivityItem, PlannerItem, PlannerView } from "./types";
 
 // Timezone note (spec-accepted v1 simplification): every date here is plain
@@ -152,6 +154,23 @@ export function YearPlannerClient() {
             <ChevronRight className="size-4" />
           </Button>
         </div>
+      </div>
+
+      {/* Legend for the color-coded chips (plannerColors.ts) — mirrors the
+          reference layout's type key so the mapping is discoverable rather
+          than assumed. */}
+      <div className="flex flex-wrap items-center justify-end gap-4">
+        {PLANNER_TYPES.map((type) => (
+          <div key={type} className="flex items-center gap-1.5">
+            <span
+              className={cn("h-2 w-2 rounded-full", PLANNER_TYPE_COLOR[type].dot)}
+              aria-hidden="true"
+            />
+            <span className="font-body text-xs text-on-surface-variant">
+              {PLANNER_TYPE_COLOR[type].label}
+            </span>
+          </div>
+        ))}
       </div>
 
       {items === undefined ? (
