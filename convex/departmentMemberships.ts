@@ -9,7 +9,6 @@ import {
   requireDepartmentAuthority,
   requireDepartmentHod,
   isActiveSystemAdmin,
-  hasActiveDepartmentRole,
   getActiveRoles,
   getAdministrationDepartmentId,
   logActivity,
@@ -350,7 +349,26 @@ export const getDepartmentAccess = query({
   args: { departmentId: v.id("departments") },
   handler: async (ctx, { departmentId }) => {
     const actor = await requireUser(ctx);
-    const isSystemAdmin = await isActiveSystemAdmin(ctx, actor._id);
+    const activeRoles = await getActiveRoles(ctx, actor._id);
+
+    // The web portal authorization invariant (docs/DATA_MODEL.md): a portal
+    // session is valid only when the caller holds >=1 active roleAssignments
+    // record. Enforced HERE, not just in routing.
+    //
+    // This used to be carried entirely by middleware, which is why the check
+    // below could pass on roster membership alone. It cannot: roster
+    // membership is not authority (see the note at the top of this file), and
+    // `submitProfile` self-inserts roster rows for ordinary members who hold
+    // no role at all. Such a member belongs in the mobile app; without this
+    // check, moving the role gate out of middleware would let them into the
+    // portal.
+    if (activeRoles.length === 0) {
+      throw new Error("Not authorized to view this department");
+    }
+
+    const isSystemAdmin = activeRoles.some(
+      (role) => role.roleType === "system_admin"
+    );
 
     if (!isSystemAdmin) {
       const isMember = await ctx.db
@@ -360,11 +378,12 @@ export const getDepartmentAccess = query({
         )
         .filter((q) => q.eq(q.field("departmentId"), departmentId))
         .first();
-      const hasAuthority = await hasActiveDepartmentRole(
-        ctx,
-        actor._id,
-        departmentId,
-        ["hod", "department_admin"]
+      // Derived from the roles we already loaded rather than a second indexed
+      // read, which is what hasActiveDepartmentRole would have cost.
+      const hasAuthority = activeRoles.some(
+        (role) =>
+          (role.roleType === "hod" || role.roleType === "department_admin") &&
+          role.departmentId === departmentId
       );
       if (!isMember && !hasAuthority) {
         throw new Error("Not authorized to view this department");
