@@ -308,7 +308,7 @@ export function EventDialog({
             absorb all the size variation via its own scroll. */}
         <AnimatedDialogContent
           open={open}
-          className="grid h-[640px] max-w-3xl grid-rows-[auto_1fr_auto] gap-4"
+          className="grid h-[640px] max-w-4xl grid-rows-[auto_1fr_auto] gap-4"
         >
           <DialogHeader>
             <DialogTitle>{event ? event.title : "Add event"}</DialogTitle>
@@ -324,15 +324,15 @@ export function EventDialog({
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="edit">Edit</TabsTrigger>
               </TabsList>
-              <TabsContent value="overview" className="min-h-0 overflow-y-auto pr-1">
+              <TabsContent value="overview" className="min-h-0 overflow-y-auto px-1">
                 <EventOverview event={event} />
               </TabsContent>
-              <TabsContent value="edit" className="min-h-0 overflow-y-auto pr-1">
+              <TabsContent value="edit" className="min-h-0 overflow-y-auto px-1">
                 {editForm}
               </TabsContent>
             </Tabs>
           ) : (
-            <div className="min-h-0 overflow-y-auto pr-1">{editForm}</div>
+            <div className="min-h-0 overflow-y-auto px-1">{editForm}</div>
           )}
 
           <DialogFooter>
