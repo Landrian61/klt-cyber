@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { MAX_ACTIVE_DEPARTMENTS } from "@klt-cyber/shared";
@@ -10,6 +11,7 @@ import {
   isActiveSystemAdmin,
   hasActiveDepartmentRole,
   getActiveRoles,
+  getAdministrationDepartmentId,
   logActivity,
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
@@ -129,16 +131,47 @@ export const removeDepartmentMember = mutation({
   },
 });
 
-/** Active roster of a single department. */
+/**
+ * Which department a roster read is about: the explicit `departmentId` when
+ * one is given, otherwise the fixed "Administration" department resolved
+ * server-side.
+ *
+ * The admin portal's own roster screens are always about Administration, but
+ * the client had no way to name it without first fetching all 13 departments
+ * and matching on `name` — a second, dependent round trip before the roster
+ * query could even start, each hop paying the full authz gate. Resolving it
+ * here collapses that to one call. Returns null when Administration has not
+ * been seeded yet, matching the "reactive queries resolve rather than throw"
+ * convention used across this file.
+ */
+async function resolveRosterDepartment(
+  ctx: QueryCtx,
+  departmentId?: Id<"departments">
+) {
+  const id = departmentId ?? (await getAdministrationDepartmentId(ctx));
+  return id ? await ctx.db.get(id) : null;
+}
+
+/**
+ * Active roster of a single department, plus the department itself so callers
+ * don't need a separate lookup for its name. Omit `departmentId` to get the
+ * Administration department's roster.
+ */
 export const listDepartmentMembers = query({
-  args: { departmentId: v.id("departments") },
-  handler: async (ctx, { departmentId }) =>
-    await ctx.db
+  args: { departmentId: v.optional(v.id("departments")) },
+  handler: async (ctx, { departmentId }) => {
+    const department = await resolveRosterDepartment(ctx, departmentId);
+    if (!department) return null;
+
+    const members = await ctx.db
       .query("departmentMemberships")
       .withIndex("by_departmentId_status", (q) =>
-        q.eq("departmentId", departmentId).eq("status", "active")
+        q.eq("departmentId", department._id).eq("status", "active")
       )
-      .collect(),
+      .collect();
+
+    return { department, members };
+  },
 });
 
 /**
@@ -148,7 +181,8 @@ export const listDepartmentMembers = query({
  * profile data) — this is what roster/roster-detail screens actually render;
  * kept as a separate query rather than changing `listDepartmentMembers`'
  * shape since other callers (e.g. the dashboard's member count) only need
- * the bare rows. `profile` is null only if a membership row outlives its
+ * the bare rows. Omit `departmentId` for the Administration department, same
+ * as `listDepartmentMembers`. `profile` is null only if a membership row outlives its
  * profile (shouldn't happen — a profile row and its membership rows are
  * always created together, whether admin-added via `addDepartmentMember`
  * or self-added via `submitProfile` — but this is a live subscription, not
@@ -157,16 +191,19 @@ export const listDepartmentMembers = query({
  * appear on the roster before Church Admin verifies their profile.
  */
 export const listDepartmentMembersWithProfiles = query({
-  args: { departmentId: v.id("departments") },
+  args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, { departmentId }) => {
+    const department = await resolveRosterDepartment(ctx, departmentId);
+    if (!department) return null;
+
     const memberships = await ctx.db
       .query("departmentMemberships")
       .withIndex("by_departmentId_status", (q) =>
-        q.eq("departmentId", departmentId).eq("status", "active")
+        q.eq("departmentId", department._id).eq("status", "active")
       )
       .collect();
 
-    return await Promise.all(
+    const members = await Promise.all(
       memberships.map(async (membership) => {
         const [profile, user, addedByUser] = await Promise.all([
           ctx.db
@@ -189,6 +226,8 @@ export const listDepartmentMembersWithProfiles = query({
         };
       })
     );
+
+    return { department, members };
   },
 });
 
