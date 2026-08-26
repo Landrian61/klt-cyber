@@ -1,6 +1,7 @@
 import {
-  ScrollView, View, Text, Pressable, Image, ImageBackground, StyleSheet, Linking,
+  ScrollView, View, Text, Pressable, Image, StyleSheet, Linking,
 } from 'react-native';
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -11,29 +12,17 @@ import * as Haptics from 'expo-haptics';
 import { FontFamily, Spacing, Radius, Duration, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Cover } from '@/components/ui/cover';
 import { ProfileCompletionBanner } from '@/components/profile-completion-banner';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getGreetingName } from '@/lib/user-display';
 import { api, type Doc } from '@/lib/api';
-import { formatEventDate, formatClockTime, formatFullDate } from '@/lib/content-format';
 import {
-  getThisWeekPrograms, UPCOMING_EVENTS, type Program, type UpcomingEvent,
-} from '@/data/programs';
+  formatEventDate, formatClockTime, formatFullDate, formatTime, dayName,
+} from '@/lib/content-format';
 
-// Warm gold/crimson/blue gradients — the tonal fallback behind any content
-// card that has no cover image (keeps the parchment page from showing a bare
-// dark scrim). Picked deterministically per card index so a list reads varied.
-const COVER_GRADIENTS: [string, string][] = [
-  ['#12306E', '#2C63D9'], // heaven blue
-  ['#C10810', '#7A4E04'], // red → gold
-  ['#7A4E04', '#C47F08'], // gold
-  ['#0C2154', '#12306E'], // deep blue
-  ['#C10810', '#7A0509'], // deep red
-];
-
-function gradientFor(index: number): [string, string] {
-  return COVER_GRADIENTS[index % COVER_GRADIENTS.length];
-}
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function getFormattedDate(): string {
   return new Date().toLocaleDateString('en-GB', {
@@ -42,36 +31,6 @@ function getFormattedDate(): string {
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-/** A cover surface: the remote image when present, else a tonal gradient. */
-function Cover({
-  uri, index, style, imageRadius, children,
-}: {
-  uri?: string;
-  index: number;
-  style: object;
-  imageRadius: number;
-  children: React.ReactNode;
-}) {
-  if (uri) {
-    return (
-      <ImageBackground
-        source={{ uri }}
-        resizeMode="cover"
-        style={style}
-        imageStyle={{ borderRadius: imageRadius, backgroundColor: '#2B2A25' }}
-      >
-        {children}
-      </ImageBackground>
-    );
-  }
-  const [from, to] = gradientFor(index);
-  return (
-    <LinearGradient colors={[from, to]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[style, { borderRadius: imageRadius }]}>
-      {children}
-    </LinearGradient>
-  );
-}
 
 // ── Section 1: Theme banner (annual + monthly, scripture, cover) ──────────────
 
@@ -137,12 +96,31 @@ function ThemeBanner({ themes }: { themes: { annual: Doc<'themes'> | null; month
   );
 }
 
-// ── Section 2: Weekly programs ────────────────────────────────────────────────
+// ── Section 2: Weekly programs ("This week") ──────────────────────────────────
 
-function ProgramCard({ program, index }: { program: Program; index: number }) {
+/** One expanded occurrence from api.calendar.getCalendarRange, narrowed to
+ * type "program" — a recurring/one-time program landing on a specific day
+ * within the queried range. */
+interface ProgramOccurrence {
+  type: 'program';
+  start: number;
+  occurrenceKey: string;
+  programId: string;
+  title: string;
+  description?: string;
+  location?: string;
+  coverImageUrl?: string;
+  startTime: string;
+  endTime?: string;
+  dayOfWeek: number;
+  date: string;
+}
+
+function ProgramCard({ program, index }: { program: ProgramOccurrence; index: number }) {
   const router = useRouter();
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const schedule = `${dayName(program.dayOfWeek)}, ${formatTime(program.startTime)}`;
   return (
     <Animated.View entering={FadeInUp.duration(300).delay(200 + index * 60)}>
       <AnimatedPressable
@@ -150,25 +128,18 @@ function ProgramCard({ program, index }: { program: Program; index: number }) {
         onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push(`/program-detail?id=${program.id}`);
+          router.push(`/program-detail?id=${program.programId}`);
         }}
         style={[styles.programCard, animatedStyle]}
         accessibilityRole="button"
-        accessibilityLabel={`${program.name}, ${program.day}${program.time ? `, ${program.time}` : ''}`}
+        accessibilityLabel={`${program.title}, ${schedule}`}
       >
-        <ImageBackground
-          source={program.image}
-          resizeMode="cover"
-          style={styles.programCardImage}
-          imageStyle={{ borderRadius: Radius.lg, backgroundColor: '#2B2A25' }}
-        >
+        <Cover uri={program.coverImageUrl} index={index} imageRadius={Radius.lg} style={styles.programCardImage}>
           <View style={styles.programCardScrim}>
-            <Text style={styles.programCardName} numberOfLines={1}>{program.name}</Text>
-            <Text style={styles.programCardTime} numberOfLines={1}>
-              {program.day}{program.time ? `, ${program.time}` : ''}
-            </Text>
+            <Text style={styles.programCardName} numberOfLines={1}>{program.title}</Text>
+            <Text style={styles.programCardTime} numberOfLines={1}>{schedule}</Text>
           </View>
-        </ImageBackground>
+        </Cover>
       </AnimatedPressable>
     </Animated.View>
   );
@@ -176,11 +147,17 @@ function ProgramCard({ program, index }: { program: Program; index: number }) {
 
 // ── Section 3 & 4: Events ─────────────────────────────────────────────────────
 
-function EventCard({ event, index }: { event: UpcomingEvent; index: number }) {
+/** Convex-backed event card (remote cover, tonal-gradient fallback). Used for
+ * both the "Upcoming events" row and the "Featured" slider — `size` only
+ * changes the card's footprint. */
+function EventCard({
+  event, index, size = 'default',
+}: { event: Doc<'events'>; index: number; size?: 'default' | 'featured' }) {
   const Colors = useThemeColors();
   const router = useRouter();
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const cardStyle = size === 'featured' ? styles.featuredCard : styles.eventCard;
   return (
     <Animated.View entering={FadeInUp.duration(300).delay(200 + index * 60)}>
       <AnimatedPressable
@@ -188,66 +165,28 @@ function EventCard({ event, index }: { event: UpcomingEvent; index: number }) {
         onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push(`/event-detail?id=${event.id}`);
+          router.push(`/event-detail?id=${event._id}`);
         }}
-        style={[styles.eventCard, animatedStyle]}
+        style={[cardStyle, animatedStyle]}
         accessibilityRole="button"
-        accessibilityLabel={`${event.name}, ${event.dateRange}`}
+        accessibilityLabel={`${event.title}, ${formatEventDate(event.startDateTime)}`}
       >
-        <ImageBackground
-          source={event.image}
-          resizeMode="cover"
-          style={styles.eventCardImage}
-          imageStyle={{ borderRadius: Radius.lg, backgroundColor: '#2B2A25' }}
-        >
+        <Cover uri={event.coverImageUrl} index={index + 1} imageRadius={Radius.lg} style={styles.eventCardImage}>
           <View style={styles.eventCardScrim}>
             <View style={[styles.eventDatePill, { backgroundColor: Colors.primaryLight }]}>
               <Text style={[styles.eventDateText, { color: Colors.primary }]} numberOfLines={1}>
-                {event.dateRange}
+                {formatEventDate(event.startDateTime)}
               </Text>
             </View>
             <View>
-              <Text style={styles.eventCardName} numberOfLines={2}>{event.name}</Text>
-              {event.location ? (
-                <Text style={styles.eventCardMeta} numberOfLines={1}>{event.location}</Text>
-              ) : null}
+              <Text style={styles.eventCardName} numberOfLines={2}>{event.title}</Text>
+              <Text style={styles.eventCardMeta} numberOfLines={1}>
+                {formatClockTime(event.startDateTime)}{event.location ? ` · ${event.location}` : ''}
+              </Text>
             </View>
           </View>
-        </ImageBackground>
+        </Cover>
       </AnimatedPressable>
-    </Animated.View>
-  );
-}
-
-/** Convex-backed featured slider card (remote cover, tonal-gradient fallback). */
-function FeaturedEventCard({ event, index }: { event: Doc<'events'>; index: number }) {
-  const Colors = useThemeColors();
-  return (
-    <Animated.View
-      entering={FadeInUp.duration(300).delay(200 + index * 60)}
-      style={styles.featuredCard}
-      accessibilityRole="text"
-      accessibilityLabel={`${event.title}, ${formatEventDate(event.startDateTime)}`}
-    >
-      <Cover uri={event.coverImageUrl} index={index + 1} imageRadius={Radius.lg} style={styles.eventCardImage}>
-        <View style={styles.eventCardScrim}>
-          <View style={[styles.eventDatePill, { backgroundColor: Colors.primaryLight }]}>
-            <Text style={[styles.eventDateText, { color: Colors.primary }]}>
-              {formatEventDate(event.startDateTime)}
-            </Text>
-          </View>
-          <View>
-            <Text style={styles.eventCardName} numberOfLines={2}>{event.title}</Text>
-            {event.location ? (
-              <Text style={styles.eventCardMeta} numberOfLines={1}>
-                {formatClockTime(event.startDateTime)} · {event.location}
-              </Text>
-            ) : (
-              <Text style={styles.eventCardMeta} numberOfLines={1}>{formatClockTime(event.startDateTime)}</Text>
-            )}
-          </View>
-        </View>
-      </Cover>
     </Animated.View>
   );
 }
@@ -307,18 +246,25 @@ function AnnouncementCard({ item, index }: { item: Doc<'announcements'>; index: 
 
 export default function HomeScreen() {
   const Colors = useThemeColors();
+  const router = useRouter();
   const { user } = useMyAccount();
   const greetingName = getGreetingName(user);
 
-  // Themes, featured events and announcements come from Convex; the weekly
-  // programs and upcoming events are served from bundled content (local images,
-  // ids that map to the /program-detail and /event-detail screens).
   const themes = useQuery(api.themes.getCurrentThemes);
   const featured = useQuery(api.events.listFeaturedEvents);
   const announcements = useQuery(api.announcements.listActiveAnnouncements);
 
-  const weeklyPrograms = getThisWeekPrograms(6);
-  const upcomingEvents = UPCOMING_EVENTS.slice(0, 6);
+  // "This week" — weekly-program occurrences (each recurring program expanded
+  // per its own pattern) over the next 7 days. The range is memoized so the
+  // query args stay referentially stable across re-renders — otherwise a new
+  // Date.now() on every render would resubscribe the query each time.
+  const weekRange = useMemo(() => ({ startDate: Date.now(), endDate: Date.now() + WEEK_MS }), []);
+  const calendar = useQuery(api.calendar.getCalendarRange, weekRange);
+  const weekPrograms = (
+    calendar?.filter((item): item is ProgramOccurrence => item.type === 'program') ?? []
+  ).slice(0, 8);
+
+  const upcomingEvents = useQuery(api.events.listUpcomingEvents, { limit: 8 });
 
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -338,25 +284,35 @@ export default function HomeScreen() {
           nothing once verified. */}
       <ProfileCompletionBanner />
 
-      {/* Section 2 — Weekly programs (bundled content) */}
-      <Animated.View entering={FadeInUp.duration(400).delay(240)} style={styles.sectionHeaderRow}>
-        <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>This week</Text>
-      </Animated.View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsRow}>
-        {weeklyPrograms.map((program, index) => (
-          <ProgramCard key={program.id} program={program} index={index} />
-        ))}
-      </ScrollView>
+      {/* Section 2 — This week's programs (Convex: calendar.getCalendarRange) */}
+      {weekPrograms.length > 0 && (
+        <>
+          <Animated.View entering={FadeInUp.duration(400).delay(240)} style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>This week</Text>
+            <Button label="See all" variant="textLink" onPress={() => router.push('/programs')} />
+          </Animated.View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsRow}>
+            {weekPrograms.map((program, index) => (
+              <ProgramCard key={program.occurrenceKey} program={program} index={index} />
+            ))}
+          </ScrollView>
+        </>
+      )}
 
-      {/* Section 3 — Upcoming events (bundled content) */}
-      <Animated.View entering={FadeInUp.duration(400).delay(320)} style={styles.sectionHeaderRow}>
-        <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Upcoming events</Text>
-      </Animated.View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsRow}>
-        {upcomingEvents.map((event, index) => (
-          <EventCard key={event.id} event={event} index={index} />
-        ))}
-      </ScrollView>
+      {/* Section 3 — Upcoming events (Convex: events.listUpcomingEvents) */}
+      {upcomingEvents && upcomingEvents.length > 0 && (
+        <>
+          <Animated.View entering={FadeInUp.duration(400).delay(320)} style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Upcoming events</Text>
+            <Button label="See all" variant="textLink" onPress={() => router.push('/events')} />
+          </Animated.View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsRow}>
+            {upcomingEvents.map((event, index) => (
+              <EventCard key={event._id} event={event} index={index} />
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       {/* Section 4 — Featured events slider */}
       {featured && featured.length > 0 && (
@@ -366,7 +322,7 @@ export default function HomeScreen() {
           </Animated.View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsRow}>
             {featured.map((event, index) => (
-              <FeaturedEventCard key={event._id} event={event} index={index} />
+              <EventCard key={event._id} event={event} index={index} size="featured" />
             ))}
           </ScrollView>
         </>
@@ -496,5 +452,4 @@ const styles = StyleSheet.create({
   linkChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   linkChipText: { fontFamily: FontFamily.bodySemiBold, fontSize: 13, lineHeight: 18 },
   announcementDate: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 15.4, marginTop: Spacing[3] },
-  // Ministry
 });
