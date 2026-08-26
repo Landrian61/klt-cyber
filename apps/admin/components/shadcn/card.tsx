@@ -2,13 +2,14 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 // shadcn/ui Card set, Sacred Curator "lifted parchment" (§1.7): a surface-lowest
-// panel defined by its tonal step and an ambient shadow — never a hard border.
+// panel defined by a hairline border plus a whisper of shadow (Hairline Border
+// Rule — see globals.css's Elevation comment).
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "flex flex-col rounded-md bg-card text-card-foreground shadow-e1",
+        "flex flex-col rounded-md border border-border bg-card text-card-foreground shadow-e1",
         className,
       )}
       {...props}

@@ -74,7 +74,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
 
       {value ? (
         <div className="flex items-start gap-3">
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-surface-low">
+          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-low">
             {previewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt="Cover preview" className="h-full w-full object-cover" />
@@ -109,7 +109,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
           type="button"
           disabled={disabled || busy}
           onClick={() => inputRef.current?.click()}
-          className="flex h-24 w-full items-center justify-center rounded-lg bg-surface-lowest font-body text-sm text-on-surface-variant shadow-e1 transition hover:bg-surface-low disabled:opacity-60 disabled:shadow-none"
+          className="flex h-24 w-full items-center justify-center rounded-lg border border-border bg-surface-lowest font-body text-sm text-on-surface-variant shadow-e1 transition hover:bg-surface-low disabled:opacity-60 disabled:shadow-none"
         >
           {busy ? "Uploading…" : "Upload an image"}
         </button>

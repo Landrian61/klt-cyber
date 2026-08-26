@@ -125,7 +125,7 @@ export function AnimatedDialogContent({
           ref={contentRef}
           forceMount
           className={cn(
-            "relative grid w-full max-w-lg gap-5 rounded-xl bg-card p-6 text-card-foreground shadow-e3",
+            "relative grid w-full max-w-lg gap-5 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-e3",
             className,
           )}
           {...props}
@@ -134,7 +134,7 @@ export function AnimatedDialogContent({
           {showCloseButton && (
             <DialogPrimitive.Close
               data-slot="dialog-close"
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-outline transition-colors hover:bg-surface-low hover:text-on-surface focus:outline-none disabled:pointer-events-none"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-border text-outline transition-colors hover:bg-surface-low hover:text-on-surface focus:outline-none disabled:pointer-events-none"
             >
               <X className="h-4 w-4" aria-hidden="true" />
               <span className="sr-only">Close</span>

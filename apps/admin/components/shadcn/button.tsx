@@ -15,16 +15,17 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "text-gold-ink bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))] " +
+          "border border-border text-gold-ink bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))] " +
           "shadow-gold-glow hover:-translate-y-px hover:brightness-105 " +
           "disabled:bg-none disabled:bg-surface-high disabled:text-outline disabled:shadow-none disabled:translate-y-0",
         secondary:
-          "text-primary bg-secondary hover:bg-surface-high disabled:text-outline",
+          "border border-border text-primary bg-secondary hover:bg-surface-high disabled:text-outline",
         outline:
-          "text-on-surface bg-transparent ring-1 ring-inset ring-border hover:bg-secondary disabled:text-outline",
-        ghost: "text-primary bg-transparent hover:bg-accent disabled:text-outline",
+          "border border-border text-on-surface bg-transparent hover:bg-secondary disabled:text-outline",
+        ghost:
+          "border border-border text-primary bg-transparent hover:bg-accent disabled:text-outline",
         destructive:
-          "text-destructive-foreground bg-destructive hover:brightness-95 disabled:opacity-60",
+          "border border-border text-destructive-foreground bg-destructive hover:brightness-95 disabled:opacity-60",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

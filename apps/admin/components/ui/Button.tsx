@@ -22,14 +22,14 @@ const base =
 const variants: Record<Variant, string> = {
   // Gold leaf gradient — references tokens, never raw hex.
   primary:
-    "text-on-primary bg-[image:linear-gradient(135deg,var(--color-primary),var(--color-primary-container))] " +
+    "border border-border text-on-primary bg-[image:linear-gradient(135deg,var(--color-primary),var(--color-primary-container))] " +
     "shadow-gold-glow hover:-translate-y-px hover:brightness-95 " +
     "disabled:bg-none disabled:bg-surface-high disabled:text-outline disabled:brightness-100 disabled:shadow-none disabled:translate-y-0",
   secondary:
-    "text-primary bg-transparent ring-1 ring-inset ring-primary/20 " +
-    "hover:bg-primary-light disabled:text-outline disabled:ring-outline/20",
+    "border border-border text-primary bg-transparent " +
+    "hover:bg-primary-light disabled:text-outline",
   ghost:
-    "text-primary bg-transparent hover:bg-primary-light disabled:text-outline",
+    "border border-border text-primary bg-transparent hover:bg-primary-light disabled:text-outline",
 };
 
 const sizes: Record<Size, string> = {

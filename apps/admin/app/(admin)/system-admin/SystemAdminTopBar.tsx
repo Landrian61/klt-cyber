@@ -77,7 +77,7 @@ export function SystemAdminTopBar({
         <button
           type="button"
           aria-label="Notifications"
-          className="flex size-9 items-center justify-center rounded-full text-on-surface-variant outline-none transition-colors hover:bg-surface-low hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex size-9 items-center justify-center rounded-full border border-border text-on-surface-variant outline-none transition-colors hover:bg-surface-low hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
         >
           <Bell className="h-5 w-5" aria-hidden="true" />
         </button>

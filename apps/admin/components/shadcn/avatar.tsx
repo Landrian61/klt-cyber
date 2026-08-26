@@ -30,7 +30,7 @@ const sizes: Record<AvatarSize, string> = {
 const variantRoot: Record<AvatarVariant, string> = {
   sunken: "bg-primary-dim",
   gradient:
-    "bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))] shadow-[0_2px_10px_rgba(196,127,8,0.35)]",
+    "bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))] shadow-gold-glow",
 };
 
 const variantFallback: Record<AvatarVariant, string> = {
@@ -62,7 +62,7 @@ function Avatar({
     <AvatarPrimitive.Root
       data-slot="avatar"
       className={cn(
-        "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full",
+        "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full border border-border",
         variantRoot[variant],
         sizes[size],
         className,
