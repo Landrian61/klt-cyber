@@ -64,6 +64,7 @@ export default (): ExpoConfig => {
       ],
       "@react-native-community/datetimepicker",
       "expo-secure-store",
+      "expo-notifications",
     ],
     experiments: {
       typedRoutes: true,
