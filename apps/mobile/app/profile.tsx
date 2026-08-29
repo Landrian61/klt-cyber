@@ -21,6 +21,7 @@ import { authClient } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getDisplayName, getInitials } from '@/lib/user-display';
+import { NotificationPermissionRow } from '@/components/notification-permission-row';
 
 const SEX_LABEL: Record<string, string> = { male: 'Male', female: 'Female' };
 const MARITAL_LABEL: Record<string, string> = {
@@ -103,6 +104,7 @@ export default function ProfileScreen() {
   const { user, profile, isMember, isVisitor, isPending, isLoading } = useMyAccount();
   const myProfile = useQuery(api.profile.getMyProfile);
   const clans = useQuery(api.clans.listClans);
+  const reduceMotion = useReducedMotion();
 
   const signOut = async () => {
     await authClient.signOut();
@@ -323,6 +325,16 @@ export default function ProfileScreen() {
               )}
             </>
           )}
+
+          {/* Notification settings — independent of visitor/pending/member
+              lifecycle, so it's always rendered rather than gated on `showProfile`. */}
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(280)}
+            style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}
+          >
+            <Text style={[styles.cardLabel, { color: Colors.primary }]}>NOTIFICATIONS</Text>
+            <NotificationPermissionRow />
+          </Animated.View>
 
           {/* Actions */}
           <View style={styles.actions}>

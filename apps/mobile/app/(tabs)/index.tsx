@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Cover } from '@/components/ui/cover';
 import { ProfileCompletionBanner } from '@/components/profile-completion-banner';
+import { NotificationPermissionBanner } from '@/components/notification-permission-banner';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getGreetingName } from '@/lib/user-display';
 import { api, type Doc } from '@/lib/api';
@@ -283,6 +284,10 @@ export default function HomeScreen() {
           to visitors (and a review-status card to pending users); renders
           nothing once verified. */}
       <ProfileCompletionBanner />
+
+      {/* Dismissible invitation to turn on push notifications — shown only in
+          the "never-asked" permission state, outside the dismiss cooldown. */}
+      <NotificationPermissionBanner />
 
       {/* Section 2 — This week's programs (Convex: calendar.getCalendarRange) */}
       {weekPrograms.length > 0 && (

@@ -28,6 +28,7 @@ import type * as lib_authz from "../lib/authz.js";
 import type * as lib_media from "../lib/media.js";
 import type * as lib_recurrence from "../lib/recurrence.js";
 import type * as memberProfiles from "../memberProfiles.js";
+import type * as notifications from "../notifications.js";
 import type * as plannedActivities from "../plannedActivities.js";
 import type * as profile from "../profile.js";
 import type * as roles from "../roles.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   "lib/media": typeof lib_media;
   "lib/recurrence": typeof lib_recurrence;
   memberProfiles: typeof memberProfiles;
+  notifications: typeof notifications;
   plannedActivities: typeof plannedActivities;
   profile: typeof profile;
   roles: typeof roles;
