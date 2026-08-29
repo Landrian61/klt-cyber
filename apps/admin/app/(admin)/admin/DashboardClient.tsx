@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import {
   ClipboardCheck,
   Users,
@@ -10,10 +11,10 @@ import {
 } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
+import type { Id } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Heading } from "@/components/ui/Heading";
 import { Avatar } from "@/components/shadcn/avatar";
-import { Badge } from "@/components/shadcn/badge";
 import { buttonVariants } from "@/components/shadcn/button";
 import {
   Card,
@@ -26,21 +27,20 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { CountUp } from "@/components/motion/CountUp";
 import { Reveal } from "@/components/motion/Reveal";
 import { PendingSubmissionsChart } from "./PendingSubmissionsChart";
+import { MembershipGrowthChart } from "./MembershipGrowthChart";
+import { DemographicsCharts } from "./DemographicsCharts";
+import { MaritalStatusCard } from "./MaritalStatusCard";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Tonal icon chips — semantic token pairs, never a raw Tailwind palette.
 const CHIP_TONES = {
   gold: "bg-primary-light text-primary",
-  royal: "bg-royal-light text-royal",
+  royal: "bg-surface-low text-on-surface-variant",
   success: "bg-success-light text-success",
   crimson: "bg-crimson-light text-crimson",
 } as const;
 
-// The bespoke StatCard (@/components/ui/StatCard) has no icon or link
-// affordance, so this dashboard keeps a local wrapper — but wears the same
-// Sacred Curator skin: lifted parchment, ambient shadow, no border, and the
-// count set in the mono face.
 function StatTile({
   href,
   icon: Icon,
@@ -57,18 +57,16 @@ function StatTile({
   return (
     <Link
       href={href}
-      className="flex flex-col gap-4 rounded-md border border-border bg-surface-lowest p-6 shadow-e1 transition-all hover:-translate-y-0.5 hover:shadow-e2"
+      className="flex flex-col gap-3 rounded-md border border-border bg-surface-lowest p-5 shadow-e1 transition-all hover:-translate-y-0.5 hover:shadow-e2"
     >
-      <div className="flex items-center justify-between gap-3">
-        <span
-          className={cn(
-            "flex size-10 items-center justify-center rounded-xl",
-            CHIP_TONES[tone],
-          )}
-        >
-          <Icon className="size-5" aria-hidden="true" />
-        </span>
-      </div>
+      <span
+        className={cn(
+          "flex size-10 items-center justify-center rounded-full",
+          CHIP_TONES[tone],
+        )}
+      >
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
       <div>
         <div className="font-mono text-4xl font-bold leading-none text-on-surface">
           {value === undefined ? (
@@ -95,11 +93,6 @@ function fullName(p: {
 
 export function AdminDashboardClient() {
   const pending = useAuthQuery(api.memberProfiles.listPendingVerifications);
-  // One call, not two: the query resolves the Administration department
-  // server-side. Previously this fetched all 13 departments, matched on name
-  // client-side, then issued a second dependent query for the roster — a
-  // waterfall on the portal's landing page, with each hop paying the full
-  // authz gate.
   const roster = useAuthQuery(
     api.departmentMemberships.listDepartmentMembers,
     {},
@@ -110,10 +103,20 @@ export function AdminDashboardClient() {
     limit: 5,
   });
 
-  // Gated to System Admin server-side (getSystemAdminOrNull in admin.ts) —
-  // returns null for Administration HOD/delegate today. Not real data for
-  // this role yet, so this stays an honest "not available" state rather
-  // than guessing at a shape it can't actually receive.
+  const verifiedMembers = useAuthQuery(
+    api.memberProfiles.listVerifiedMembersWithRoles,
+  );
+  const clans = useAuthQuery(api.clans.listClans);
+  const clanNameById = useMemo(() => {
+    const map = new Map<Id<"clans">, string>();
+    clans?.forEach((c) => map.set(c._id, c.name));
+    return map;
+  }, [clans]);
+  const demographicProfiles = useMemo(
+    () => verifiedMembers?.map((m) => m.profile),
+    [verifiedMembers],
+  );
+
   const recentActivity = useAuthQuery(api.admin.listRecentActivity, {
     limit: 5,
   });
@@ -150,177 +153,194 @@ export function AdminDashboardClient() {
         </p>
       </header>
 
-      <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
-          href="/admin/verification"
-          icon={ClipboardCheck}
-          tone="gold"
-          label="Pending verifications"
-          value={pending?.length}
-        />
-        <StatTile
-          href="/admin/roster"
-          icon={Users}
-          tone="royal"
-          label="Roster size"
-          value={roster?.members.length}
-        />
-        <StatTile
-          href="/admin/weekly-program"
-          icon={Calendar}
-          tone="success"
-          label="Programs this week"
-          value={programs?.length}
-        />
-        <StatTile
-          href="/admin/announcements"
-          icon={Megaphone}
-          tone="crimson"
-          label="Active announcements"
-          value={announcements?.length}
-        />
-      </Reveal>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="gap-4 p-6">
-          <CardHeader className="p-0">
-            <CardTitle className="font-body text-lg font-semibold text-on-surface">
-              Recent activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {recentActivity === undefined ? (
-              <div className="flex flex-col gap-2" aria-hidden="true">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 rounded-lg" />
-                ))}
-              </div>
-            ) : recentActivity === null ? (
-              <p className="font-body text-sm text-on-surface-variant">
-                Recent activity isn&apos;t available for your role yet — this
-                view currently requires System Admin access.
-              </p>
-            ) : (
-              <EmptyState
-                title="Nothing recent"
-                message="Activity will appear here as it happens."
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="gap-4 p-6">
-          <CardHeader className="p-0">
-            <CardTitle className="font-body text-lg font-semibold text-on-surface">
-              Upcoming
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {programs === undefined || upcomingEvents === undefined ? (
-              <div className="flex flex-col gap-2" aria-hidden="true">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 rounded-lg" />
-                ))}
-              </div>
-            ) : upcoming.length === 0 ? (
-              <EmptyState
-                title="Nothing scheduled"
-                message="Active programs and upcoming events will appear here."
-              />
-            ) : (
-              <ul className="flex flex-col">
-                {upcoming.map((item) => (
-                  <li
-                    key={item.key}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-                  >
-                    <span className="w-16 shrink-0 font-mono text-xs text-on-surface-variant">
-                      {item.label}
-                    </span>
-                    <span className="font-body text-sm text-on-surface">
-                      {item.title}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <PendingSubmissionsChart profiles={pending} />
-
-      <Card className="gap-4 p-6">
-        <CardHeader className="flex-row items-center justify-between gap-3 p-0">
-          <CardTitle className="font-body text-lg font-semibold text-on-surface">
-            Pending Approvals
-          </CardTitle>
-          {pending && pending.length > 5 && (
-            <Link
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Main column — stats + charts */}
+        <div className="space-y-4 lg:col-span-2">
+          <Reveal className="grid grid-cols-2 gap-4">
+            <StatTile
               href="/admin/verification"
-              className="font-body text-sm font-medium text-primary underline underline-offset-2"
-            >
-              View all {pending.length}
-            </Link>
-          )}
-        </CardHeader>
-
-        <CardContent className="p-0">
-          {recentPending === undefined ? (
-            <div className="flex flex-col gap-2" aria-hidden="true">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 rounded-lg" />
-              ))}
-            </div>
-          ) : recentPending.length === 0 ? (
-            <EmptyState
-              title="Nothing waiting for approval"
-              message="Submitted member profiles will appear here for review."
+              icon={ClipboardCheck}
+              tone="gold"
+              label="Pending verifications"
+              value={pending?.length}
             />
-          ) : (
-            <Reveal
-              as="ul"
-              className="flex flex-col"
-              replayKey={recentPending.length}
-            >
-              {recentPending.map((profile) => {
-                const name = fullName(profile);
-                return (
-                  <li
-                    key={profile._id}
-                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-low"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Avatar name={name} size="md" />
-                      <div className="min-w-0">
-                        <p className="truncate font-body text-sm font-medium text-on-surface">
-                          {name}
-                        </p>
-                        <p className="font-body text-xs text-on-surface-variant">
-                          Submitted{" "}
-                          {new Date(profile._creationTime).toLocaleDateString()}
-                          {!profile.mentorshipProofUrl &&
-                            " · needs follow-up call"}
-                        </p>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/admin/verification/${profile._id}`}
-                      className={cn(
-                        buttonVariants({ variant: "secondary", size: "sm" }),
-                        "shrink-0",
-                      )}
+            <StatTile
+              href="/admin/roster"
+              icon={Users}
+              tone="royal"
+              label="Roster size"
+              value={roster?.members.length}
+            />
+            <StatTile
+              href="/admin/weekly-program"
+              icon={Calendar}
+              tone="success"
+              label="Programs this week"
+              value={programs?.length}
+            />
+            <StatTile
+              href="/admin/announcements"
+              icon={Megaphone}
+              tone="crimson"
+              label="Active announcements"
+              value={announcements?.length}
+            />
+          </Reveal>
+
+          <MembershipGrowthChart profiles={demographicProfiles} />
+
+          <PendingSubmissionsChart profiles={pending} />
+
+          <DemographicsCharts
+            profiles={demographicProfiles}
+            clanNameById={clanNameById}
+          />
+
+          <Card className="gap-4 p-6">
+            <CardHeader className="flex-row items-center justify-between gap-3 p-0">
+              <CardTitle className="font-body text-lg font-semibold text-on-surface">
+                Pending Approvals
+              </CardTitle>
+              {pending && pending.length > 5 && (
+                <Link
+                  href="/admin/verification"
+                  className="font-body text-sm font-medium text-primary underline underline-offset-2"
+                >
+                  View all {pending.length}
+                </Link>
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
+              {recentPending === undefined ? (
+                <div className="flex flex-col gap-2" aria-hidden="true">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-14 rounded-lg" />
+                  ))}
+                </div>
+              ) : recentPending.length === 0 ? (
+                <EmptyState
+                  title="Nothing waiting for approval"
+                  message="Submitted member profiles will appear here for review."
+                />
+              ) : (
+                <Reveal
+                  as="ul"
+                  className="flex flex-col"
+                  replayKey={recentPending.length}
+                >
+                  {recentPending.map((profile) => {
+                    const name = fullName(profile);
+                    return (
+                      <li
+                        key={profile._id}
+                        className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-low"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar name={name} size="md" />
+                          <div className="min-w-0">
+                            <p className="truncate font-body text-sm font-medium text-on-surface">
+                              {name}
+                            </p>
+                            <p className="font-body text-xs text-on-surface-variant">
+                              Submitted{" "}
+                              {new Date(
+                                profile._creationTime,
+                              ).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <Link
+                          href={`/admin/verification/${profile._id}`}
+                          className={cn(
+                            buttonVariants({
+                              variant: "secondary",
+                              size: "sm",
+                            }),
+                            "shrink-0",
+                          )}
+                        >
+                          Review
+                          <ArrowRight className="size-3.5" aria-hidden="true" />
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </Reveal>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right rail — feed-style content + a compact demographic snapshot */}
+        <div className="space-y-4">
+          <Card className="gap-3 p-5">
+            <CardHeader className="p-0">
+              <CardTitle className="font-body text-base font-semibold text-on-surface">
+                Recent activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {recentActivity === undefined ? (
+                <div className="flex flex-col gap-2" aria-hidden="true">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-9 rounded-lg" />
+                  ))}
+                </div>
+              ) : recentActivity === null ? (
+                <p className="font-body text-xs text-on-surface-variant">
+                  Not available for your role yet — requires System Admin
+                  access.
+                </p>
+              ) : (
+                <EmptyState
+                  title="Nothing recent"
+                  message="Activity will appear here."
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="gap-3 border-t-4 border-t-primary p-5">
+            <CardHeader className="p-0">
+              <CardTitle className="font-body text-base font-semibold text-on-surface">
+                Upcoming
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {programs === undefined || upcomingEvents === undefined ? (
+                <div className="flex flex-col gap-2" aria-hidden="true">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-9 rounded-lg" />
+                  ))}
+                </div>
+              ) : upcoming.length === 0 ? (
+                <EmptyState
+                  title="Nothing scheduled"
+                  message="Programs and events will appear here."
+                />
+              ) : (
+                <ul className="flex flex-col">
+                  {upcoming.slice(0, 6).map((item) => (
+                    <li
+                      key={item.key}
+                      className="flex items-center gap-2.5 rounded-lg py-2"
                     >
-                      Review
-                      <ArrowRight className="size-3.5" aria-hidden="true" />
-                    </Link>
-                  </li>
-                );
-              })}
-            </Reveal>
-          )}
-        </CardContent>
-      </Card>
+                      <span className="w-12 shrink-0 font-mono text-xs text-on-surface-variant">
+                        {item.label}
+                      </span>
+                      <span className="truncate font-body text-sm text-on-surface">
+                        {item.title}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <MaritalStatusCard profiles={demographicProfiles} />
+        </div>
+      </div>
     </div>
   );
 }
