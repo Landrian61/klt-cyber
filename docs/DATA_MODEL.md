@@ -1136,4 +1136,72 @@ never leak into that surface.
 **Future addition, not needed for this to already be useful** (per docs/Admin_Portal.md): notify
 everyone responsible for a month's activities automatically when the month begins. No table or
 field changes anticipated for that — it reads `plannedActivities` + `departmentIds` as they stand.
+
+---
+
+## `notifications` & `notificationReads` — Push Notifications (Increment 6)
+
+Installs `@convex-dev/expo-push-notifications` (registered in `convex/convex.config.ts` alongside
+`betterAuth` and `r2`) and adds the domain-side tables the component itself doesn't provide: what a
+notification *says* and *who it's for*, and which users have read it. The component's own internal
+tables (device push tokens, delivery/retry state) live in its own namespace and aren't part of this
+schema. `EXPO_ACCESS_TOKEN` (optional, enhanced push security) is not yet generated — the component
+works without it; add it as a Convex environment variable when it exists.
+
+```ts
+notifications: defineTable({
+  title: v.string(),
+  body: v.string(),
+  // Mirrors the current `roleAssignments.roleType` union (system_admin |
+  // clan_elder | hod | department_admin — see convex/lib/authz.ts) rather
+  // than resolving to a fixed recipient list at send time.
+  audience: v.union(
+    v.object({ type: v.literal("all") }),
+    v.object({ type: v.literal("department"), departmentId: v.id("departments") }),
+    v.object({ type: v.literal("users"), userIds: v.array(v.id("users")) }),
+    v.object({
+      type: v.literal("role"),
+      roleType: v.union(
+        v.literal("system_admin"), v.literal("clan_elder"),
+        v.literal("hod"), v.literal("department_admin")
+      ),
+    })
+  ),
+  deepLink: v.object({ type: v.string(), id: v.string() }),
+  createdBy: v.id("users"),
+})
+  .index("by_audience_type", ["audience.type"])
+
+notificationReads: defineTable({
+  userId: v.id("users"),
+  notificationId: v.id("notifications"),
+  readAt: v.number(),
+})
+  .index("by_userId_notificationId", ["userId", "notificationId"])
+  .index("by_userId", ["userId"])
+```
+
+One `notifications` row per event, not per recipient — fan-out to individual devices is the
+component's job once a send mutation is written (not part of this increment). `notificationReads`
+follows the same "no row = unread" convention as `leadershipProgress`'s "no row = not enrolled" —
+no explicit `read: false` state is ever stored. Neither table has a `createdAt`/`updatedAt` pair;
+`notifications` is append-only-by-convention like `activityLogs`, and `notificationReads` rows are
+themselves immutable once written (`readAt` is set once, at creation).
+
+**Role-audience note.** `convex/schema.ts`'s `roleAssignments.roleType` union was already current at
+the time of this increment — `hod`/`department_admin` (department-scoped, checked against
+`departmentId` on the same row) replaced the free-floating `church_admin` before this increment
+started, per `convex/lib/authz.ts`. The `role` audience variant above reuses that union as-is.
+
+**Deliberately out of scope.** `weeklyPrograms` and `events` are currently global-only — neither
+table carries a `departmentId` (see the Increment 3 section above). Department-scoped meeting
+notifications ("remind the Ushering department about their Saturday setup") aren't representable
+with the `department` audience variant against those tables yet. That's a separate decision pending
+on whether/how program-level department scoping gets added, not something this increment resolves.
+
+**Doc/code note.** `convex/schema.ts` and `convex/lib/authz.ts` cite "docs/Alignment.md, Increment
+5" for the `hod`/`department_admin` restructure, but no `docs/Alignment.md` exists in this repo, and
+this doc's own Increment 4 section (above) still shows the superseded `church_admin` roleType. Not
+resolved as part of this increment — flagging per the doc/code parity rule in CLAUDE.md rather than
+silently rewriting Increment 4's history.
  

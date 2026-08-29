@@ -14,6 +14,9 @@ importers:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
         version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(next@16.2.6(@babel/core@7.29.7(supports-color@10.2.2))(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+      '@convex-dev/expo-push-notifications':
+        specifier: ^0.3.1
+        version: 0.3.1(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
       '@convex-dev/r2':
         specifier: ^0.10.2
         version: 0.10.2(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(supports-color@10.2.2)(typescript@5.9.3)(zod@4.4.3)
@@ -1200,6 +1203,11 @@ packages:
       better-auth: '>=1.6.9 <1.7.0'
       convex: 1.42.3
       react: ^18.3.1 || ^19.0.0
+
+  '@convex-dev/expo-push-notifications@0.3.1':
+    resolution: {integrity: sha512-Ywq83gcEDoolutjslaGcD1OnFjjgor0zZa4HEnGUS4BSxpb3DbB6XjVeSMxbJ9k5TKII3uBOr5fWSVFC8tN5eg==}
+    peerDependencies:
+      convex: 1.42.3
 
   '@convex-dev/r2@0.10.2':
     resolution: {integrity: sha512-9FuL3k+CDjuCXYTSuriVxOIpBuUI6qdBWydwJ+9xYJwVh1Z2CpXDRS0kuTsMGsIg8Yr/OiPvNS9W06mfmRBDrg==}
@@ -8963,6 +8971,17 @@ snapshots:
       - '@standard-schema/spec'
       - hono
       - typescript
+
+  '@convex-dev/expo-push-notifications@0.3.1(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)':
+    dependencies:
+      convex: 1.42.3(react@19.2.4)
+      convex-helpers: 0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
+    transitivePeerDependencies:
+      - '@standard-schema/spec'
+      - hono
+      - react
+      - typescript
+      - zod
 
   '@convex-dev/r2@0.10.2(@standard-schema/spec@1.1.0)(convex@1.42.3(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(supports-color@10.2.2)(typescript@5.9.3)(zod@4.4.3)':
     dependencies:
