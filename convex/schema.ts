@@ -377,4 +377,56 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_targetDate", ["targetDate"]),
+
+  // ── Increment 6 — Push Notifications (@convex-dev/expo-push-notifications) ─
+  // One row per notification *event*, not per recipient — `notificationReads`
+  // below tracks per-user read state separately, and the component's own
+  // internal tables (registered in convex.config.ts) track per-user push
+  // tokens and delivery. No `createdAt` field: `_creationTime` covers it,
+  // same as `activityLogs` — this is an append-only event log, not a document
+  // with an independent lifecycle.
+  notifications: defineTable({
+    title: v.string(),
+    body: v.string(),
+    // Mirrors the current `roleAssignments.roleType` union (see
+    // convex/lib/authz.ts) rather than resolving to a fixed recipient list at
+    // send time — membership of a role/department can change between send
+    // and read.
+    audience: v.union(
+      v.object({ type: v.literal("all") }),
+      v.object({
+        type: v.literal("department"),
+        departmentId: v.id("departments"),
+      }),
+      v.object({
+        type: v.literal("users"),
+        userIds: v.array(v.id("users")),
+      }),
+      v.object({
+        type: v.literal("role"),
+        roleType: v.union(
+          v.literal("system_admin"),
+          v.literal("clan_elder"),
+          v.literal("hod"),
+          v.literal("department_admin")
+        ),
+      })
+    ),
+    deepLink: v.object({
+      type: v.string(),
+      id: v.string(),
+    }),
+    createdBy: v.id("users"),
+  }).index("by_audience_type", ["audience.type"]),
+
+  // One row per (user, notification) once read. No row = unread — same
+  // "don't store negative space" convention as `roleAssignments`/
+  // `leadershipProgress` (no row for a level = not enrolled).
+  notificationReads: defineTable({
+    userId: v.id("users"),
+    notificationId: v.id("notifications"),
+    readAt: v.number(),
+  })
+    .index("by_userId_notificationId", ["userId", "notificationId"])
+    .index("by_userId", ["userId"]),
 });
