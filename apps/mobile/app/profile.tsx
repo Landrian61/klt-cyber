@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
 
@@ -106,7 +106,14 @@ export default function ProfileScreen() {
   const clans = useQuery(api.clans.listClans);
   const reduceMotion = useReducedMotion();
 
+  const unregisterPushToken = useMutation(api.notifications.unregisterMyPushNotificationToken);
+
   const signOut = async () => {
+    // Best-effort — a failed unregister shouldn't block sign-out. Without
+    // this, this device's push token stays attached to the account signing
+    // out, and the next account that signs in here would share it (see
+    // convex/notifications.ts's doc comment on this mutation).
+    await unregisterPushToken().catch(() => {});
     await authClient.signOut();
   };
 
