@@ -2,6 +2,7 @@ import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeInUp, useSharedValue, useAnimatedStyle, withTiming,
@@ -11,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { FontFamily, Spacing, Radius, Duration, HeavenGradient, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
+import { Cover } from '@/components/ui/cover';
 import { Badge } from '@/components/ui/badge';
 import { api, type Doc } from '@/lib/api';
 import { formatFullDate } from '@/lib/content-format';
@@ -53,18 +55,21 @@ function AnnouncementCard({
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
-        <View style={styles.announcementHeader}>
-          <Text style={[styles.announcementTitle, { color: Colors.onSurface }]} numberOfLines={2}>
-            {item.title}
+        <Cover uri={item.coverImageUrl} index={index} imageRadius={0} style={styles.announcementCover} />
+        <View style={styles.announcementCardContent}>
+          <View style={styles.announcementHeader}>
+            <Text style={[styles.announcementTitle, { color: Colors.onSurface }]} numberOfLines={1}>
+              {item.title}
+            </Text>
+            {badge && <Badge label={badge.label} variant={badge.variant} />}
+          </View>
+          <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
+            {item.body}
           </Text>
-          {badge && <Badge label={badge.label} variant={badge.variant} />}
-        </View>
-        <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
-          {item.body}
-        </Text>
-        <View style={styles.announcementFooter}>
           <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
-          <Ionicons name="chevron-forward" size={16} color={Colors.outline} />
+        </View>
+        <View style={styles.announcementChevron}>
+          <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
         </View>
       </AnimatedPressable>
     </Animated.View>
@@ -130,9 +135,14 @@ function UpdatesScreen() {
                   <Text style={[styles.pinnedTitle, { color: Colors.onSurface }]}>{item.title}</Text>
                   <Badge label="Priority" variant="priority" />
                 </View>
-                <Text style={[styles.pinnedBody, { color: Colors.onSurfaceVariant }]} numberOfLines={4}>
-                  {item.body}
-                </Text>
+                <View style={styles.pinnedBodyRow}>
+                  <Text style={[styles.pinnedBody, { color: Colors.onSurfaceVariant }, styles.pinnedBodyText]} numberOfLines={4}>
+                    {item.body}
+                  </Text>
+                  {item.coverImageUrl && (
+                    <Image source={{ uri: item.coverImageUrl }} style={styles.pinnedThumb} contentFit="cover" />
+                  )}
+                </View>
                 <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
               </Card>
             </Pressable>
@@ -247,20 +257,52 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: Spacing[2],
   },
+  pinnedBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: Spacing[2],
+  },
   pinnedBody: {
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
-    marginTop: Spacing[2],
   },
-  // Announcements
+  pinnedBodyText: {
+    flex: 1,
+  },
+  // Small accent thumbnail only — the priority wash along the left edge is
+  // the card's real visual signal, not the image, so this stays compact.
+  pinnedThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: Radius.md,
+    marginLeft: Spacing[3],
+  },
+  // Announcements — compact row, same shape as programs.tsx's ProgramRow:
+  // a thumbnail on the left, truncated text on the right, tap for detail.
   announcementPad: {
     paddingHorizontal: Spacing[5],
   },
   announcementCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: Radius.lg,
-    padding: Spacing[4],
+    overflow: 'hidden',
     marginBottom: Spacing[3],
+  },
+  announcementCover: {
+    width: 80,
+    alignSelf: 'stretch',
+  },
+  announcementCardContent: {
+    flex: 1,
+    paddingVertical: Spacing[3],
+    paddingLeft: Spacing[3],
+    paddingRight: Spacing[2],
+    gap: 2,
+  },
+  announcementChevron: {
+    paddingRight: Spacing[3],
   },
   announcementHeader: {
     flexDirection: 'row',
@@ -278,13 +320,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    marginTop: Spacing[2],
-  },
-  announcementFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing[2],
+    marginTop: 2,
   },
   dateText: {
     fontFamily: FontFamily.body,
