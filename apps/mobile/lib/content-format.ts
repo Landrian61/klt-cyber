@@ -54,6 +54,28 @@ export function formatFullDate(ms: number): string {
   });
 }
 
+/**
+ * Unix ms → a short relative label ("Just now", "5m ago", "2h ago",
+ * "Yesterday", "3d ago", "2w ago"). Falls back to `formatFullDate` past
+ * four weeks, where a relative label stops being useful. Used by the
+ * notification center (Increment 6) in place of hand-written timestamps.
+ */
+export function formatRelativeTime(ms: number): string {
+  const diffMs = Date.now() - ms;
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+
+  if (diffMs < minute) return 'Just now';
+  if (diffMs < hour) return `${Math.floor(diffMs / minute)}m ago`;
+  if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
+  if (diffMs < 2 * day) return 'Yesterday';
+  if (diffMs < week) return `${Math.floor(diffMs / day)}d ago`;
+  if (diffMs < 4 * week) return `${Math.floor(diffMs / week)}w ago`;
+  return formatFullDate(ms);
+}
+
 const WEEK_OF_MONTH_LABEL: Record<number, string> = {
   1: '1st',
   2: '2nd',
