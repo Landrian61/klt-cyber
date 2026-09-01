@@ -1,8 +1,7 @@
 import {
-  ScrollView, View, Text, Pressable, Image, StyleSheet, Linking,
+  ScrollView, View, Text, Pressable, Image, StyleSheet,
 } from 'react-native';
 import { useMemo } from 'react';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
@@ -11,7 +10,6 @@ import * as Haptics from 'expo-haptics';
 
 import { FontFamily, Spacing, Radius, Duration, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Cover } from '@/components/ui/cover';
 import { ProfileCompletionBanner } from '@/components/profile-completion-banner';
@@ -20,7 +18,7 @@ import { useMyAccount } from '@/hooks/use-my-account';
 import { getGreetingName } from '@/lib/user-display';
 import { api, type Doc } from '@/lib/api';
 import {
-  formatEventDate, formatClockTime, formatFullDate, formatTime, dayName,
+  formatEventDate, formatClockTime, formatTime, dayName,
 } from '@/lib/content-format';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -192,57 +190,6 @@ function EventCard({
   );
 }
 
-// ── Section 5: Announcements ──────────────────────────────────────────────────
-
-const PRIORITY_BADGE: Record<string, { label: string; variant: 'priority' | 'member' | 'pending' }> = {
-  high: { label: 'Priority', variant: 'priority' },
-  normal: { label: 'Update', variant: 'member' },
-  low: { label: 'Notice', variant: 'pending' },
-};
-
-function AnnouncementCard({ item, index }: { item: Doc<'announcements'>; index: number }) {
-  const Colors = useThemeColors();
-  const badge = PRIORITY_BADGE[item.priority ?? 'normal'];
-  return (
-    <Animated.View
-      entering={FadeInUp.duration(300).delay(200 + index * 50)}
-      style={[styles.announcementCard, { backgroundColor: Colors.surfaceLowest }]}
-    >
-      <View style={styles.announcementHeader}>
-        <Text style={[styles.announcementTitle, { color: Colors.onSurface }]} numberOfLines={2}>
-          {item.title}
-        </Text>
-        {badge && <Badge label={badge.label} variant={badge.variant} />}
-      </View>
-      <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={3}>
-        {item.body}
-      </Text>
-      {item.links && item.links.length > 0 && (
-        <View style={styles.announcementLinks}>
-          {item.links.map((link) => (
-            <Pressable
-              key={`${link.label}-${link.url}`}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                Linking.openURL(link.url).catch(() => {});
-              }}
-              style={styles.linkChip}
-              accessibilityRole="link"
-              accessibilityLabel={link.label}
-            >
-              <Text style={[styles.linkChipText, { color: Colors.primary }]}>{link.label}</Text>
-              <Ionicons name="open-outline" size={13} color={Colors.primary} />
-            </Pressable>
-          ))}
-        </View>
-      )}
-      <Text style={[styles.announcementDate, { color: Colors.outline }]}>
-        {formatFullDate(item.startDate)}
-      </Text>
-    </Animated.View>
-  );
-}
-
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -253,7 +200,6 @@ export default function HomeScreen() {
 
   const themes = useQuery(api.themes.getCurrentThemes);
   const featured = useQuery(api.events.listFeaturedEvents);
-  const announcements = useQuery(api.announcements.listActiveAnnouncements);
 
   // "This week" — weekly-program occurrences (each recurring program expanded
   // per its own pattern) over the next 7 days. The range is memoized so the
@@ -330,20 +276,6 @@ export default function HomeScreen() {
               <EventCard key={event._id} event={event} index={index} size="featured" />
             ))}
           </ScrollView>
-        </>
-      )}
-
-      {/* Section 5 — Announcements */}
-      {announcements && announcements.length > 0 && (
-        <>
-          <Animated.View entering={FadeInUp.duration(400).delay(400)} style={[styles.sectionHeaderRow, { marginTop: Spacing[8] }]}>
-            <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Announcements</Text>
-          </Animated.View>
-          <View style={styles.section}>
-            {announcements.map((item, index) => (
-              <AnnouncementCard key={item._id} item={item} index={index} />
-            ))}
-          </View>
         </>
       )}
 
@@ -448,13 +380,4 @@ const styles = StyleSheet.create({
   eventDateText: { fontFamily: FontFamily.bodySemiBold, fontSize: 10, lineHeight: 14 },
   eventCardName: { fontFamily: FontFamily.bodySemiBold, fontSize: 15, lineHeight: 20, color: '#FFFFFF' },
   eventCardMeta: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 16, color: 'rgba(255,255,255,0.80)', marginTop: 2 },
-  // Announcements
-  announcementCard: { borderRadius: Radius.lg, padding: Spacing[4], marginBottom: Spacing[3] },
-  announcementHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing[2] },
-  announcementTitle: { fontFamily: FontFamily.bodySemiBold, fontSize: 15, lineHeight: 22, flex: 1 },
-  announcementBody: { fontFamily: FontFamily.body, fontSize: 13, lineHeight: 20, marginTop: Spacing[2] },
-  announcementLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing[2], marginTop: Spacing[3] },
-  linkChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  linkChipText: { fontFamily: FontFamily.bodySemiBold, fontSize: 13, lineHeight: 18 },
-  announcementDate: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 15.4, marginTop: Spacing[3] },
 });
