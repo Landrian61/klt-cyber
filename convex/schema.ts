@@ -1,5 +1,34 @@
 import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
+
+// Shared with convex/notifications.ts (the dispatch action's arg validator)
+// so the audience shape is defined exactly once — duplicating it across the
+// table definition and the mutation validator is how the two would drift.
+export const notificationAudienceValidator = v.union(
+  v.object({ type: v.literal("all") }),
+  v.object({
+    type: v.literal("department"),
+    departmentId: v.id("departments"),
+  }),
+  v.object({
+    type: v.literal("users"),
+    userIds: v.array(v.id("users")),
+  }),
+  v.object({
+    type: v.literal("role"),
+    // Mirrors the current `roleAssignments.roleType` union (see
+    // convex/lib/authz.ts) rather than resolving to a fixed recipient list at
+    // send time — membership of a role/department can change between send
+    // and read.
+    roleType: v.union(
+      v.literal("system_admin"),
+      v.literal("clan_elder"),
+      v.literal("hod"),
+      v.literal("department_admin")
+    ),
+  })
+);
+export type NotificationAudience = Infer<typeof notificationAudienceValidator>;
 
 export default defineSchema({
   users: defineTable({
@@ -388,30 +417,7 @@ export default defineSchema({
   notifications: defineTable({
     title: v.string(),
     body: v.string(),
-    // Mirrors the current `roleAssignments.roleType` union (see
-    // convex/lib/authz.ts) rather than resolving to a fixed recipient list at
-    // send time — membership of a role/department can change between send
-    // and read.
-    audience: v.union(
-      v.object({ type: v.literal("all") }),
-      v.object({
-        type: v.literal("department"),
-        departmentId: v.id("departments"),
-      }),
-      v.object({
-        type: v.literal("users"),
-        userIds: v.array(v.id("users")),
-      }),
-      v.object({
-        type: v.literal("role"),
-        roleType: v.union(
-          v.literal("system_admin"),
-          v.literal("clan_elder"),
-          v.literal("hod"),
-          v.literal("department_admin")
-        ),
-      })
-    ),
+    audience: notificationAudienceValidator,
     deepLink: v.object({
       type: v.string(),
       id: v.string(),

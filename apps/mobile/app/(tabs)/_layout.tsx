@@ -3,12 +3,15 @@ import { View, StyleSheet } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useQuery } from 'convex/react';
+
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { TopBar } from '@/components/navigation/top-bar';
 import { BottomNavigation } from '@/components/navigation/bottom-navigation';
 import type { TabName } from '@/components/navigation/bottom-nav-bar';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getInitials } from '@/lib/user-display';
+import { api } from '@/lib/api';
 
 const TAB_ROUTES: Record<Exclude<TabName, 'more'>, string> = {
   home: '/(tabs)',
@@ -39,6 +42,9 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const [moreVisible, setMoreVisible] = useState(false);
   const { user } = useMyAccount();
+  // Resolves to 0 (not undefined) once loaded, including when signed out —
+  // see convex/notifications.ts's own doc comment on this query.
+  const unreadCount = useQuery(api.notifications.getMyUnreadNotificationCount) ?? 0;
 
   const activeTab: TabName = moreVisible ? 'more' : pathnameToTab(pathname);
 
@@ -56,7 +62,7 @@ export default function TabLayout() {
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface }]}>
-      <TopBar title={TAB_TITLES[pathnameToTab(pathname)]} unreadCount={3} userInitials={getInitials(user)} />
+      <TopBar title={TAB_TITLES[pathnameToTab(pathname)]} unreadCount={unreadCount} userInitials={getInitials(user)} />
 
       <Tabs
         screenOptions={{

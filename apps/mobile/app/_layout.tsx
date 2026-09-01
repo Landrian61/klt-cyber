@@ -5,16 +5,21 @@ import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import * as SystemUI from 'expo-system-ui';
+import * as Notifications from 'expo-notifications';
 import 'react-native-reanimated';
 
-import { ConvexProvider } from 'convex/react';
+import { ConvexProvider, useQuery } from 'convex/react';
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
 
 import { ThemeProvider, useTheme } from '@/contexts/theme-context';
 import { LightColors } from '@/constants/colors';
 import { convex } from '@/lib/convex';
 import { authClient } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { AnimatedSplash } from '@/components/animated-splash';
+// Side-effect import — registers Notifications.setNotificationHandler at
+// module load. ensureDefaultAndroidChannel is called explicitly below.
+import { ensureDefaultAndroidChannel } from '@/lib/notification-setup';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,6 +35,19 @@ function RootLayoutInner() {
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(colors.surfaceLowest);
   }, [colors.surfaceLowest]);
+
+  useEffect(() => {
+    ensureDefaultAndroidChannel();
+  }, []);
+
+  // Reusable by the future in-app notification center, not just this badge —
+  // see convex/notifications.ts. Resolves to 0 (not undefined) once loaded,
+  // including when signed out, so this never fires with a stale count.
+  const unreadCount = useQuery(api.notifications.getMyUnreadNotificationCount);
+  useEffect(() => {
+    if (unreadCount === undefined) return;
+    Notifications.setBadgeCountAsync(unreadCount).catch(() => {});
+  }, [unreadCount]);
 
   // The router is always mounted so the destination (Home for a returning
   // Saint, Welcome otherwise) renders BENEATH the splash and is simply revealed
