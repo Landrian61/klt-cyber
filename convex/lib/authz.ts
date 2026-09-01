@@ -286,6 +286,47 @@ export async function isContentManager(
     : false;
 }
 
+/**
+ * Every user currently holding Administration authority — active
+ * `system_admin`, plus the Administration department's active `hod`/
+ * `department_admin` — i.e. the concrete recipient set behind
+ * {@link canManageChurchAdmin}.
+ *
+ * Exists for notification dispatch (convex/memberProfiles.ts's
+ * `submitProfile`): the notification audience model's "role" variant
+ * (convex/notifications.ts) is a bare `roleType` with no department scoping,
+ * so `{ type: "role", roleType: "hod" }` would reach every department's HOD,
+ * not just Administration's — the wrong, much noisier audience. Resolving
+ * the actual user set here and dispatching to `{ type: "users", userIds }`
+ * is the precise equivalent.
+ */
+export async function getAdministrationAuthorityUserIds(
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"users">[]> {
+  const systemAdmins = await ctx.db
+    .query("roleAssignments")
+    .withIndex("by_roleType", (q) => q.eq("roleType", "system_admin"))
+    .filter((q) => q.eq(q.field("status"), "active"))
+    .collect();
+
+  const adminDeptId = await getAdministrationDepartmentId(ctx);
+  const deptAuthority = adminDeptId
+    ? await ctx.db
+        .query("roleAssignments")
+        .withIndex("by_departmentId", (q) => q.eq("departmentId", adminDeptId))
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .collect()
+    : [];
+
+  const ids = [
+    ...systemAdmins.map((r) => r.userId),
+    ...deptAuthority
+      .filter((r) => r.roleType === "hod" || r.roleType === "department_admin")
+      .map((r) => r.userId),
+  ];
+  return [...new Set(ids)];
+}
+
 /** Append an audit entry. The single write-point for `activityLogs`. */
 export async function logActivity(
   ctx: MutationCtx,

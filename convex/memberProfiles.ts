@@ -3,9 +3,11 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { MAX_ACTIVE_DEPARTMENTS } from "@klt-cyber/shared";
+import { internal } from "./_generated/api";
 import {
   canManageChurchAdmin,
   getAdministrationAuthorityOrNull,
+  getAdministrationAuthorityUserIds,
   logActivity,
   requireUser,
 } from "./lib/authz";
@@ -296,6 +298,33 @@ export const submitProfile = mutation({
       }
     }
 
+    // Notify whoever can review this. NOT `audience: { type: "role",
+    // roleType: ... }` as a literal reading of "the role that verifies
+    // profiles" might suggest — canManageChurchAdmin (convex/lib/authz.ts)
+    // is system_admin OR the Administration department's hod/
+    // department_admin specifically, and the "role" audience variant has no
+    // department scoping, so `roleType: "hod"` would reach every
+    // department's HOD, not just Administration's. Resolving the actual
+    // recipient set and dispatching to `{ type: "users", userIds }` is the
+    // precise equivalent — see getAdministrationAuthorityUserIds's doc
+    // comment.
+    const reviewerIds = await getAdministrationAuthorityUserIds(ctx);
+    if (reviewerIds.length > 0) {
+      const submitterName =
+        [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+        user.email;
+      await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+        title: "New profile pending review",
+        body: `${submitterName} submitted a member profile for verification.`,
+        audience: { type: "users", userIds: reviewerIds },
+        // No mobile screen for the review queue (admin-portal concern) — an
+        // unrecognized type; the notification center falls back to Home
+        // rather than doing nothing (apps/mobile/app/notifications.tsx).
+        deepLink: { type: "profile_review", id: profileId },
+        createdBy: user._id,
+      });
+    }
+
     return { profileId };
   },
 });
@@ -342,6 +371,25 @@ export const verifyProfile = mutation({
       targetType: "memberProfiles",
       targetId: profileId,
       metadata: { userId: profile.userId },
+    });
+
+    // Copy deliberately says "verified", not "member"/"welcome to the
+    // family": per product guidance, verification and official membership
+    // are meant to be two distinct moments (membership only once
+    // mentorship is separately marked complete), even though this mutation
+    // currently promotes `role` to "member" in the same step, unconditionally
+    // of `mentorshipStatus` — a known gap (see docs/DATA_MODEL.md, Increment
+    // 6's flag on this) that's out of scope here. Revisit this copy once a
+    // real mentorship-completion trigger exists.
+    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+      title: "Your profile has been verified",
+      body: "Great news — your KLT Cyber Church profile has been verified by the church office.",
+      audience: { type: "users", userIds: [profile.userId] },
+      // Recognized by apps/mobile/app/notifications.tsx — routes to the
+      // caller's own Profile screen (which takes no id param; `id` here is
+      // just the affected user, carried for completeness).
+      deepLink: { type: "profile", id: profile.userId },
+      createdBy: actor._id,
     });
 
     return { ok: true as const };

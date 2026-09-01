@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import {
   getActiveRoles,
   getAdministrationDepartmentId,
@@ -11,6 +12,13 @@ import {
   requireDepartmentHod,
   requireUser,
 } from "./lib/authz";
+
+const ROLE_LABEL: Record<AssignRoleArgs["roleType"], string> = {
+  system_admin: "System Admin",
+  clan_elder: "Clan Elder",
+  hod: "HOD",
+  department_admin: "Department Admin",
+};
 
 type AssignRoleArgs = {
   roleType: "system_admin" | "clan_elder" | "hod" | "department_admin";
@@ -205,6 +213,33 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
     }
   }
 
+  // Broadcast the appointment. Scheduled after everything above has
+  // succeeded, same "notification is a best-effort side effect, not part of
+  // the transaction" convention as publishAnnouncement.
+  const targetName =
+    [target.firstName, target.lastName].filter(Boolean).join(" ") ||
+    target.email;
+  const roleLabel = ROLE_LABEL[args.roleType];
+  let scopeName: string | undefined;
+  if (args.departmentId) {
+    scopeName = (await ctx.db.get(args.departmentId))?.name;
+  } else if (args.clanId) {
+    scopeName = (await ctx.db.get(args.clanId))?.name;
+  }
+  await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+    title: scopeName ? `New ${scopeName} ${roleLabel} appointed` : `New ${roleLabel} appointed`,
+    body: scopeName
+      ? `${targetName} is now the ${roleLabel} for ${scopeName}.`
+      : `${targetName} was appointed ${roleLabel}.`,
+    audience: { type: "all" as const },
+    // No mobile screen owns role management (that's an admin-portal
+    // concern) — an unrecognized type, which the notification center falls
+    // back to Home for rather than doing nothing (apps/mobile/app/
+    // notifications.tsx).
+    deepLink: { type: "role_assignment", id: roleAssignmentId },
+    createdBy: actor._id,
+  });
+
   return { roleAssignmentId };
 }
 
@@ -258,6 +293,11 @@ export async function revokeRoleCore(
     ...(args.note ? { note: args.note } : {}),
   });
 
+  // Deliberately NOT wired to notifications.dispatch, unlike assignRoleCore
+  // above — a revocation is not something to broadcast church-wide, and a
+  // scoped/private notice to just the revoked person wasn't asked for
+  // either. Not an oversight; revisit only if a real notification need for
+  // this shows up.
   await logActivity(ctx, {
     actorUserId: actor._id,
     action: "role.revoked",

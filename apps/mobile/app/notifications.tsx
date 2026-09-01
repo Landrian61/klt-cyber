@@ -29,7 +29,15 @@ function resolveDeepLinkHref(deepLink: { type: string; id: string }): Href | nul
       return `/event-detail?id=${deepLink.id}` as Href;
     case 'program':
       return `/program-detail?id=${deepLink.id}` as Href;
+    case 'profile':
+      // Always the caller's own profile — the screen takes no id param, so
+      // `deepLink.id` (the affected user's id, for role-appointment/
+      // verification notifications) is carried for completeness but unused.
+      return '/profile' as Href;
     default:
+      // No mobile screen owns this type yet (role assignments, pending
+      // profile reviews — both admin-portal concerns). Home is a safe,
+      // always-valid landing spot rather than doing nothing on tap.
       return null;
   }
 }
@@ -62,8 +70,9 @@ export default function NotificationsScreen() {
   const handlePress = (item: NotificationItem) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!item.read) markRead({ notificationId: item._id }).catch(() => {});
-    const href = resolveDeepLinkHref(item.deepLink);
-    if (href) router.push(href);
+    // Falls back to Home rather than doing nothing when the type has no
+    // mobile screen yet — see resolveDeepLinkHref's default case.
+    router.push(resolveDeepLinkHref(item.deepLink) ?? '/(tabs)');
   };
 
   const handleMarkAllRead = () => {
