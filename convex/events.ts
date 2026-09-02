@@ -1,16 +1,19 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import {
   canManageContent,
   getAdministrationAuthorityOrNull,
   logActivity,
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
+import { DAY_MS } from "./calendar";
 
 // One-off events. `archiveEvent` sets active:false rather than hard-deleting, so
 // a mistaken archive is reversible and history is preserved. See
-// docs/DATA_MODEL.md, Increment 3.
+// docs/DATA_MODEL.md, Increment 3 (table) and Increment 7 (reminder scheduling).
 
 // ── Reads (open to any authenticated session) ────────────────────────────────
 
@@ -62,6 +65,85 @@ export const listAllEvents = query({
   },
 });
 
+// ── Reminder scheduling (docs/DATA_MODEL.md, Increment 7) ───────────────────
+
+type ReminderJobIds = {
+  weekBeforeReminderJobId?: Id<"_scheduled_functions">;
+  dayBeforeReminderJobId?: Id<"_scheduled_functions">;
+};
+
+/**
+ * Schedules the week-before/day-before reminder pushes for an event and
+ * returns the job ids to patch onto the row — only for whichever reminder's
+ * computed time (`startDateTime - 7d` / `startDateTime - 1d`) is still in
+ * the future. A reminder that's already past is silently skipped (its key
+ * is simply absent from the result) rather than scheduling a notification
+ * in the past. Shared by `createEvent` and `updateEvent` (on a
+ * `startDateTime` edit) so the two can't drift.
+ */
+async function scheduleEventReminders(
+  ctx: MutationCtx,
+  eventId: Id<"events">,
+  event: { title: string; startDateTime: number; coverImageUrl?: string },
+  actorId: Id<"users">
+): Promise<ReminderJobIds> {
+  const now = Date.now();
+  const common = {
+    audience: { type: "all" as const },
+    deepLink: { type: "event", id: eventId },
+    createdBy: actorId,
+    ...(event.coverImageUrl ? { imageUrl: event.coverImageUrl } : {}),
+  };
+
+  const result: ReminderJobIds = {};
+
+  const weekBeforeTime = event.startDateTime - 7 * DAY_MS;
+  if (weekBeforeTime > now) {
+    result.weekBeforeReminderJobId = await ctx.scheduler.runAt(
+      weekBeforeTime,
+      internal.notifications.dispatch,
+      {
+        title: `One Week Away: ${event.title}`,
+        body: `${event.title} is happening in one week.`,
+        ...common,
+      }
+    );
+  }
+
+  const dayBeforeTime = event.startDateTime - DAY_MS;
+  if (dayBeforeTime > now) {
+    result.dayBeforeReminderJobId = await ctx.scheduler.runAt(
+      dayBeforeTime,
+      internal.notifications.dispatch,
+      {
+        title: `Tomorrow: ${event.title}`,
+        body: `${event.title} is happening tomorrow.`,
+        ...common,
+      }
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Cancels an event's currently-scheduled reminders, guarded per-field for a
+ * reminder that was never scheduled (already past at create/update time) or
+ * has already fired. Called before rescheduling on a `startDateTime` edit,
+ * and unconditionally on archive.
+ */
+async function cancelEventReminders(
+  ctx: MutationCtx,
+  event: Pick<Doc<"events">, "weekBeforeReminderJobId" | "dayBeforeReminderJobId">
+) {
+  if (event.weekBeforeReminderJobId) {
+    await ctx.scheduler.cancel(event.weekBeforeReminderJobId);
+  }
+  if (event.dayBeforeReminderJobId) {
+    await ctx.scheduler.cancel(event.dayBeforeReminderJobId);
+  }
+}
+
 // ── Mutations (content-admin only) ───────────────────────────────────────────
 
 export const createEvent = mutation({
@@ -101,6 +183,33 @@ export const createEvent = mutation({
       targetId: eventId,
       metadata: { title: args.title, featured: args.featured ?? false },
     });
+
+    // Immediate "new event" push (Increment 7) — scheduled, not awaited
+    // inline, same "the write is the source of truth, the notification is a
+    // best-effort side effect" convention as announcements' publish push.
+    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+      title: `New Event: ${args.title}`,
+      body: args.description ?? `Join us for ${args.title}.`,
+      audience: { type: "all" },
+      deepLink: { type: "event", id: eventId },
+      createdBy: actor._id,
+      ...(args.coverImageUrl ? { imageUrl: args.coverImageUrl } : {}),
+    });
+
+    const reminderJobIds = await scheduleEventReminders(
+      ctx,
+      eventId,
+      {
+        title: args.title,
+        startDateTime: args.startDateTime,
+        coverImageUrl: args.coverImageUrl,
+      },
+      actor._id
+    );
+    if (Object.keys(reminderJobIds).length > 0) {
+      await ctx.db.patch(eventId, reminderJobIds);
+    }
+
     return { eventId };
   },
 });
@@ -140,6 +249,31 @@ export const updateEvent = mutation({
     if (patch.featured !== undefined) fields.featured = patch.featured;
     if (patch.active !== undefined) fields.active = patch.active;
 
+    // startDateTime changing invalidates any already-scheduled reminders —
+    // cancel them first, then reschedule (or leave unset, if now-past)
+    // against the new time (Increment 7).
+    if (patch.startDateTime !== undefined) {
+      await cancelEventReminders(ctx, existing);
+      const reminderJobIds = await scheduleEventReminders(
+        ctx,
+        eventId,
+        {
+          title: patch.title ?? existing.title,
+          startDateTime: patch.startDateTime,
+          coverImageUrl:
+            patch.coverImageUrl !== undefined
+              ? patch.coverImageUrl
+              : existing.coverImageUrl,
+        },
+        actor._id
+      );
+      // Explicitly (re)assign both — including `undefined` for a reminder
+      // that's now skipped-as-past — so a stale (already-cancelled) job id
+      // never lingers on the row.
+      fields.weekBeforeReminderJobId = reminderJobIds.weekBeforeReminderJobId;
+      fields.dayBeforeReminderJobId = reminderJobIds.dayBeforeReminderJobId;
+    }
+
     await ctx.db.patch(eventId, fields);
     await logActivity(ctx, {
       actorUserId: actor._id,
@@ -158,6 +292,10 @@ export const archiveEvent = mutation({
     const actor = await canManageContent(ctx);
     const existing = await ctx.db.get(eventId);
     if (!existing) throw new Error("Event not found");
+
+    // An archived event should never still push a reminder (Increment 7).
+    await cancelEventReminders(ctx, existing);
+
     await ctx.db.patch(eventId, { active: false, updatedAt: Date.now() });
     await logActivity(ctx, {
       actorUserId: actor._id,

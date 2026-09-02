@@ -1205,3 +1205,77 @@ this doc's own Increment 4 section (above) still shows the superseded `church_ad
 resolved as part of this increment — flagging per the doc/code parity rule in CLAUDE.md rather than
 silently rewriting Increment 4's history.
  
+
+---
+
+## `events` Reminder Scheduling & weeklyPrograms Reminder Cron (Increment 7)
+
+Wires event creation into the notification pipeline (Increment 6): an immediate "new event" push,
+plus week-before/day-before reminders that are cancelled and rescheduled if the event's
+`startDateTime` is edited. Adds a daily cron doing the analogous day-before/hour-before reminders
+for `weeklyPrograms` occurrences — those have no per-row reminder tracking, since an occurrence is
+virtual (expanded at query/cron time, not a stored row), so there's nothing to cancel/reschedule the
+way an event's fixed `startDateTime` requires.
+
+```ts
+events: defineTable({
+  title: v.string(),
+  description: v.optional(v.string()),
+  location: v.optional(v.string()),
+  startDateTime: v.number(),
+  endDateTime: v.number(),
+  coverImageUrl: v.optional(v.string()),
+  featured: v.boolean(),
+  active: v.boolean(),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  weekBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
+  dayBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
+})
+  .index("by_startDateTime", ["startDateTime"])
+  .index("by_featured", ["featured", "startDateTime"])
+```
+
+**Reminder scheduling.** `createEvent` fires `internal.notifications.dispatch` immediately
+(`runAfter(0, ...)`, audience `{type: "all"}`, `deepLink: {type: "event", id: eventId}`) and
+schedules week-before/day-before reminders via `runAt` — but only for a reminder whose computed time
+(`startDateTime - 7d` / `startDateTime - 1d`) is still in the future; a reminder that's already past
+is silently skipped, leaving its job-id field unset rather than scheduling a notification in the
+past. `updateEvent` cancels both existing job ids (`ctx.scheduler.cancel`, each guarded for the
+field being unset) whenever `startDateTime` is part of the patch, then re-runs the same
+schedule-if-future logic against the new time — explicitly clearing (not just leaving stale) a job-id
+field whose reminder is now skipped-as-past. `archiveEvent` cancels both job ids unconditionally
+(same guard) so an archived event never still pushes a reminder.
+
+**`deepLink` types.** `"event"` and `"program"` were already wired into the mobile notification
+resolver (`apps/mobile/app/notifications.tsx`) ahead of any dispatch source producing them — this
+increment is the first to actually populate them, targeting the existing `/event-detail?id=` and
+`/program-detail?id=` routes.
+
+**weeklyPrograms cron.** `convex/crons.ts` registers a daily cron at 06:00 UTC (09:00 Kampala — see
+`KAMPALA_OFFSET_MS`, no DST to account for) calling `internal.weeklyPrograms.checkWeeklyProgramReminders`.
+It walks every active `weeklyPrograms` row and reuses `weeklyProgramOccursOn`
+(`convex/lib/recurrence.ts` — the same recurrence-matching helper `getCalendarRange` uses) against
+tomorrow's Kampala date, rather than a naive day-of-week check, so `once`/`biweekly`/`monthly` and
+`startDate`/`endDate`-bounded programs are handled correctly. A match dispatches the day-before
+notification immediately (the cron's own run time already *is* the day-before moment) and schedules
+the hour-before notification via `runAt` against the program's exact occurrence instant
+(`occurrenceInstant`) minus one hour.
+
+**`createdBy` for cron-triggered dispatches.** `internal.notifications.dispatch` requires a
+`createdBy: v.id("users")`, but a cron run has no acting user. Rather than invent a "system user"
+concept, `checkWeeklyProgramReminders` reuses `program.createdBy` (the program's own author) —
+already a required field on every row.
+
+**Known gap — no `programExceptions` mechanism exists.** `programExceptions` was explicitly deferred
+in Increment 3 (a called-off single occurrence is handled today by *not* touching the recurring
+`weeklyPrograms` row at all — see the Increment 3 section above) and remains undefined as of this
+increment — grepped repo-wide, it appears only as prose in this doc. That means
+`checkWeeklyProgramReminders` has no way to know a specific tomorrow-occurrence was called off by
+some other means and will still dispatch its day-before/hour-before reminders regardless. This is a
+real, live gap, not something this increment works around — flagged per the doc/code parity rule in
+CLAUDE.md rather than silently building exception machinery that Increment 3 deliberately deferred.
+Since a weeklyProgram occurrence is virtual (not a stored row), there's also no id to persist for
+cancellation the way `events` does — an admin editing/deactivating a program between the cron run and
+the occurrence does not retract an already-scheduled reminder either.

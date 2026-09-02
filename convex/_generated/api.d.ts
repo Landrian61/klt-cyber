@@ -17,6 +17,7 @@ import type * as churchAdminSeed from "../churchAdminSeed.js";
 import type * as clans from "../clans.js";
 import type * as content from "../content.js";
 import type * as contentSeed from "../contentSeed.js";
+import type * as crons from "../crons.js";
 import type * as departmentMemberships from "../departmentMemberships.js";
 import type * as departmentMigration from "../departmentMigration.js";
 import type * as departments from "../departments.js";
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   clans: typeof clans;
   content: typeof content;
   contentSeed: typeof contentSeed;
+  crons: typeof crons;
   departmentMemberships: typeof departmentMemberships;
   departmentMigration: typeof departmentMigration;
   departments: typeof departments;

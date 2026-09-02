@@ -308,6 +308,12 @@ export default defineSchema({
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // Scheduled-function ids for the week-before/day-before reminder pushes
+    // (docs/DATA_MODEL.md, Increment 7) — unset when the reminder was never
+    // scheduled (already past at create/update time) or has been cancelled
+    // (startDateTime changed, or the event was archived).
+    weekBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
+    dayBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
   })
     .index("by_startDateTime", ["startDateTime"])
     .index("by_featured", ["featured", "startDateTime"]),
