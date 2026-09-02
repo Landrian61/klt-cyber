@@ -360,7 +360,7 @@ export const dispatch = internalMutation({
 
     const recipients = await resolveAudience(ctx, audience);
 
-    await ctx.db.insert("notifications", {
+    const notificationId = await ctx.db.insert("notifications", {
       title,
       body,
       audience,
@@ -376,7 +376,13 @@ export const dispatch = internalMutation({
         notification: {
           title,
           body,
-          data: { type: deepLink.type, id: deepLink.id },
+          // `notificationId` rides alongside the deep-link target's own type/id
+          // so the OS-tap listener (apps/mobile/app/_layout.tsx) can call
+          // markNotificationRead without a second lookup. `data` is `v.any()`
+          // on the push component's side, so this is additive, not a schema
+          // change. Pushes delivered before this field existed simply lack it
+          // — the tap handler guards for that and still navigates.
+          data: { type: deepLink.type, id: deepLink.id, notificationId },
           sound: "default",
           // No badge field — the client sets the badge itself from
           // getMyUnreadNotificationCount (Part E), not per-push.

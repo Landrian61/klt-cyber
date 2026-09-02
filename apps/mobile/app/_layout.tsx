@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -8,18 +8,19 @@ import * as SystemUI from 'expo-system-ui';
 import * as Notifications from 'expo-notifications';
 import 'react-native-reanimated';
 
-import { ConvexProvider, useQuery } from 'convex/react';
+import { ConvexProvider, useMutation, useQuery } from 'convex/react';
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
 
 import { ThemeProvider, useTheme } from '@/contexts/theme-context';
 import { LightColors } from '@/constants/colors';
 import { convex } from '@/lib/convex';
 import { authClient } from '@/lib/auth';
-import { api } from '@/lib/api';
+import { api, type Id } from '@/lib/api';
 import { AnimatedSplash } from '@/components/animated-splash';
 // Side-effect import — registers Notifications.setNotificationHandler at
 // module load. ensureDefaultAndroidChannel is called explicitly below.
 import { ensureDefaultAndroidChannel } from '@/lib/notification-setup';
+import { resolveDeepLinkHref } from '@/lib/notification-links';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +32,10 @@ function RootLayoutInner() {
   const { colors, isDark } = useTheme();
   const { data: session, isPending } = authClient.useSession();
   const [splashDone, setSplashDone] = useState(false);
+  const router = useRouter();
+  // Hoisted above the auth-dependent effect below; also used by the
+  // Stack.Protected guards further down.
+  const isAuthenticated = !!session;
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(colors.surfaceLowest);
@@ -40,9 +45,64 @@ function RootLayoutInner() {
     ensureDefaultAndroidChannel();
   }, []);
 
-  // Reusable by the future in-app notification center, not just this badge —
-  // see convex/notifications.ts. Resolves to 0 (not undefined) once loaded,
-  // including when signed out, so this never fires with a stale count.
+  // OS-notification-tap handling — the app was backgrounded, killed, or
+  // cold-launched by the tap itself, and the user tapped the system tray
+  // entry. Same two actions as an in-app row tap
+  // (apps/mobile/app/notifications.tsx): mark read, then navigate, through
+  // the same resolveDeepLinkHref used there so the two paths never diverge.
+  // `notificationId` is only present on pushes sent after that field was
+  // added to dispatch's payload (convex/notifications.ts) — absent on older
+  // ones, so the mark-read call is skipped rather than guessing an id.
+  //
+  // Two things a live-listener-only implementation misses, both handled here:
+  // 1. Cold start: if the tap is what launched the (fully killed) app, that
+  //    response was delivered before this listener existed to catch it —
+  //    `addNotificationResponseReceivedListener` never fires for it.
+  //    `getLastNotificationResponseAsync()` recovers it, and since it keeps
+  //    returning the same cached response until the next full relaunch, it's
+  //    safe to call again below whenever this effect re-runs.
+  // 2. Auth not ready yet: only `(auth)` is mounted under Stack.Protected
+  //    until `isAuthenticated`, so a push to a protected deep-link route
+  //    before then would target an unmounted screen. Skipping registration
+  //    entirely while `isPending`/unauthenticated — rather than swallowing
+  //    the tap — means this effect re-runs and actually handles the pending
+  //    response once sign-in resolves.
+  const markNotificationRead = useMutation(api.notifications.markNotificationRead);
+  useEffect(() => {
+    if (isPending || !isAuthenticated) return;
+
+    // Local to this effect run — only guards against the same response
+    // being delivered twice (once via getLastNotificationResponseAsync, once
+    // via the live listener), a known overlap on some platforms/SDK versions.
+    const handledIds = new Set<string>();
+    const handleResponse = (response: Notifications.NotificationResponse) => {
+      const requestId = response.notification.request.identifier;
+      if (handledIds.has(requestId)) return;
+      handledIds.add(requestId);
+
+      const data = response.notification.request.content.data as
+        | { type?: string; id?: string; notificationId?: string }
+        | undefined;
+      if (!data?.type || !data.id) return;
+      if (data.notificationId) {
+        markNotificationRead({ notificationId: data.notificationId as Id<'notifications'> }).catch(() => {});
+      }
+      router.push(resolveDeepLinkHref({ type: data.type, id: data.id }) ?? '/(tabs)');
+    };
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) handleResponse(response);
+    });
+    const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    return () => subscription.remove();
+  }, [isPending, isAuthenticated, markNotificationRead, router]);
+
+  // Independent subscription from the bell badge (top-bar.tsx) and the
+  // in-app notification center (notifications.tsx) — same query, each
+  // caller owns its own; Convex dedupes/caches this client-side, so a
+  // shared subscription isn't needed. Resolves to 0 (not undefined) once
+  // loaded, including when signed out, so this never fires with a stale
+  // count.
   const unreadCount = useQuery(api.notifications.getMyUnreadNotificationCount);
   useEffect(() => {
     if (unreadCount === undefined) return;
@@ -53,7 +113,7 @@ function RootLayoutInner() {
   // Saint, Welcome otherwise) renders BENEATH the splash and is simply revealed
   // when the branded intro lifts away. Session-gating is unchanged — Better Auth
   // persists the session in secure storage, so returning users skip the auth flow.
-  const isAuthenticated = !!session;
+  // (isAuthenticated itself is hoisted above, next to the effects that need it.)
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
