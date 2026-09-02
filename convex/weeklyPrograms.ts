@@ -1,14 +1,16 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { RecurrenceType, WeekOfMonth } from "@klt-cyber/shared";
+import { internal } from "./_generated/api";
 import {
   canManageContent,
   getAdministrationAuthorityOrNull,
   logActivity,
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
-import { kampalaParts } from "./calendar";
+import { kampalaParts, occurrenceInstant, DAY_MS } from "./calendar";
+import { weeklyProgramOccursOn } from "./lib/recurrence";
 
 // Weekly programs — recurring (or one-off) slots defined once. The calendar
 // expands these into virtual occurrences at query time (see
@@ -313,5 +315,82 @@ export const toggleProgramActive = mutation({
       targetId: programId,
     });
     return { ok: true as const, active };
+  },
+});
+
+// ── Reminder cron (docs/DATA_MODEL.md, Increment 7) ─────────────────────────
+
+/**
+ * Daily cron (convex/crons.ts, 06:00 UTC / 09:00 Kampala — see
+ * KAMPALA_OFFSET_MS) — day-before and hour-before reminder pushes for every
+ * active weeklyPrograms occurrence landing tomorrow (Kampala-local). Reuses
+ * weeklyProgramOccursOn (convex/lib/recurrence.ts) — the same recurrence
+ * matcher getCalendarRange uses — rather than a naive day-of-week check, so
+ * once/biweekly/monthly and startDate/endDate-bounded programs are handled
+ * correctly. There is no programExceptions mechanism in this schema (see
+ * docs/DATA_MODEL.md, Increment 3 and 7) — a called-off occurrence still
+ * gets reminded here; that is a known, documented gap, not silently worked
+ * around. A cron run has no acting user, so createdBy on the dispatched
+ * notification reuses the program's own createdBy rather than inventing a
+ * system-user concept.
+ */
+export const checkWeeklyProgramReminders = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const HOUR_MS = 60 * 60 * 1000;
+    const tomorrowParts = kampalaParts(Date.now() + DAY_MS);
+    const tomorrowMidnight = occurrenceInstant(
+      tomorrowParts.year,
+      tomorrowParts.month,
+      tomorrowParts.day,
+      "00:00"
+    );
+
+    const programs = await ctx.db
+      .query("weeklyPrograms")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    for (const program of programs) {
+      if (!weeklyProgramOccursOn(program, tomorrowMidnight, tomorrowParts)) {
+        continue;
+      }
+      const startTime = program.startTime ?? program.time;
+      if (!startTime) continue; // pre-migration row; defensive, mirrors calendar.ts
+
+      const deepLink = { type: "program", id: program._id };
+      const common = {
+        audience: { type: "all" as const },
+        deepLink,
+        createdBy: program.createdBy,
+        ...(program.coverImageUrl ? { imageUrl: program.coverImageUrl } : {}),
+      };
+
+      // Day-before notification — fires now, since the cron itself runs at
+      // the day-before moment for tomorrow's occurrences.
+      await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+        title: `Tomorrow: ${program.title}`,
+        body: `${program.title} is tomorrow at ${startTime}.`,
+        ...common,
+      });
+
+      // Hour-before notification — scheduled against the exact occurrence
+      // instant, minus one hour.
+      const occurrence = occurrenceInstant(
+        tomorrowParts.year,
+        tomorrowParts.month,
+        tomorrowParts.day,
+        startTime
+      );
+      await ctx.scheduler.runAt(
+        occurrence - HOUR_MS,
+        internal.notifications.dispatch,
+        {
+          title: `Starting Soon: ${program.title}`,
+          body: `${program.title} starts in one hour.`,
+          ...common,
+        }
+      );
+    }
   },
 });
