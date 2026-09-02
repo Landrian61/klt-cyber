@@ -12,6 +12,7 @@ import {
   requireDepartmentHod,
   requireUser,
 } from "./lib/authz";
+import { notificationCommon } from "./lib/reminders";
 
 const ROLE_LABEL: Record<AssignRoleArgs["roleType"], string> = {
   system_admin: "System Admin",
@@ -231,13 +232,15 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
     body: scopeName
       ? `${targetName} is now the ${roleLabel} for ${scopeName}.`
       : `${targetName} was appointed ${roleLabel}.`,
-    audience: { type: "all" as const },
-    // No mobile screen owns role management (that's an admin-portal
-    // concern) — an unrecognized type, which the notification center falls
-    // back to Home for rather than doing nothing (apps/mobile/app/
-    // notifications.tsx).
-    deepLink: { type: "role_assignment", id: roleAssignmentId },
-    createdBy: actor._id,
+    ...notificationCommon({
+      audience: { type: "all" },
+      // No mobile screen owns role management (that's an admin-portal
+      // concern) — an unrecognized type, which the notification center
+      // falls back to Home for rather than doing nothing (apps/mobile/app/
+      // notifications.tsx).
+      deepLink: { type: "role_assignment", id: roleAssignmentId },
+      createdBy: actor._id,
+    }),
   });
 
   return { roleAssignmentId };

@@ -441,4 +441,23 @@ export default defineSchema({
   })
     .index("by_userId_notificationId", ["userId", "notificationId"])
     .index("by_userId", ["userId"]),
+
+  // ── Increment 8 — Per-user notification delete ──────────────────────────────
+  // Same shape/index pattern as `notificationReads` above, and for the same
+  // reason: `notifications` is one shared row per event, not per recipient
+  // (see the Increment 6 comment above), so "delete" for one user can't be a
+  // real document delete — it would remove the notification for every other
+  // recipient too. This is a per-user overlay instead: a row here means "hide
+  // this notification for this user," and `myNotificationsWithReadState`
+  // (convex/notifications.ts) filters it out of both the list and the unread
+  // count, same as an unread row filters into the count. No row = not
+  // dismissed, same "don't store negative space" convention as
+  // `notificationReads`.
+  notificationDismissals: defineTable({
+    userId: v.id("users"),
+    notificationId: v.id("notifications"),
+    dismissedAt: v.number(),
+  })
+    .index("by_userId_notificationId", ["userId", "notificationId"])
+    .index("by_userId", ["userId"]),
 });

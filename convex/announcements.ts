@@ -9,6 +9,7 @@ import {
   logActivity,
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
+import { notificationCommon } from "./lib/reminders";
 
 // Push-notification body excerpt length — a full announcement body would
 // blow well past what a push notification renders anyway. Named so it's a
@@ -41,10 +42,12 @@ function schedulePublishNotification(
   return ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
     title: announcement.title,
     body: excerpt(announcement.body, PUSH_BODY_EXCERPT_LENGTH),
-    audience: { type: "all" as const },
-    deepLink: { type: "announcement", id: announcementId },
-    createdBy: actorId,
-    ...(announcement.coverImageUrl ? { imageUrl: announcement.coverImageUrl } : {}),
+    ...notificationCommon({
+      audience: { type: "all" },
+      deepLink: { type: "announcement", id: announcementId },
+      createdBy: actorId,
+      imageUrl: announcement.coverImageUrl,
+    }),
   });
 }
 

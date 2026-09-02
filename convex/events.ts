@@ -10,6 +10,7 @@ import {
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
 import { DAY_MS } from "./calendar";
+import { notificationCommon, scheduleReminderEntries } from "./lib/reminders";
 
 // One-off events. `archiveEvent` sets active:false rather than hard-deleting, so
 // a mistaken archive is reversible and history is preserved. See
@@ -89,32 +90,36 @@ async function scheduleEventReminders(
   actorId: Id<"users">
 ): Promise<ReminderJobIds> {
   const now = Date.now();
-  const common = {
-    audience: { type: "all" as const },
+  const common = notificationCommon({
+    audience: { type: "all" },
     deepLink: { type: "event", id: eventId },
     createdBy: actorId,
-    ...(event.coverImageUrl ? { imageUrl: event.coverImageUrl } : {}),
-  };
+    imageUrl: event.coverImageUrl,
+  });
 
   const weekBeforeTime = event.startDateTime - 7 * DAY_MS;
   const dayBeforeTime = event.startDateTime - DAY_MS;
 
-  const [weekBeforeReminderJobId, dayBeforeReminderJobId] = await Promise.all([
-    weekBeforeTime > now
-      ? ctx.scheduler.runAt(weekBeforeTime, internal.notifications.dispatch, {
-          title: `One Week Away: ${event.title}`,
-          body: `${event.title} is happening in one week.`,
-          ...common,
-        })
-      : Promise.resolve(undefined),
-    dayBeforeTime > now
-      ? ctx.scheduler.runAt(dayBeforeTime, internal.notifications.dispatch, {
-          title: `Tomorrow: ${event.title}`,
-          body: `${event.title} is happening tomorrow.`,
-          ...common,
-        })
-      : Promise.resolve(undefined),
-  ]);
+  const [weekBeforeReminderJobId, dayBeforeReminderJobId] = await scheduleReminderEntries(
+    ctx,
+    [
+      weekBeforeTime > now
+        ? {
+            at: weekBeforeTime,
+            title: `One Week Away: ${event.title}`,
+            body: `${event.title} is happening in one week.`,
+          }
+        : null,
+      dayBeforeTime > now
+        ? {
+            at: dayBeforeTime,
+            title: `Tomorrow: ${event.title}`,
+            body: `${event.title} is happening tomorrow.`,
+          }
+        : null,
+    ],
+    common
+  );
 
   const result: ReminderJobIds = {};
   if (weekBeforeReminderJobId !== undefined) {
@@ -192,10 +197,12 @@ export const createEvent = mutation({
     await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
       title: `New Event: ${args.title}`,
       body: args.description ?? `Join us for ${args.title}.`,
-      audience: { type: "all" },
-      deepLink: { type: "event", id: eventId },
-      createdBy: actor._id,
-      ...(args.coverImageUrl ? { imageUrl: args.coverImageUrl } : {}),
+      ...notificationCommon({
+        audience: { type: "all" },
+        deepLink: { type: "event", id: eventId },
+        createdBy: actor._id,
+        imageUrl: args.coverImageUrl,
+      }),
     });
 
     // No reminders to schedule for an event created inactive — mirrors

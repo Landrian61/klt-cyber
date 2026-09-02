@@ -12,6 +12,7 @@ import {
   requireUser,
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
+import { notificationCommon } from "./lib/reminders";
 
 // The mobile 7-step profile-submission wizard and its Church Admin
 // verification workflow. See docs/DATA_MODEL.md, Increment 4. Supersedes
@@ -316,12 +317,14 @@ export const submitProfile = mutation({
       await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
         title: "New profile pending review",
         body: `${submitterName} submitted a member profile for verification.`,
-        audience: { type: "users", userIds: reviewerIds },
-        // No mobile screen for the review queue (admin-portal concern) — an
-        // unrecognized type; the notification center falls back to Home
-        // rather than doing nothing (apps/mobile/app/notifications.tsx).
-        deepLink: { type: "profile_review", id: profileId },
-        createdBy: user._id,
+        ...notificationCommon({
+          audience: { type: "users", userIds: reviewerIds },
+          // No mobile screen for the review queue (admin-portal concern) —
+          // an unrecognized type; the notification center falls back to
+          // Home rather than doing nothing (apps/mobile/app/notifications.tsx).
+          deepLink: { type: "profile_review", id: profileId },
+          createdBy: user._id,
+        }),
       });
     }
 
@@ -384,12 +387,14 @@ export const verifyProfile = mutation({
     await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
       title: "Your profile has been verified",
       body: "Great news — your KLT Cyber Church profile has been verified by the church office.",
-      audience: { type: "users", userIds: [profile.userId] },
-      // Recognized by apps/mobile/app/notifications.tsx — routes to the
-      // caller's own Profile screen (which takes no id param; `id` here is
-      // just the affected user, carried for completeness).
-      deepLink: { type: "profile", id: profile.userId },
-      createdBy: actor._id,
+      ...notificationCommon({
+        audience: { type: "users", userIds: [profile.userId] },
+        // Recognized by apps/mobile/app/notifications.tsx — routes to the
+        // caller's own Profile screen (which takes no id param; `id` here
+        // is just the affected user, carried for completeness).
+        deepLink: { type: "profile", id: profile.userId },
+        createdBy: actor._id,
+      }),
     });
 
     return { ok: true as const };
