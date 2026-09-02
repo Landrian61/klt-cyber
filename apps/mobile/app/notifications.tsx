@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
@@ -11,36 +11,9 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { api, type Doc } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/content-format';
+import { resolveDeepLinkHref } from '@/lib/notification-links';
 
 type NotificationItem = Doc<'notifications'> & { read: boolean };
-
-/**
- * The in-app route for a notification's `deepLink`, or `null` for a type
- * with no drill-down screen (yet) — tapping those just marks it read.
- * `dispatch` (convex/notifications.ts) only ever writes "announcement"
- * today; the other cases are here so this doesn't need revisiting the next
- * time a new dispatch source (events, programs) comes online.
- */
-function resolveDeepLinkHref(deepLink: { type: string; id: string }): Href | null {
-  switch (deepLink.type) {
-    case 'announcement':
-      return `/announcement-detail?id=${deepLink.id}` as Href;
-    case 'event':
-      return `/event-detail?id=${deepLink.id}` as Href;
-    case 'program':
-      return `/program-detail?id=${deepLink.id}` as Href;
-    case 'profile':
-      // Always the caller's own profile — the screen takes no id param, so
-      // `deepLink.id` (the affected user's id, for role-appointment/
-      // verification notifications) is carried for completeness but unused.
-      return '/profile' as Href;
-    default:
-      // No mobile screen owns this type yet (role assignments, pending
-      // profile reviews — both admin-portal concerns). Home is a safe,
-      // always-valid landing spot rather than doing nothing on tap.
-      return null;
-  }
-}
 
 export default function NotificationsScreen() {
   const Colors = useThemeColors();
