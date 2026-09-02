@@ -2,7 +2,6 @@ import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { RecurrenceType, WeekOfMonth } from "@klt-cyber/shared";
-import { internal } from "./_generated/api";
 import {
   canManageContent,
   getAdministrationAuthorityOrNull,
@@ -11,6 +10,7 @@ import {
 import { resolveCoverUrls } from "./lib/media";
 import { kampalaParts, occurrenceInstant, DAY_MS } from "./calendar";
 import { weeklyProgramOccursOn } from "./lib/recurrence";
+import { notificationCommon, scheduleReminderEntries } from "./lib/reminders";
 
 // Weekly programs — recurring (or one-off) slots defined once. The calendar
 // expands these into virtual occurrences at query time (see
@@ -358,38 +358,39 @@ export const checkWeeklyProgramReminders = internalMutation({
       const startTime = program.startTime ?? program.time;
       if (!startTime) continue; // pre-migration row; defensive, mirrors calendar.ts
 
-      const deepLink = { type: "program", id: program._id };
-      const common = {
-        audience: { type: "all" as const },
-        deepLink,
+      const common = notificationCommon({
+        audience: { type: "all" },
+        deepLink: { type: "program", id: program._id },
         createdBy: program.createdBy,
-        ...(program.coverImageUrl ? { imageUrl: program.coverImageUrl } : {}),
-      };
-
-      // Day-before notification — fires now, since the cron itself runs at
-      // the day-before moment for tomorrow's occurrences.
-      await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
-        title: `Tomorrow: ${program.title}`,
-        body: `${program.title} is tomorrow at ${startTime}.`,
-        ...common,
+        imageUrl: program.coverImageUrl,
       });
 
-      // Hour-before notification — scheduled against the exact occurrence
-      // instant, minus one hour.
       const occurrence = occurrenceInstant(
         tomorrowParts.year,
         tomorrowParts.month,
         tomorrowParts.day,
         startTime
       );
-      await ctx.scheduler.runAt(
-        occurrence - HOUR_MS,
-        internal.notifications.dispatch,
-        {
-          title: `Starting Soon: ${program.title}`,
-          body: `${program.title} starts in one hour.`,
-          ...common,
-        }
+
+      await scheduleReminderEntries(
+        ctx,
+        [
+          // Day-before — fires now, since the cron itself runs at the
+          // day-before moment for tomorrow's occurrences.
+          {
+            at: Date.now(),
+            title: `Tomorrow: ${program.title}`,
+            body: `${program.title} is tomorrow at ${startTime}.`,
+          },
+          // Hour-before — scheduled against the exact occurrence instant,
+          // minus one hour.
+          {
+            at: occurrence - HOUR_MS,
+            title: `Starting Soon: ${program.title}`,
+            body: `${program.title} starts in one hour.`,
+          },
+        ],
+        common
       );
     }
   },

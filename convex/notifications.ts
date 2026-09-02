@@ -210,11 +210,16 @@ async function userMatchesAudience(
 }
 
 /**
- * Every `notifications` row targeting `userId`, each annotated with whether
- * they've read it — the shared base both `getMyUnreadNotificationCount` (Part
- * E's badge) and `listMyNotifications`/`markAllNotificationsRead` (the
- * in-app notification center) build on, so "which notifications are mine"
- * and "have I read it" are never defined twice.
+ * Every `notifications` row targeting `userId` that the caller hasn't
+ * dismissed, each annotated with whether they've read it — the shared base
+ * both `getMyUnreadNotificationCount` (Part E's badge) and
+ * `listMyNotifications`/`markAllNotificationsRead` (the in-app notification
+ * center) build on, so "which notifications are mine," "have I read it," and
+ * "have I deleted it" are never defined twice.
+ *
+ * A dismissed notification is excluded entirely, not just flagged — deleted
+ * means gone from both the list and the unread count (Increment 8), the same
+ * way `notificationReads` means read rather than merely "seen."
  *
  * Deliberately a flat scan over `notifications` rather than a join through a
  * per-recipient fan-out table — there isn't one (see schema.ts: "one row per
@@ -227,17 +232,23 @@ async function myNotificationsWithReadState(
   ctx: QueryCtx,
   userId: Id<"users">
 ): Promise<Array<Doc<"notifications"> & { read: boolean }>> {
-  const [allNotifications, readRows] = await Promise.all([
+  const [allNotifications, readRows, dismissedRows] = await Promise.all([
     ctx.db.query("notifications").collect(),
     ctx.db
       .query("notificationReads")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect(),
+    ctx.db
+      .query("notificationDismissals")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect(),
   ]);
   const readIds = new Set(readRows.map((r) => r.notificationId));
+  const dismissedIds = new Set(dismissedRows.map((r) => r.notificationId));
 
   const mine: Array<Doc<"notifications"> & { read: boolean }> = [];
   for (const notification of allNotifications) {
+    if (dismissedIds.has(notification._id)) continue;
     if (!(await userMatchesAudience(ctx, notification.audience, userId))) continue;
     mine.push({ ...notification, read: readIds.has(notification._id) });
   }
@@ -290,6 +301,30 @@ export const markNotificationRead = mutation({
       userId: user._id,
       notificationId,
       readAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Deletes one notification for the caller only (Increment 8) — mirrors
+ * `markNotificationRead` exactly, just against `notificationDismissals`
+ * instead of `notificationReads`. Idempotent.
+ */
+export const dismissNotification = mutation({
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, { notificationId }) => {
+    const user = await requireUser(ctx);
+    const existing = await ctx.db
+      .query("notificationDismissals")
+      .withIndex("by_userId_notificationId", (q) =>
+        q.eq("userId", user._id).eq("notificationId", notificationId)
+      )
+      .first();
+    if (existing) return;
+    await ctx.db.insert("notificationDismissals", {
+      userId: user._id,
+      notificationId,
+      dismissedAt: Date.now(),
     });
   },
 });

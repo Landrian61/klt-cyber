@@ -58,9 +58,13 @@ function RootLayoutInner() {
   // 1. Cold start: if the tap is what launched the (fully killed) app, that
   //    response was delivered before this listener existed to catch it —
   //    `addNotificationResponseReceivedListener` never fires for it.
-  //    `getLastNotificationResponseAsync()` recovers it, and since it keeps
-  //    returning the same cached response until the next full relaunch, it's
-  //    safe to call again below whenever this effect re-runs.
+  //    `getLastNotificationResponseAsync()` recovers it — but it keeps
+  //    returning the same cached response until the next full relaunch, so
+  //    it's explicitly cleared below right after being handled. Without
+  //    that, this effect re-running for an unrelated reason (e.g. a
+  //    sign-out/sign-in within the same session, no app relaunch) would
+  //    replay the same stale response and act on it under whichever user
+  //    happens to be signed in at that later point, not the one it was for.
   // 2. Auth not ready yet: only `(auth)` is mounted under Stack.Protected
   //    until `isAuthenticated`, so a push to a protected deep-link route
   //    before then would target an unmounted screen. Skipping registration
@@ -91,7 +95,11 @@ function RootLayoutInner() {
     };
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) handleResponse(response);
+      if (!response) return;
+      handleResponse(response);
+      // See note 1 above — consumes it so a later, unrelated effect re-run
+      // never replays it under a different signed-in user.
+      Notifications.clearLastNotificationResponseAsync().catch(() => {});
     });
     const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
     return () => subscription.remove();

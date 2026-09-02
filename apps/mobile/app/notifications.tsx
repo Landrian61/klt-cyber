@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +23,7 @@ export default function NotificationsScreen() {
   const notifications = useQuery(api.notifications.listMyNotifications);
   const markRead = useMutation(api.notifications.markNotificationRead);
   const markAllRead = useMutation(api.notifications.markAllNotificationsRead);
+  const dismissNotification = useMutation(api.notifications.dismissNotification);
 
   const isLoading = notifications === undefined;
   const items: NotificationItem[] = notifications ?? [];
@@ -51,6 +52,20 @@ export default function NotificationsScreen() {
   const handleMarkAllRead = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     markAllRead().catch(() => {});
+  };
+
+  // Long-press menu (INTERFACE_SPEC.md §9: "Long-press: 'Mark as read' /
+  // 'Delete'"). "Delete" is per-user (dismissNotification), not a real
+  // document delete — see convex/schema.ts's notificationDismissals comment.
+  const handleLongPress = (item: NotificationItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(item.title, undefined, [
+      ...(!item.read
+        ? [{ text: 'Mark as read', onPress: () => markRead({ notificationId: item._id }).catch(() => {}) }]
+        : []),
+      { text: 'Delete', style: 'destructive' as const, onPress: () => dismissNotification({ notificationId: item._id }).catch(() => {}) },
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
   };
 
   return (
@@ -99,6 +114,7 @@ export default function NotificationsScreen() {
             return (
               <Pressable
                 onPress={() => handlePress(item)}
+                onLongPress={() => handleLongPress(item)}
                 style={[styles.notifCard, { backgroundColor: item.read ? Colors.surfaceLowest : Colors.primaryFixedDim }]}
               >
                 <View style={[styles.notifIcon, { backgroundColor: typeStyle.bg }]}>

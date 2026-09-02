@@ -1279,3 +1279,45 @@ CLAUDE.md rather than silently building exception machinery that Increment 3 del
 Since a weeklyProgram occurrence is virtual (not a stored row), there's also no id to persist for
 cancellation the way `events` does — an admin editing/deactivating a program between the cron run and
 the occurrence does not retract an already-scheduled reminder either.
+
+## Per-User Notification Delete (Increment 8)
+
+Adds a "Delete" affordance (long-press on a notification row) alongside the existing "mark as read."
+`notifications` is one shared row per event, not one row per recipient (Increment 6) — a real
+document delete would remove the notification for every other recipient too, so "delete" is a
+per-user overlay, the same shape as `notificationReads`' read tracking, not an actual delete.
+
+```ts
+notificationDismissals: defineTable({
+  userId: v.id("users"),
+  notificationId: v.id("notifications"),
+  dismissedAt: v.number(),
+})
+  .index("by_userId_notificationId", ["userId", "notificationId"])
+  .index("by_userId", ["userId"]),
+```
+
+**Behavior.** `dismissNotification(notificationId)` mirrors `markNotificationRead` exactly —
+`requireUser`-scoped, checks `by_userId_notificationId` first, idempotent no-op if already dismissed.
+`myNotificationsWithReadState` (the shared base both `getMyUnreadNotificationCount` and
+`listMyNotifications` build on) now also fetches the caller's `notificationDismissals` and excludes
+any dismissed notification from the result entirely — a deleted notification neither shows in the
+list nor counts toward the unread badge. No row = not dismissed, same "don't store negative space"
+convention as `notificationReads`.
+
+**Mobile.** `apps/mobile/app/notifications.tsx` adds `onLongPress` to each row, presenting an
+`Alert.alert` action sheet (this app's existing pattern for a native multi-choice menu — see
+`components/ui/image-upload-field.tsx`) with "Mark as read" (only if unread), "Delete"
+(destructive-styled), and "Cancel" — matching `INTERFACE_SPEC.md` §9's "Long-press: 'Mark as read' /
+'Delete'" guidance.
+
+## Shared Notification-Payload / Reminder-Tier Helpers
+
+`convex/lib/reminders.ts` extracts two patterns that were previously hand-rolled independently at
+every `internal.notifications.dispatch` call site (`announcements.ts`, `events.ts`,
+`weeklyPrograms.ts`, `roles.ts`, `memberProfiles.ts`): `notificationCommon(...)`, the
+`{audience, deepLink, createdBy, imageUrl?}` dispatch-args shape every call site built by hand, and
+`scheduleReminderEntries(ctx, entries, common)`, the "compute a time, skip the tier if it's already
+past, `runAt` each remaining tier concurrently, return job ids positionally" block that was
+copy-pasted between `events.ts`'s week-before/day-before pair and `weeklyPrograms.ts`'s
+day-before/hour-before pair. Pure extraction — no behavior change at any call site.
