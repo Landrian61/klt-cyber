@@ -37,6 +37,7 @@ import {
   TabsContent,
 } from "@/components/shadcn/tabs";
 // import { MentorshipPipelineChart } from "./MentorshipPipelineChart";
+import { PendingQueueAgingChart } from "./PendingQueueAgingChart";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -204,6 +205,7 @@ export function AdminDashboardClient() {
             <TabsContent value="growth" className="space-y-4">
               <MembershipGrowthChart profiles={demographicProfiles} />
               <PendingSubmissionsChart profiles={pending} />
+              <PendingQueueAgingChart profiles={pending} />
             </TabsContent>
 
             <TabsContent value="demographics" className="space-y-4">
