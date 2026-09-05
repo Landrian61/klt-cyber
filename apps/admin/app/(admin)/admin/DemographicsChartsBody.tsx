@@ -138,3 +138,105 @@ export function ClanDistributionBar({
     </ResponsiveContainer>
   );
 }
+
+export function AgeBySexBar({
+  data,
+}: {
+  data: { label: string; male: number; female: number }[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data}>
+        <XAxis
+          dataKey="label"
+          axisLine={false}
+          tickLine={false}
+          tick={axisTick}
+        />
+        <YAxis
+          allowDecimals={false}
+          axisLine={false}
+          tickLine={false}
+          tick={{ ...axisTick, fontFamily: "var(--font-mono)" }}
+          width={24}
+        />
+        <Tooltip
+          cursor={{ fill: "var(--color-surface-low)" }}
+          {...tooltipStyle}
+        />
+        <Legend
+          verticalAlign="bottom"
+          iconType="circle"
+          wrapperStyle={{
+            fontFamily: "var(--font-body)",
+            fontSize: 12,
+            color: "var(--color-on-surface-variant)",
+          }}
+        />
+        <Bar
+          dataKey="male"
+          name="Male"
+          fill="var(--color-royal)"
+          radius={[6, 6, 0, 0]}
+        />
+        <Bar
+          dataKey="female"
+          name="Female"
+          fill="var(--color-crimson)"
+          radius={[6, 6, 0, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function MaritalBySexBar({
+  data,
+}: {
+  data: { label: string; male: number; female: number }[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data}>
+        <XAxis
+          dataKey="label"
+          axisLine={false}
+          tickLine={false}
+          tick={axisTick}
+        />
+        <YAxis
+          allowDecimals={false}
+          axisLine={false}
+          tickLine={false}
+          tick={{ ...axisTick, fontFamily: "var(--font-mono)" }}
+          width={24}
+        />
+        <Tooltip
+          cursor={{ fill: "var(--color-surface-low)" }}
+          {...tooltipStyle}
+        />
+        <Legend
+          verticalAlign="bottom"
+          iconType="circle"
+          wrapperStyle={{
+            fontFamily: "var(--font-body)",
+            fontSize: 12,
+            color: "var(--color-on-surface-variant)",
+          }}
+        />
+        <Bar
+          dataKey="male"
+          name="Male"
+          fill="var(--color-royal)"
+          radius={[6, 6, 0, 0]}
+        />
+        <Bar
+          dataKey="female"
+          name="Female"
+          fill="var(--color-crimson)"
+          radius={[6, 6, 0, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
