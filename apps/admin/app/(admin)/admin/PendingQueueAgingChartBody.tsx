@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   Bar,
   BarChart,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,11 +17,22 @@ const axisTick = {
   fill: "var(--color-on-surface-variant)",
 };
 
+// Escalating by bucket: healthy → watch → overdue → urgent. Matches the
+// bucket order in PendingQueueAgingChart.tsx's BUCKETS array.
+const BUCKET_COLORS = [
+  "var(--color-success)",
+  "var(--color-royal)",
+  "var(--color-primary)",
+  "var(--color-crimson)",
+];
+
 export function PendingQueueAgingChartBody({
   data,
 }: {
   data: { label: string; count: number }[];
 }) {
+  const router = useRouter();
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data}>
@@ -48,12 +61,21 @@ export function PendingQueueAgingChartBody({
           }}
           labelStyle={{ color: "var(--color-on-surface)" }}
           itemStyle={{ color: "var(--color-on-surface-variant)" }}
+          formatter={(value) => {
+            const count = typeof value === "number" ? value : 0;
+            return [`${count} profile${count === 1 ? "" : "s"}`, "Waiting"];
+          }}
         />
         <Bar
           dataKey="count"
           radius={[6, 6, 0, 0]}
-          fill="var(--color-primary)"
-        />
+          onClick={() => router.push("/admin/verification")}
+          className="cursor-pointer"
+        >
+          {data.map((_, i) => (
+            <Cell key={i} fill={BUCKET_COLORS[i % BUCKET_COLORS.length]} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
