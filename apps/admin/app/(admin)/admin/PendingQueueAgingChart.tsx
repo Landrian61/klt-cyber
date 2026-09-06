@@ -59,7 +59,8 @@ export function PendingQueueAgingChart({
           Pending Queue Aging
         </CardTitle>
         <p className="font-body text-sm text-on-surface-variant">
-          Which pending profiles need attention today?
+          Which pending profiles need attention today — click a bar to open the
+          queue.
         </p>
       </CardHeader>
       <CardContent className="h-52 p-0">
