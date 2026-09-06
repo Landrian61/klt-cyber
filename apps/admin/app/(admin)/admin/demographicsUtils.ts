@@ -77,3 +77,44 @@ export function bucketClans(
   if (noClan > 0) sorted.push({ label: "No clan set", count: noClan });
   return sorted;
 }
+
+export function bucketAgeBySex(profiles: DemographicProfile[]) {
+  const buckets = AGE_BUCKETS.map((b) => ({
+    label: b.label,
+    male: 0,
+    female: 0,
+  }));
+  for (const p of profiles) {
+    const age = ageFromDob(p.dateOfBirth);
+    if (age === null) continue;
+    const bucketIndex = AGE_BUCKETS.findIndex(
+      (b) => age >= b.min && age <= b.max,
+    );
+    if (bucketIndex === -1) continue;
+    if (p.sex === "male") buckets[bucketIndex].male += 1;
+    else buckets[bucketIndex].female += 1;
+  }
+  return buckets;
+}
+
+export function bucketMaritalBySex(profiles: DemographicProfile[]) {
+  const labels: Record<string, string> = {
+    single: "Single",
+    married: "Married",
+    widowed: "Widowed",
+    divorced: "Divorced",
+  };
+  const order = ["single", "married", "widowed", "divorced"];
+  const buckets = order.map((key) => ({
+    label: labels[key],
+    male: 0,
+    female: 0,
+  }));
+  for (const p of profiles) {
+    const idx = order.indexOf(p.maritalStatus);
+    if (idx === -1) continue;
+    if (p.sex === "male") buckets[idx].male += 1;
+    else buckets[idx].female += 1;
+  }
+  return buckets.filter((b) => b.male > 0 || b.female > 0);
+}

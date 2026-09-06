@@ -30,6 +30,14 @@ import { PendingSubmissionsChart } from "./PendingSubmissionsChart";
 import { MembershipGrowthChart } from "./MembershipGrowthChart";
 import { DemographicsCharts } from "./DemographicsCharts";
 import { MaritalStatusCard } from "./MaritalStatusCard";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/shadcn/tabs";
+// import { MentorshipPipelineChart } from "./MentorshipPipelineChart";
+import { PendingQueueAgingChart } from "./PendingQueueAgingChart";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -187,14 +195,41 @@ export function AdminDashboardClient() {
             />
           </Reveal>
 
-          <MembershipGrowthChart profiles={demographicProfiles} />
+          <Tabs defaultValue="growth">
+            <TabsList variant="line">
+              <TabsTrigger value="growth">Membership Trends</TabsTrigger>
+              <TabsTrigger value="demographics">Members Overview</TabsTrigger>
+              <TabsTrigger value="pipelines">Discipleship Progress</TabsTrigger>
+            </TabsList>
 
-          <PendingSubmissionsChart profiles={pending} />
+            <TabsContent value="growth" className="space-y-4">
+              <MembershipGrowthChart profiles={demographicProfiles} />
+              <PendingSubmissionsChart profiles={pending} />
+              <PendingQueueAgingChart profiles={pending} />
+            </TabsContent>
 
-          <DemographicsCharts
-            profiles={demographicProfiles}
-            clanNameById={clanNameById}
-          />
+            <TabsContent value="demographics" className="space-y-4">
+              <DemographicsCharts
+                profiles={demographicProfiles}
+                clanNameById={clanNameById}
+              />
+            </TabsContent>
+
+            <TabsContent value="pipelines" className="space-y-4">
+              {/* TODO: re-enable once Andrew adds mentorshipStatus to
+                  listVerifiedMembersWithRoles's profile projection —
+                  requested in Slack, not yet merged as of this commit. */}
+              <div className="flex flex-col items-center gap-2 rounded-md bg-surface-low p-8 text-center">
+                <p className="font-body text-sm font-medium text-on-surface">
+                  Discipleship progress is on its way
+                </p>
+                <p className="font-body text-sm text-on-surface-variant">
+                  This tab will show how members are progressing through
+                  mentorship once the underlying data is connected.
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           <Card className="gap-4 p-6">
             <CardHeader className="flex-row items-center justify-between gap-3 p-0">

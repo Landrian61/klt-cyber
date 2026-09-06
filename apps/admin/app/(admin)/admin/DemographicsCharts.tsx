@@ -11,13 +11,18 @@ import {
 import { Skeleton } from "@/components/shadcn/skeleton";
 import type { Id } from "@/lib/api";
 import {
-  bucketAgeGroups,
+  bucketAgeBySex,
   bucketClans,
+  bucketMaritalBySex,
   type DemographicProfile,
 } from "./demographicsUtils";
 
-const AgeGroupsBar = dynamic(
-  () => import("./DemographicsChartsBody").then((m) => m.AgeGroupsBar),
+const AgeBySexBar = dynamic(
+  () => import("./DemographicsChartsBody").then((m) => m.AgeBySexBar),
+  { ssr: false, loading: () => <Skeleton className="size-full rounded-lg" /> },
+);
+const MaritalBySexBar = dynamic(
+  () => import("./DemographicsChartsBody").then((m) => m.MaritalBySexBar),
   { ssr: false, loading: () => <Skeleton className="size-full rounded-lg" /> },
 );
 const ClanDistributionBar = dynamic(
@@ -32,8 +37,12 @@ export function DemographicsCharts({
   profiles: DemographicProfile[] | null | undefined;
   clanNameById: Map<Id<"clans">, string>;
 }) {
-  const ageData = useMemo(
-    () => (profiles ? bucketAgeGroups(profiles) : undefined),
+  const ageBySexData = useMemo(
+    () => (profiles ? bucketAgeBySex(profiles) : undefined),
+    [profiles],
+  );
+  const maritalBySexData = useMemo(
+    () => (profiles ? bucketMaritalBySex(profiles) : undefined),
     [profiles],
   );
   const clanData = useMemo(
@@ -46,14 +55,35 @@ export function DemographicsCharts({
       <Card className="gap-5 p-6">
         <CardHeader className="p-0">
           <CardTitle className="font-body text-lg font-semibold text-on-surface">
-            Age Groups
+            Age Groups by Sex
           </CardTitle>
+          <p className="font-body text-sm text-on-surface-variant">
+            Verified members by age group, split by sex.
+          </p>
         </CardHeader>
-        <CardContent className="h-52 p-0">
-          {ageData === undefined ? (
+        <CardContent className="h-56 p-0">
+          {ageBySexData === undefined ? (
             <Skeleton className="size-full rounded-lg" />
           ) : (
-            <AgeGroupsBar data={ageData} />
+            <AgeBySexBar data={ageBySexData} />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="gap-5 p-6">
+        <CardHeader className="p-0">
+          <CardTitle className="font-body text-lg font-semibold text-on-surface">
+            Marital Status by Sex
+          </CardTitle>
+          <p className="font-body text-sm text-on-surface-variant">
+            Supports sizing singles, men&apos;s, and women&apos;s ministries.
+          </p>
+        </CardHeader>
+        <CardContent className="h-56 p-0">
+          {maritalBySexData === undefined ? (
+            <Skeleton className="size-full rounded-lg" />
+          ) : (
+            <MaritalBySexBar data={maritalBySexData} />
           )}
         </CardContent>
       </Card>
@@ -63,6 +93,9 @@ export function DemographicsCharts({
           <CardTitle className="font-body text-lg font-semibold text-on-surface">
             Clan Distribution
           </CardTitle>
+          <p className="font-body text-sm text-on-surface-variant">
+            Which clans are underrepresented?
+          </p>
         </CardHeader>
         <CardContent className="h-56 p-0">
           {clanData === undefined ? (
