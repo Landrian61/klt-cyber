@@ -9,20 +9,11 @@ import {
   CardTitle,
 } from "@/components/shadcn/card";
 import { Skeleton } from "@/components/shadcn/skeleton";
+import { bucketMentorship, mentorshipCompletionRate } from "./demographicsUtils";
 
 type MentorshipProfile = {
   mentorshipStatus: "not_enrolled" | "enrolled" | "completed";
 };
-
-function bucketMentorship(profiles: MentorshipProfile[]) {
-  const counts = { not_enrolled: 0, enrolled: 0, completed: 0 };
-  for (const p of profiles) counts[p.mentorshipStatus] += 1;
-  return [
-    { label: "Not enrolled", count: counts.not_enrolled },
-    { label: "Enrolled", count: counts.enrolled },
-    { label: "Completed", count: counts.completed },
-  ];
-}
 
 const MentorshipPipelineChartBody = dynamic(
   () =>
@@ -41,16 +32,28 @@ export function MentorshipPipelineChart({
     () => (profiles ? bucketMentorship(profiles) : undefined),
     [profiles],
   );
+  const rate = useMemo(
+    () => (profiles ? mentorshipCompletionRate(profiles) : undefined),
+    [profiles],
+  );
 
   return (
     <Card className="gap-5 p-6">
-      <CardHeader className="p-0">
-        <CardTitle className="font-body text-lg font-semibold text-on-surface">
-          Mentorship Pipeline
-        </CardTitle>
-        <p className="font-body text-sm text-on-surface-variant">
-          How many are progressing toward full membership?
-        </p>
+      <CardHeader className="flex-row items-start justify-between gap-3 p-0">
+        <div className="space-y-1">
+          <CardTitle className="font-body text-lg font-semibold text-on-surface">
+            Mentorship Pipeline
+          </CardTitle>
+          <p className="font-body text-sm text-on-surface-variant">
+            How many are progressing toward full membership, and where
+            they&apos;re stalling.
+          </p>
+        </div>
+        {rate !== undefined && rate !== null && (
+          <span className="shrink-0 whitespace-nowrap font-mono text-sm font-semibold text-crimson">
+            {rate}% completed
+          </span>
+        )}
       </CardHeader>
       <CardContent className="h-52 p-0">
         {data === undefined ? (

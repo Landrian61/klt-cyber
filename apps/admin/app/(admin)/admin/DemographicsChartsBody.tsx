@@ -32,13 +32,24 @@ const tooltipStyle = {
   itemStyle: { color: "var(--color-on-surface-variant)" },
 };
 
+// A 6-hue cycle rather than one-color-per-category (the closed palette has
+// no room for 12+ distinct hues without repeating or reaching for a
+// near-duplicate gold). At high category counts (clan, department) some
+// slices necessarily repeat a color — the tooltip and legend text, not
+// color alone, are what disambiguate at that point, same as any dashboard
+// with more categories than a palette has hues.
 const DONUT_COLORS = [
   "var(--color-primary)",
   "var(--color-royal)",
+  "var(--color-crimson)",
   "var(--color-on-surface-variant)",
+  "var(--color-primary-container)",
+  "var(--color-brand)",
 ];
 
-export function MaritalStatusDonut({
+/** Generic category-distribution donut — marital status, clan, department,
+ * or any other `{label, count}[]` breakdown. */
+export function CategoryDonut({
   data,
 }: {
   data: { label: string; count: number }[];
@@ -58,7 +69,13 @@ export function MaritalStatusDonut({
             <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
           ))}
         </Pie>
-        <Tooltip {...tooltipStyle} />
+        <Tooltip
+          {...tooltipStyle}
+          formatter={(value, name) => {
+            const count = typeof value === "number" ? value : 0;
+            return [`${count} member${count === 1 ? "" : "s"}`, name];
+          }}
+        />
         <Legend
           verticalAlign="bottom"
           iconType="circle"
@@ -99,41 +116,6 @@ export function AgeGroupsBar({
           {...tooltipStyle}
         />
                <Bar dataKey="count" fill="var(--color-royal)" radius={[6, 6, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-export function ClanDistributionBar({
-  data,
-}: {
-  data: { label: string; count: number }[];
-}) {
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data}>
-        <XAxis
-          dataKey="label"
-          axisLine={false}
-          tickLine={false}
-          tick={axisTick}
-        />
-        <YAxis
-          allowDecimals={false}
-          axisLine={false}
-          tickLine={false}
-          tick={{ ...axisTick, fontFamily: "var(--font-mono)" }}
-          width={28}
-        />
-        <Tooltip
-          cursor={{ fill: "var(--color-surface-low)" }}
-          {...tooltipStyle}
-        />
-        <Bar
-          dataKey="count"
-          fill="var(--color-primary)"
-          radius={[6, 6, 0, 0]}
-        />
       </BarChart>
     </ResponsiveContainer>
   );

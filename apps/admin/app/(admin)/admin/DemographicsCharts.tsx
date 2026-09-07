@@ -9,10 +9,9 @@ import {
   CardTitle,
 } from "@/components/shadcn/card";
 import { Skeleton } from "@/components/shadcn/skeleton";
-import type { Id } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import {
   bucketAgeBySex,
-  bucketClans,
   bucketMaritalBySex,
   type DemographicProfile,
 } from "./demographicsUtils";
@@ -25,17 +24,13 @@ const MaritalBySexBar = dynamic(
   () => import("./DemographicsChartsBody").then((m) => m.MaritalBySexBar),
   { ssr: false, loading: () => <Skeleton className="size-full rounded-lg" /> },
 );
-const ClanDistributionBar = dynamic(
-  () => import("./DemographicsChartsBody").then((m) => m.ClanDistributionBar),
-  { ssr: false, loading: () => <Skeleton className="size-full rounded-lg" /> },
-);
 
 export function DemographicsCharts({
   profiles,
-  clanNameById,
+  className,
 }: {
   profiles: DemographicProfile[] | null | undefined;
-  clanNameById: Map<Id<"clans">, string>;
+  className?: string;
 }) {
   const ageBySexData = useMemo(
     () => (profiles ? bucketAgeBySex(profiles) : undefined),
@@ -45,13 +40,9 @@ export function DemographicsCharts({
     () => (profiles ? bucketMaritalBySex(profiles) : undefined),
     [profiles],
   );
-  const clanData = useMemo(
-    () => (profiles ? bucketClans(profiles, clanNameById) : undefined),
-    [profiles, clanNameById],
-  );
 
   return (
-    <div className="space-y-4">
+    <div className={cn("grid grid-cols-1 gap-4 lg:grid-cols-2", className)}>
       <Card className="gap-5 p-6">
         <CardHeader className="p-0">
           <CardTitle className="font-body text-lg font-semibold text-on-surface">
@@ -84,24 +75,6 @@ export function DemographicsCharts({
             <Skeleton className="size-full rounded-lg" />
           ) : (
             <MaritalBySexBar data={maritalBySexData} />
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="gap-5 border-t-4 border-t-primary p-6">
-        <CardHeader className="p-0">
-          <CardTitle className="font-body text-lg font-semibold text-on-surface">
-            Clan Distribution
-          </CardTitle>
-          <p className="font-body text-sm text-on-surface-variant">
-            Which clans are underrepresented?
-          </p>
-        </CardHeader>
-        <CardContent className="h-56 p-0">
-          {clanData === undefined ? (
-            <Skeleton className="size-full rounded-lg" />
-          ) : (
-            <ClanDistributionBar data={clanData} />
           )}
         </CardContent>
       </Card>

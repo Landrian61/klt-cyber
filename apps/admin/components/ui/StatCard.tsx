@@ -6,6 +6,10 @@ export interface StatCardProps {
   value: ReactNode;
   hint?: ReactNode;
   trend?: { label: string; tone: "positive" | "neutral" | "concern" };
+  /** Visually louder variant for a headline KPI (e.g. a dashboard's primary
+   * "Target Segment Match" count) — gold-tinted border/surface, larger
+   * value. Existing tokens only, no new color. */
+  emphasized?: boolean;
   className?: string;
 }
 
@@ -18,16 +22,31 @@ const trendTones: Record<"positive" | "neutral" | "concern", string> = {
   concern: "text-crimson",
 };
 
-export function StatCard({ label, value, hint, trend, className }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  hint,
+  trend,
+  emphasized,
+  className,
+}: StatCardProps) {
   return (
     <div
       className={cn(
         "rounded-md border border-border bg-surface-lowest p-6 shadow-e1",
+        emphasized && "border-primary/40 bg-primary-light shadow-e2",
         className,
       )}
     >
       <p className="font-body text-sm text-on-surface-variant">{label}</p>
-      <p className="mt-2 font-mono text-4xl font-bold text-on-surface">{value}</p>
+      <p
+        className={cn(
+          "mt-2 font-mono font-bold text-on-surface",
+          emphasized ? "text-5xl" : "text-4xl",
+        )}
+      >
+        {value}
+      </p>
       {hint && <p className="mt-1 font-body text-xs text-outline">{hint}</p>}
       {trend && (
         <p

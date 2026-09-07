@@ -40,16 +40,25 @@ export interface FilterChipProps {
   selected: boolean;
   onClick: () => void;
   children: ReactNode;
+  /** "sm" is opt-in — every existing caller keeps today's size unless it
+   * asks for the compact one (used by the dashboard's dense filter bar). */
+  size?: "default" | "sm";
 }
 
-export function FilterChip({ selected, onClick, children }: FilterChipProps) {
+export function FilterChip({
+  selected,
+  onClick,
+  children,
+  size = "default",
+}: FilterChipProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        "h-9 rounded-full border border-border px-4 font-body text-sm font-medium transition-colors",
+        "rounded-full border border-border font-body font-medium transition-colors",
+        size === "sm" ? "h-7 px-3 text-xs" : "h-9 px-4 text-sm",
         selected
           ? "bg-primary-dim text-primary"
           : "bg-surface-low text-on-surface-variant hover:bg-surface-high",
@@ -65,6 +74,8 @@ export interface SegmentedFilterProps {
   value: string;
   onChange: (value: string) => void;
   ariaLabel?: string;
+  /** "sm" is opt-in — see FilterChip's `size` for why. */
+  size?: "default" | "sm";
 }
 
 export function SegmentedFilter({
@@ -72,12 +83,16 @@ export function SegmentedFilter({
   value,
   onChange,
   ariaLabel,
+  size = "default",
 }: SegmentedFilterProps) {
   return (
     <div
       role="group"
       aria-label={ariaLabel}
-      className="inline-flex rounded-full border border-border bg-surface-low p-1"
+      className={cn(
+        "inline-flex rounded-full border border-border bg-surface-low",
+        size === "sm" ? "p-0.5" : "p-1",
+      )}
     >
       {options.map((option) => {
         const active = option.value === value;
@@ -88,7 +103,8 @@ export function SegmentedFilter({
             onClick={() => onChange(option.value)}
             aria-pressed={active}
             className={cn(
-              "h-8 rounded-full px-4 font-body text-sm font-medium transition-colors",
+              "rounded-full font-body font-medium transition-colors",
+              size === "sm" ? "h-7 px-3 text-xs" : "h-8 px-4 text-sm",
               active
                 ? "bg-[image:linear-gradient(135deg,var(--color-primary),var(--color-primary-container))] text-on-primary"
                 : "text-on-surface-variant hover:text-on-surface",
