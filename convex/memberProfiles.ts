@@ -541,3 +541,151 @@ export const listVerifiedMembersWithRoles = query({
     }));
   },
 });
+
+// ── Dashboard analytics ──────────────────────────────────────────────────────
+// Powers the /admin dashboard's chart tabs (Membership Trends, Members
+// Overview, Discipleship Progress, Explore). Same "narrow projection, not
+// whole documents" discipline as `listVerifiedMembersWithRoles` above — see
+// that query's comment for why contact details, address, etc. never leave
+// the server here either.
+
+const LEADERSHIP_LEVEL_ORDER = ["level_1", "level_2", "advanced"] as const;
+
+export type LeadershipStage =
+  | "not_enrolled"
+  | "level_1"
+  | "level_2"
+  | "advanced"
+  | "completed";
+
+/**
+ * Collapses a member's per-level `leadershipProgress` rows into one ordinal
+ * stage. "Completed" means the whole pipeline is done — the `advanced` row's
+ * status is `completed` — not just any one level; finishing level_1 alone
+ * shows as "level_1" (in progress there), same as being merely enrolled.
+ * Sequential enrollment isn't enforced at the data layer (see schema.ts), so
+ * this reads the highest level touched regardless of order.
+ */
+function deriveLeadershipStage(
+  rows: Doc<"leadershipProgress">[]
+): LeadershipStage {
+  if (rows.length === 0) return "not_enrolled";
+  const byLevel = new Map(rows.map((row) => [row.level, row.status]));
+  if (byLevel.get("advanced") === "completed") return "completed";
+  for (let i = LEADERSHIP_LEVEL_ORDER.length - 1; i >= 0; i--) {
+    const level = LEADERSHIP_LEVEL_ORDER[i];
+    if (byLevel.has(level)) return level;
+  }
+  return "not_enrolled";
+}
+
+/**
+ * Shared joins behind both `listProfilesForAnalytics` and `listProfileRoster`
+ * — one collect-and-group pass each over `leadershipProgress` and active
+ * `departmentMemberships`, keyed by userId. Kept as one helper so the two
+ * queries' derived fields (`leadershipStage`, `departmentIds`) can never fork.
+ */
+async function buildAnalyticsJoins(ctx: QueryCtx) {
+  const leadershipRows = await ctx.db.query("leadershipProgress").collect();
+  const leadershipByUser = new Map<Id<"users">, Doc<"leadershipProgress">[]>();
+  for (const row of leadershipRows) {
+    const held = leadershipByUser.get(row.userId) ?? [];
+    held.push(row);
+    leadershipByUser.set(row.userId, held);
+  }
+
+  const activeMemberships = (
+    await ctx.db.query("departmentMemberships").collect()
+  ).filter((membership) => membership.status === "active");
+  const departmentIdsByUser = new Map<Id<"users">, Id<"departments">[]>();
+  for (const membership of activeMemberships) {
+    const held = departmentIdsByUser.get(membership.userId) ?? [];
+    held.push(membership.departmentId);
+    departmentIdsByUser.set(membership.userId, held);
+  }
+
+  return { leadershipByUser, departmentIdsByUser };
+}
+
+/**
+ * One row per submitted profile — pending AND verified, unlike
+ * `listVerifiedMembersWithRoles` — carrying exactly the fields the dashboard
+ * needs to bucket and filter by: sex, marital status, date of birth, clan,
+ * mentorship status, a derived leadership stage, and the department(s)
+ * self-selected at submission. Deliberately excludes name, contact details,
+ * address and every other identifying field; the dashboard only ever counts
+ * and charts, it never lists people by this query — see `listProfileRoster`
+ * below for the named counterpart that powers the roster table.
+ */
+export const listProfilesForAnalytics = query({
+  args: {},
+  handler: async (ctx) => {
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
+
+    const profiles = await ctx.db.query("memberProfiles").collect();
+    const { leadershipByUser, departmentIdsByUser } =
+      await buildAnalyticsJoins(ctx);
+
+    return profiles.map((profile) => ({
+      _id: profile._id,
+      profileStatus: profile.profileStatus,
+      _creationTime: profile._creationTime,
+      verifiedAt: profile.verifiedAt,
+      sex: profile.sex,
+      maritalStatus: profile.maritalStatus,
+      dateOfBirth: profile.dateOfBirth,
+      clanId: profile.clanId,
+      mentorshipStatus: profile.mentorshipStatus,
+      leadershipStage: deriveLeadershipStage(
+        leadershipByUser.get(profile.userId) ?? []
+      ),
+      departmentIds: departmentIdsByUser.get(profile.userId) ?? [],
+    }));
+  },
+});
+
+/**
+ * Same population and derived fields as `listProfilesForAnalytics` (pending
+ * AND verified, same leadershipStage/departmentIds joins), but additionally
+ * carries first/middle/last name — for the dashboard's roster table (Zone 4),
+ * which needs to list people, not just count them.
+ *
+ * NOT a new trust boundary: `listVerifiedMembersWithRoles` and
+ * `listPendingVerifications` already expose full names to this same
+ * Administration-authority gate elsewhere in the portal. Kept as its own
+ * query — rather than widening `listProfilesForAnalytics` — so that query's
+ * "never lists people" doc comment and narrow projection stay true for its
+ * other (chart/KPI) callers.
+ */
+export const listProfileRoster = query({
+  args: {},
+  handler: async (ctx) => {
+    // Null when unauthenticated — live subscriptions outlast sign-out.
+    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
+
+    const profiles = await ctx.db.query("memberProfiles").collect();
+    const { leadershipByUser, departmentIdsByUser } =
+      await buildAnalyticsJoins(ctx);
+
+    return profiles.map((profile) => ({
+      _id: profile._id,
+      firstName: profile.firstName,
+      middleName: profile.middleName,
+      lastName: profile.lastName,
+      profileStatus: profile.profileStatus,
+      _creationTime: profile._creationTime,
+      verifiedAt: profile.verifiedAt,
+      sex: profile.sex,
+      maritalStatus: profile.maritalStatus,
+      dateOfBirth: profile.dateOfBirth,
+      clanId: profile.clanId,
+      mentorshipStatus: profile.mentorshipStatus,
+      leadershipStage: deriveLeadershipStage(
+        leadershipByUser.get(profile.userId) ?? []
+      ),
+      departmentIds: departmentIdsByUser.get(profile.userId) ?? [],
+    }));
+  },
+});
+
