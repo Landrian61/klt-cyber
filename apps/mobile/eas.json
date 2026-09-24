@@ -11,6 +11,9 @@
       "environment": "development",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "development"
       }
     },
     "preview": {
@@ -22,6 +25,7 @@
         "buildType": "apk"
       },
       "env": {
+        "APP_VARIANT": "preview",
         "EXPO_PUBLIC_CONVEX_URL": "https://polite-lemming-570.convex.cloud",
         "EXPO_PUBLIC_CONVEX_SITE_URL": "https://polite-lemming-570.convex.site"
       }
@@ -35,6 +39,7 @@
         "buildType": "app-bundle"
       },
       "env": {
+        "APP_VARIANT": "production",
         "EXPO_PUBLIC_CONVEX_URL": "https://REPLACE_WITH_PRODUCTION.convex.cloud",
         "EXPO_PUBLIC_CONVEX_SITE_URL": "https://REPLACE_WITH_PRODUCTION.convex.site"
       }

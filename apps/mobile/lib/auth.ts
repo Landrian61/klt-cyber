@@ -15,7 +15,8 @@ import * as SecureStore from 'expo-secure-store';
   backend's crossDomain plugin recognises. Session tokens therefore live ONLY
   in the secure keychain — never AsyncStorage or memory.
 
-  OAuth redirects use the app `scheme` ("kltcyber") declared in app.json.
+  OAuth redirects use the app `scheme` declared in app.config.ts ("kltcyber",
+  or "kltcyber-dev" / "kltcyber-preview" for the non-production variants).
 */
 const scheme = Constants.expoConfig?.scheme as string;
 

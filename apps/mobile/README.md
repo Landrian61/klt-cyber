@@ -30,6 +30,7 @@ Create `apps/mobile/.env.local` pointing at your Convex deployment (both require
 ```bash
 EXPO_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
 EXPO_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
+APP_VARIANT=development   # matches the dev client build (com.kltcyber.church.dev)
 ```
 
 ### 3. Run
@@ -85,17 +86,19 @@ Dawn breaking over a worship night: deep heaven-blue depth, blazing gold glory, 
 
 Builds run on **EAS**. Profiles live in [`eas.json`](eas.json):
 
-| Profile | Output | Use |
-|---------|--------|-----|
-| `development` | APK + dev client | On-device debugging with hot reload |
-| `preview` | Installable APK (internal) | QA / sharing without app stores |
-| `production` | AAB | Play Store submission |
+| Profile | Output | App name / package id | Use |
+|---------|--------|-----------------------|-----|
+| `development` | APK + dev client | KLT Cyber (Dev) · `com.kltcyber.church.dev` | On-device debugging with hot reload (needs Metro running) |
+| `preview` | Installable APK (internal) | KLT Cyber (Preview) · `com.kltcyber.church.preview` | QA / sharing without app stores — runs standalone against staging |
+| `production` | AAB | KLT Cyber Church · `com.kltcyber.church` | Play Store submission |
 
 ```bash
 eas build --platform android --profile preview      # internal test APK
 ```
 
-> **Node 22+ on EAS:** all profiles pin `node: "22.13.0"` because `pnpm@11` requires it. The build also needs `android.package` (set in `app.json`).
+> **Node 22+ on EAS:** all profiles pin `node: "22.13.0"` because `pnpm@11` requires it. The build also needs `android.package` (set in `app.config.ts`).
+
+> **App variants:** each profile sets `APP_VARIANT`, which `app.config.ts` uses to give the build its own name, package id and URL scheme ([Expo docs](https://docs.expo.dev/build-reference/variants/)) — so all three can sit side by side on one phone. Unset means production. Every variant's package id must be registered in Firebase and present in `google-services.json`, or the Android build fails.
 
 See [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md) for the full pipeline (OTA updates vs. binary builds, channels, environments).
 
