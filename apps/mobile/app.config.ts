@@ -8,13 +8,31 @@ import type { ExpoConfig } from "expo/config";
 // committed). Pattern per Expo's docs:
 // https://docs.expo.dev/eas/environment-variables/faq/
 
+// App variants (https://docs.expo.dev/build-reference/variants/): each EAS
+// build profile sets APP_VARIANT so development, preview and production get
+// their own name, package id and URL scheme and can be installed side by side
+// on one device. Unset means production, so a missing variable can never ship
+// a dev-labelled store build. Locally, apps/mobile/.env.local sets
+// APP_VARIANT=development so `expo start --android` opens the dev client.
+const APP_VARIANT = process.env.APP_VARIANT;
+const IS_DEV = APP_VARIANT === "development";
+const IS_PREVIEW = APP_VARIANT === "preview";
+
+const idSuffix = IS_DEV ? ".dev" : IS_PREVIEW ? ".preview" : "";
+const name = IS_DEV
+  ? "KLT Cyber (Dev)"
+  : IS_PREVIEW
+    ? "KLT Cyber (Preview)"
+    : "KLT Cyber Church";
+const scheme = IS_DEV ? "kltcyber-dev" : IS_PREVIEW ? "kltcyber-preview" : "kltcyber";
+
 // Declared separately (not inline in the ExpoConfig-typed literal below) so
 // android.navigationBarColor — valid at runtime, absent from
 // @expo/config-types — doesn't fail the outer literal's excess-property
 // check; a variable reference isn't a "fresh" literal, so only structural
 // assignability applies to it.
 const android = {
-  package: "com.kltcyber.church",
+  package: `com.kltcyber.church${idSuffix}`,
   googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
   adaptiveIcon: {
     backgroundColor: "#C10810",
@@ -29,12 +47,12 @@ const android = {
 
 export default (): ExpoConfig => {
   const config: ExpoConfig = {
-    name: "KLT Cyber Church",
+    name,
     slug: "klt-cyber",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "kltcyber",
+    scheme,
     userInterfaceStyle: "light",
     newArchEnabled: true,
     runtimeVersion: {
@@ -44,6 +62,7 @@ export default (): ExpoConfig => {
       url: "https://u.expo.dev/6f0edc13-211f-441d-a389-8f8996676df4",
     },
     ios: {
+      bundleIdentifier: `com.kltcyber.church${idSuffix}`,
       supportsTablet: true,
     },
     android,

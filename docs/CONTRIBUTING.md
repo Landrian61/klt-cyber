@@ -115,6 +115,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 ```bash
 EXPO_PUBLIC_CONVEX_URL=<same as above>
+APP_VARIANT=development
 ```
 
 None of these `.env.local` files should ever be committed. The root

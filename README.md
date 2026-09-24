@@ -105,6 +105,7 @@ Each app reads its own git-ignored `.env.local`, pointing at the deployment from
 ```bash
 EXPO_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
 EXPO_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
+APP_VARIANT=development   # matches the dev client build (com.kltcyber.church.dev)
 ```
 
 **`apps/admin/.env.local`**
