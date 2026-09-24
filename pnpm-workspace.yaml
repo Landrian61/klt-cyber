@@ -16,3 +16,5 @@ allowBuilds:
   dtrace-provider: true
 overrides:
   convex: "1.42.3"
+patchedDependencies:
+  '@expo/fingerprint@0.15.5': patches/@expo__fingerprint@0.15.5.patch
