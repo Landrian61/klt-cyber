@@ -281,7 +281,7 @@ importers:
   packages/shared:
     dependencies:
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@klt-cyber/config':
