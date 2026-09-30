@@ -15,7 +15,7 @@
 ## 0. How to use this document
 
 - This SRS is the **single source of truth** for what the KLT Cyber Church App does in Phase 01. Where the code, older documents or the original church specification disagree with it, this document wins.
-- It lives at `spec/SRS.md` and replaces the old `docs/` folder, which is deleted (see F5-01). `AGENTS.md` and `CLAUDE.md` describe how to work in the code; they point here for all product behaviour.
+- It lives at `spec/SRS.md` and replaces the old `docs/` documents, which are deleted (see F5-01). The feature loop keeps its build plan in `docs/scope/` and its design specs in `docs/specs/`; those specs implement this document and cite its story IDs. `AGENTS.md` and `CLAUDE.md` describe how to work in the code; they point here for all product behaviour.
 - Changes to this document go through a normal pull request. Each change updates the version table at the end (Section 13).
 - Requirements are written as user stories with an ID, key rules and an implementation status. The IDs are stable: they are never renumbered, and removed stories are marked as removed rather than deleted.
 
@@ -1328,7 +1328,7 @@ All paid services are recorded in the cost register (F3-17).
 
 | ID | Requirement | Status |
 |---|---|---|
-| F5-01 | **First build task.** Delete the `docs/` folder and every reference to it (including comments citing the missing `docs/Alignment.md`). Commit this SRS as `spec/SRS.md`. Rewrite `AGENTS.md` and `CLAUDE.md` as short, correct working instructions (commands, folder layout, conventions) that point to this SRS for product behaviour. The DATA_MODEL increments convention retires. | Change |
+| F5-01 | **First build task.** Delete the old documents in `docs/` (ARCHITECTURE, DATA_MODEL, ROLES, INTERFACE_SPEC, VISION and the rest) and every reference to them, including comments citing the missing `docs/Alignment.md`. Commit this SRS as `spec/SRS.md`. From then on `docs/` holds only the feature loop's `docs/scope/` and `docs/specs/`. Rewrite `AGENTS.md` and `CLAUDE.md` as short, correct working instructions (commands, folder layout, conventions) that point to this SRS for product behaviour. The DATA_MODEL increments convention retires. | Change |
 | F5-02 | Production setup: database deployment, file storage, push credentials, portal on the church domain, Resend domain, Google sign-in credentials, Africa's Talking account. | New |
 | F5-03 | Safe seeding: production gets only the 12 clans, 13 departments, the seeded radio programs and the Tower of Faith facility names as hidden drafts; the first System Admin only from `SEED_ADMIN_EMAIL`, which must be set; the content seed never grants roles; no sample data. Staging gets sample data. | Change |
 | F5-04 | Staging mirrors production; changes are tested there first. | Change |
