@@ -7,7 +7,7 @@ import type { PlannerItem } from "./types";
 /**
  * A day cell's per-item chip — a tonal, color-coded pill with a 3px left
  * accent bar (the same sanctioned exception to the No-Line Rule already used
- * for priority announcement cards; see docs/INTERFACE_SPEC.md), colored by
+ * for priority announcement cards; see spec/INTERFACE_SPEC.md), colored by
  * item type via PLANNER_TYPE_COLOR. Replaces plain truncated title text so a
  * day's mix of programs/events/activities is legible at a glance without
  * needing to open the day.

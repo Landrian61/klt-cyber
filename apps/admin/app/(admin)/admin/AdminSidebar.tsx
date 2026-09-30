@@ -36,7 +36,7 @@ interface NavGroup {
 
 const iconClass = "h-5 w-5 shrink-0";
 
-// The full 8-page Administration IA (docs/Admin_Portal.md "Navigation"): every
+// The full 8-page Administration IA: every
 // authorized person — HOD, delegate, System Admin — sees the same pages here.
 // What differs per role is which *actions* a page offers, gated inside each
 // page/mutation, not which pages appear in this list.

@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
 /**
- * Entry gate for the profile-completion flow (docs/Profile-completion-mobile.md).
+ * Entry gate for the profile-completion flow.
  * `getMyProfileStatus()` decides what the user sees:
  *   - no profile         → start the 7-step wizard
  *   - pending_verification → the review-pending screen (no form)

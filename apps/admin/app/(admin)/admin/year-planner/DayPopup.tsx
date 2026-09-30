@@ -14,8 +14,8 @@ import { ActivityStatusBadge } from "../_lib/adminContent";
 import { PLANNER_TYPE_COLOR, plannerItemTime } from "./plannerColors";
 import { plannerItemKey, type ActivityItem, type PlannerItem } from "./types";
 
-// The at-every-zoom-level day pop-up (docs/Admin-portal.html `.day-popup`):
-// everything on that day, each row carrying the same color-coded left accent
+// The at-every-zoom-level day pop-up: everything on that day, each row
+// carrying the same color-coded left accent
 // as the day-cell chips (plannerColors.ts) for visual continuity, plus its
 // time where one applies. Programs/events aren't editable from here (Weekly
 // Program and Events own their own editing) — only activity rows are

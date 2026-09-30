@@ -19,14 +19,14 @@ export type LeadershipLevel = 'level_1' | 'level_2' | 'advanced';
 // Same three-way vocabulary as mentorship. "not_enrolled" is UI-only — it's
 // never sent to `submitProfile`; a level stays that way by simply having no
 // `leadershipEntries` row for it (see the "don't store negative space"
-// convention on `leadershipProgress` in docs/DATA_MODEL.md).
+// convention on `leadershipProgress` in convex/schema.ts).
 export type LeadershipStatus = 'not_enrolled' | 'enrolled' | 'completed';
 export const LEADERSHIP_LEVELS: LeadershipLevel[] = ['level_1', 'level_2', 'advanced'];
 
 // ── Draft state shared across all seven wizard steps ─────────────────────────
 // Nothing here is persisted to Convex until the final `submitProfile` on the
 // review screen — closing the app mid-wizard loses progress by design
-// (docs/Profile-completion-mobile.md, "Explicitly out of scope").
+// ("Explicitly out of scope").
 
 /** A repeatable child row. Age derives from `dobISO` at display time. */
 export interface ChildDraft {

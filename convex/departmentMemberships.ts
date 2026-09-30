@@ -16,7 +16,7 @@ import {
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
 
-// Department roster (docs/Alignment.md, Increment 5). Membership is separate
+// Department roster. Membership is separate
 // from `roleAssignments`: being on a department's roster doesn't imply any
 // administrative authority, and holding hod/department_admin for a
 // department implies roster membership (enforced in roles.ts assignRoleCore)
@@ -162,7 +162,7 @@ export const removeDepartmentMember = mutation({
     });
 
     // Cascade: revoke any hod/department_admin role they held in this
-    // specific department (§ "Removal cascades" in docs/Alignment.md).
+    // specific department.
     const roleRows = await ctx.db
       .query("roleAssignments")
       .withIndex("by_departmentId", (q) =>
@@ -324,8 +324,8 @@ export const getMyDepartmentMemberships = query({
  * Active hod(s) of a department — expect at most one, per cardinality rules.
  *
  * Gated: Administration authority — system_admin, or the Administration
- * department's hod/department_admin, which is the portal-wide authority per
- * docs/Alignment.md. That matches every caller of the three roster reads
+ * department's hod/department_admin, which is the portal-wide authority.
+ * That matches every caller of the three roster reads
  * today: all of them render under `app/(admin)/admin/*`, whose layout already
  * requires exactly this. When departments get their own portals, the gate
  * will need to widen to "…or this department's own hod/department_admin" —
@@ -358,11 +358,11 @@ export const listDepartmentHods = query({
   },
 });
 
-// ── Post-login department picker (docs/Alignment.md, "Part 2") ──────────────
+// ── Post-login department picker ─────────────────────────────────────────
 
 /**
  * Departments the caller should see on the post-login picker. System Admin
- * sees all 13 (unscoped, per docs/Alignment.md §1). Everyone else sees only
+ * sees all 13 (unscoped). Everyone else sees only
  * departments they're on the active roster of, or hold an active
  * hod/department_admin grant for — in practice these largely coincide, since
  * assignRoleCore already adds hod/department_admin appointees to the roster,
@@ -433,7 +433,7 @@ export const listMyDepartments = query({
 /**
  * Access check + name lookup for a single department's "coming soon" page —
  * every department other than Administration routes here today, since none
- * of them have a real portal built yet (docs/Alignment.md, "Part 2"; the
+ * of them have a real portal built yet (the
  * page itself is intentionally just a skeleton, so this query intentionally
  * doesn't fetch roster/hod detail it wouldn't render).
  *
@@ -448,7 +448,7 @@ export const getDepartmentAccess = query({
     const actor = await requireUser(ctx);
     const activeRoles = await getActiveRoles(ctx, actor._id);
 
-    // The web portal authorization invariant (docs/DATA_MODEL.md): a portal
+    // The web portal authorization invariant: a portal
     // session is valid only when the caller holds >=1 active roleAssignments
     // record. Enforced HERE, not just in routing.
     //

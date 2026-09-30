@@ -1,12 +1,11 @@
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
-// Seed realistic Increment 4 data: Tower of Faith facilities, and a varied
-// spread of pending-verification member profiles (one with mentorship proof,
-// one without, one with children, one with a linked spouse). Departments are
-// now fixed reference data seeded separately via `seed:departments` (see
-// docs/Alignment.md, Increment 5) — this file no longer seeds any. Idempotent
-// — skips if facilities already exist.
+// Seed realistic data: Tower of Faith facilities, and a varied spread of
+// pending-verification member profiles (one with mentorship proof, one
+// without, one with children, one with a linked spouse). Departments are
+// now fixed reference data seeded separately via `seed:departments` — this
+// file no longer seeds any. Idempotent — skips if facilities already exist.
 //
 // Run: npx convex run churchAdminSeed:seedChurchAdmin
 

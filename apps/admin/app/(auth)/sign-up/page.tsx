@@ -55,7 +55,7 @@ export default function SignUpPage() {
       return;
     }
 
-    // Sign-up (docs/DATA_MODEL.md, Increment 1): first/last name + email +
+    // Sign-up: first/last name + email +
     // password. A fresh account is still a *visitor* (no church profile yet).
     // Better Auth stores a single `name`; the Convex onCreate trigger splits it
     // back into firstName/lastName — the same path Google sign-in uses.

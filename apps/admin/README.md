@@ -70,4 +70,4 @@ open-next.config.ts     OpenNext adapter config
 
 Deployed to **Cloudflare Workers** (not Pages) via the OpenNext adapter, which runs the full Node.js runtime required by Better Auth's `node:crypto`. Pushes to `main` are built and deployed automatically by Cloudflare Workers Builds (Git integration) — there is no GitHub Actions job for the web admin.
 
-See [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md) §6 for the exact Cloudflare dashboard settings and environment variables.
+See [`spec/DEPLOYMENT.md`](../../spec/DEPLOYMENT.md) §6 for the exact Cloudflare dashboard settings and environment variables.

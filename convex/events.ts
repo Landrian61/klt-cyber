@@ -13,8 +13,7 @@ import { DAY_MS } from "./calendar";
 import { notificationCommon, scheduleReminderEntries } from "./lib/reminders";
 
 // One-off events. `archiveEvent` sets active:false rather than hard-deleting, so
-// a mistaken archive is reversible and history is preserved. See
-// docs/DATA_MODEL.md, Increment 3 (table) and Increment 7 (reminder scheduling).
+// a mistaken archive is reversible and history is preserved.
 
 // ── Reads (open to any authenticated session) ────────────────────────────────
 
@@ -66,7 +65,7 @@ export const listAllEvents = query({
   },
 });
 
-// ── Reminder scheduling (docs/DATA_MODEL.md, Increment 7) ───────────────────
+// ── Reminder scheduling ───────────────────────────────────────────────────
 
 type ReminderJobIds = {
   weekBeforeReminderJobId?: Id<"_scheduled_functions">;

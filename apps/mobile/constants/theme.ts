@@ -6,7 +6,7 @@
  * plus typography, spacing, radius, elevation, gradients and motion tokens.
  *
  * Fonts: Bricolage Grotesque (display) · Plus Jakarta Sans (UI/body) ·
- * Spline Sans Mono (amounts, timers, references). See docs/INTERFACE_SPEC.md §1.3.
+ * Spline Sans Mono (amounts, timers, references). See spec/INTERFACE_SPEC.md §1.3.
  */
 
 export { LightColors as Colors, LightColors } from '@/constants/colors';

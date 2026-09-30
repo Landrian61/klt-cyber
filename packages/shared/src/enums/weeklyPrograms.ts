@@ -1,4 +1,4 @@
-// Weekly Program recurrence model. See docs/DATA_MODEL.md `weeklyPrograms`
+// Weekly Program recurrence model. See convex/schema.ts `weeklyPrograms`
 // and convex/lib/recurrence.ts for how these drive occurrence expansion.
 export const RECURRENCE_TYPES = ["once", "weekly", "biweekly", "monthly"] as const;
 export type RecurrenceType = (typeof RECURRENCE_TYPES)[number];

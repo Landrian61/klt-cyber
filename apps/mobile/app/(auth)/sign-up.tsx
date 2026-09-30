@@ -35,7 +35,7 @@ export default function SignUpScreen() {
     setEmailError('');
     setPasswordError('');
 
-    // Sign-up (docs/DATA_MODEL.md, Increment 1): first/last name + email + password.
+    // Sign-up: first/last name + email + password.
     const parsed = signUpInputSchema.safeParse({ firstName, lastName, email, password });
     if (!parsed.success) {
       const fields = parsed.error.flatten().fieldErrors;

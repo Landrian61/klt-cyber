@@ -9,8 +9,8 @@ import { localYmd } from "./calendarGrid";
 import { PLANNER_TYPE_COLOR } from "./plannerColors";
 import type { PlannerItem } from "./types";
 
-// Year/Quarter view's shared building block (docs/Admin-portal.html
-// `.mini-month`) — the real shadcn Calendar (react-day-picker) rather than a
+// Year/Quarter view's shared building block — the real shadcn Calendar
+// (react-day-picker) rather than a
 // grid of blank marker squares, so each tile shows actual date numbers, not
 // just coloured planks. A custom, compact DayButton marks a busy day with up
 // to 3 small type-colored dots (program/event/activity — see

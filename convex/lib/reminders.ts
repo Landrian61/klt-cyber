@@ -7,9 +7,8 @@ import type { NotificationAudience } from "../schema";
 // dispatch-args shape and the time-tiered "schedule a reminder, skip it if
 // it'd land in the past" pattern were previously hand-rolled independently
 // in convex/announcements.ts, convex/events.ts, convex/weeklyPrograms.ts,
-// convex/roles.ts, and convex/memberProfiles.ts (docs/DATA_MODEL.md,
-// Increment 8). No behavior change versus what each call site did before —
-// this is extraction, not new logic.
+// convex/roles.ts, and convex/memberProfiles.ts. No behavior change versus
+// what each call site did before — this is extraction, not new logic.
 
 /** The dispatch-args shape every notification call site builds by hand. */
 export function notificationCommon(params: {

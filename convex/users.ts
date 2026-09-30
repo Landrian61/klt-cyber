@@ -8,7 +8,7 @@ import { requireUser } from "./lib/authz";
 
 /**
  * Search registered users by name or email, for the Step 2 spouse-linking
- * picker (docs/Profile-completion-mobile.md). Authenticated read.
+ * picker. Authenticated read.
  *
  * Deliberately NOT restricted to verified members: a spouse may be registered
  * but not have completed their own profile yet. The caller is excluded from

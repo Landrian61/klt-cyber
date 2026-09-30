@@ -2,8 +2,8 @@ import { useMutation } from 'convex/react';
 import { api } from '@/lib/api';
 
 /**
- * Client half of the shared R2 upload utility (docs/DATA_MODEL.md, Increment 4;
- * backend in convex/uploads.ts). The mobile profile wizard is the first
+ * Client half of the shared R2 upload utility (backend in convex/uploads.ts).
+ * The mobile profile wizard is the first
  * consumer — the photo, mentorship certificate, and leadership-proof slots all
  * go through this same round trip:
  *

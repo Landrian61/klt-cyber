@@ -7,7 +7,6 @@ import { weeklyProgramOccursOn } from "./lib/recurrence";
 // drift from `events` / `weeklyPrograms`. It expands active weekly programs into
 // virtual occurrences within the range and merges them with in-range events into
 // one sorted list. Future departmental calendars plug into this same merge.
-// See docs/DATA_MODEL.md, Increment 3.
 
 // Church-local time is Africa/Kampala — fixed UTC+3, no DST. Occurrences are
 // computed against this offset so a "09:00" program lands at the right instant

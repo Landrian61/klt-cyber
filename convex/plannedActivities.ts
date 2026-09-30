@@ -9,7 +9,7 @@ import {
 import { DAY_MS, kampalaParts, occurrenceInstant, ymd } from "./calendar";
 import { weeklyProgramOccursOn } from "./lib/recurrence";
 
-// Year Planner (docs/Admin_Portal.md). Internal planning records, never shown
+// Year Planner. Internal planning records, never shown
 // to members — distinct from the member-facing `weeklyPrograms`/`events`
 // content in convex/calendar.ts. Reads and writes are gated the same way as
 // weeklyPrograms/events/announcements: Administration HOD, delegate, or

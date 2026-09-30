@@ -69,7 +69,7 @@ metro.config.js         Monorepo-aware Metro config
 
 ## Design System — "Kingdom Radiant"
 
-Dawn breaking over a worship night: deep heaven-blue depth, blazing gold glory, red heartbeat, on a warm cream base — Pentecostal warmth, not cathedral solemnity. [`docs/INTERFACE_SPEC.md`](../../docs/INTERFACE_SPEC.md) is authoritative — all UI must derive from it.
+Dawn breaking over a worship night: deep heaven-blue depth, blazing gold glory, red heartbeat, on a warm cream base — Pentecostal warmth, not cathedral solemnity. [`spec/INTERFACE_SPEC.md`](../../spec/INTERFACE_SPEC.md) is authoritative — all UI must derive from it.
 
 **Palette:** Gold `#C47F08` (primary / on-cream) + `#DD9814` brand · Red `#C10810` (secondary — the KLT logo red: LIVE, priority, active nav) · Blue `#12306E`/`#2C63D9` (tertiary — heroes, community) · Cream `#FDF8F0` (surface).
 
@@ -100,7 +100,7 @@ eas build --platform android --profile preview      # internal test APK
 
 > **App variants:** each profile sets `APP_VARIANT`, which `app.config.ts` uses to give the build its own name, package id and URL scheme ([Expo docs](https://docs.expo.dev/build-reference/variants/)) — so all three can sit side by side on one phone. Unset means production. Every variant's package id must be registered in Firebase and present in `google-services.json`, or the Android build fails.
 
-See [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md) for the full pipeline (OTA updates vs. binary builds, channels, environments).
+See [`spec/DEPLOYMENT.md`](../../spec/DEPLOYMENT.md) for the full pipeline (OTA updates vs. binary builds, channels, environments).
 
 ## Conventions
 

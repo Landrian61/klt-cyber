@@ -9,7 +9,7 @@ import { Badge, type BadgeVariant } from "@/components/shadcn/badge";
 import { cn } from "@/lib/utils";
 
 // Shared helpers for Administration's Programs & Content / Planning screens
-// (Weekly Program, Events, Announcements, Year Planner — docs/Admin_Portal.md).
+// (Weekly Program, Events, Announcements, Year Planner).
 // Deliberately parallel to apps/admin/app/(admin)/system-admin/content/shared.tsx
 // rather than importing it: that module backs the system-wide content-override
 // surface under a different route group, and the two are free to diverge.
@@ -273,7 +273,7 @@ export function SwitchField({
 }
 
 /**
- * Image-led card (docs/Admin-portal.html `.ev-card`) — the shared shell for
+ * Image-led card — the shared shell for
  * Events and Announcements. Cover image on top (a gold-toned gradient
  * placeholder when there's none yet), title + meta below, optional corner
  * marker (e.g. a featured star) and badge row. Edge reads from a hairline

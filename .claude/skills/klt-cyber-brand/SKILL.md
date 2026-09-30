@@ -15,7 +15,7 @@ description: >
 
 You are building UI for the KLT Cyber Church mobile app. Every component, screen, and style must follow the **Sacred Curator** design language — a high-end editorial digital sanctuary combining cathedral warmth with premium magazine aesthetics.
 
-The authoritative specification lives in **`docs/INTERFACE_SPEC.md`**. This skill encodes the key rules and patterns so you produce compliant code by default. When in doubt, consult `docs/INTERFACE_SPEC.md` directly.
+The authoritative specification lives in **`spec/INTERFACE_SPEC.md`**. This skill encodes the key rules and patterns so you produce compliant code by default. When in doubt, consult `spec/INTERFACE_SPEC.md` directly.
 
 > **Scope:** this skill covers the React Native mobile app (`apps/mobile`) only. For the Next.js web admin portal (`apps/admin`), use the **`klt-cyber-web-ui`** skill instead — same design language, different stack (Tailwind v4 + shadcn/ui + anime.js).
 

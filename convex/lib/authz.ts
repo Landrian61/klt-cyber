@@ -89,8 +89,8 @@ export async function requireSystemAdmin(
   return user;
 }
 
-// ── Department-scoped authority (docs/Alignment.md, Increment 5) ────────────
-// Replaces the free-floating `church_admin` role: `hod` and `department_admin`
+// ── Department-scoped authority ──────────────────────────────────────────
+// `hod` and `department_admin`
 // are now scoped to a specific `departmentId`. "Administration" is the
 // department whose HOD/department_admin inherit the old church_admin's
 // portal-wide content/verification/facility authority.
@@ -242,9 +242,8 @@ export async function getAdministrationAuthorityOrNull(
 }
 
 /**
- * Church Admin gate (docs/DATA_MODEL.md, Increment 4 — Access Control;
- * re-pointed at Administration-department authority in Increment 5, see
- * docs/Alignment.md). A role row is just data — grantable/revocable directly
+ * Church Admin gate, pointed at Administration-department authority.
+ * A role row is just data — grantable/revocable directly
  * via `roles.assignRole`/`revokeRole`, no redeploy. Revoking access removes
  * it on the very next request; there is no caching.
  *

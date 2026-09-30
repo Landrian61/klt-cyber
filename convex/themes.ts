@@ -13,7 +13,6 @@ import { resolveMediaUrl } from "./lib/media";
 // a stored toggle: the current theme for a scope is the row whose period spans
 // `now`. Overlaps within a scope are an admin data-entry error, not something
 // the schema prevents; we resolve them by preferring the latest-starting one.
-// See docs/DATA_MODEL.md, Increment 3.
 
 const scopeValidator = v.union(v.literal("annual"), v.literal("monthly"));
 

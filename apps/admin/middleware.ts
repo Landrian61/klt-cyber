@@ -8,7 +8,7 @@ import { getSessionCookie } from "better-auth/cookies";
 
   It deliberately does NOT check roles.
 
-  The web portal authorization invariant (docs/DATA_MODEL.md) — a portal
+  The web portal authorization invariant — a portal
   session is valid only when the user holds >=1 active `roleAssignments`
   record — is still enforced, but at the points that can actually enforce it:
 
@@ -35,8 +35,7 @@ import { getSessionCookie } from "better-auth/cookies";
   rendered. So a user whose last role is revoked mid-session keeps the portal
   shell until they cross segments, hard-navigate, or refresh. They lose access
   to data immediately — every gated Convex query throws for an authenticated
-  caller without authority — but the chrome lingers. Accepted deliberately;
-  see docs/ARCHITECTURE.md §5.2.
+  caller without authority — but the chrome lingers. Accepted deliberately.
 */
 
 export default async function middleware(request: NextRequest) {

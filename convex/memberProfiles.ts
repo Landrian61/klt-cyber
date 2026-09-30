@@ -15,8 +15,7 @@ import { resolveMediaUrl } from "./lib/media";
 import { notificationCommon } from "./lib/reminders";
 
 // The mobile 7-step profile-submission wizard and its Church Admin
-// verification workflow. See docs/DATA_MODEL.md, Increment 4. Supersedes
-// Increment 2's self-service `completeProfile`/`updateProfile` — creating a
+// verification workflow — creating a
 // `memberProfiles` row here does not by itself promote the caller; only
 // `verifyProfile` does that, once Church Admin has reviewed the submission.
 
@@ -362,7 +361,7 @@ export const verifyProfile = mutation({
     });
 
     // profileCompleted mirrors the same "has a recognised church identity"
-    // moment `role` transitions on — see docs/DATA_MODEL.md Increment 1.
+    // moment `role` transitions on.
     await ctx.db.patch(profile.userId, {
       role: "member",
       profileCompleted: true,
@@ -381,9 +380,8 @@ export const verifyProfile = mutation({
     // are meant to be two distinct moments (membership only once
     // mentorship is separately marked complete), even though this mutation
     // currently promotes `role` to "member" in the same step, unconditionally
-    // of `mentorshipStatus` — a known gap (see docs/DATA_MODEL.md, Increment
-    // 6's flag on this) that's out of scope here. Revisit this copy once a
-    // real mentorship-completion trigger exists.
+    // of `mentorshipStatus` — a known gap that's out of scope here. Revisit
+    // this copy once a real mentorship-completion trigger exists.
     await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
       title: "Your profile has been verified",
       body: "Great news — your KLT Cyber Church profile has been verified by the church office.",
@@ -455,7 +453,7 @@ export const getProfileForReview = query({
  * `activeRoles` (system_admin/clan_elder/hod/department_admin) and
  * `departmentMemberships` (plain roster membership) are deliberately separate
  * fields — see the "two orthogonal permission dimensions" note in
- * docs/ROLES.md — callers that want a single "Area(s) of Service" view should
+ * AGENTS.md — callers that want a single "Area(s) of Service" view should
  * combine both rather than assume roleAssignments is the whole picture.
  */
 export const listVerifiedMembersWithRoles = query({

@@ -1,13 +1,12 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 
-// One-time reset for the Increment 5 department restructure
-// (docs/Alignment.md §7). Run manually, then `seed:departments`, then
-// `verifyDepartmentReset` to confirm before deploying the rest of the
-// migration. Not idempotent-safe to re-run after departments are re-seeded
-// (it would wipe them again) — intended as a single use-once step.
+// One-time reset for the department restructure. Run manually, then
+// `seed:departments`, then `verifyDepartmentReset` to confirm before
+// deploying the rest of the migration. Not idempotent-safe to re-run after
+// departments are re-seeded (it would wipe them again) — intended as a
+// single use-once step.
 //
-// TRANSITIONAL / TYPE-CHECKING NOTE (see docs/Alignment.md's Execution
-// order, and the task brief that produced this file): this script's whole
+// TRANSITIONAL / TYPE-CHECKING NOTE: this script's whole
 // purpose is to clean up data shapes — `roleType: "church_admin"` on
 // `roleAssignments`, `departmentId` on `memberProfiles` — that the *final*
 // schema (convex/schema.ts, as committed in this same source pass) no
