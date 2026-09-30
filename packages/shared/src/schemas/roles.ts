@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
 // Role-assignment & clan-verification validators used by the admin portal and
-// the Convex role mutations. See docs/DATA_MODEL.md, Increment 2 —
-// "roleAssignments" and "the approval-state pattern".
+// the Convex role mutations — "roleAssignments" and the approval-state pattern.
 
 const convexId = z.string().min(1);
 

@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 
 /*
-  The Sacred Curator — design tokens (from docs/INTERFACE_SPEC.md §1.2–1.3).
+  The Sacred Curator — design tokens (from spec/INTERFACE_SPEC.md §1.2–1.3).
   Tailwind v4 is CSS-first: tokens declared in @theme generate utilities
   (e.g. bg-parchment, text-primary, font-display, rounded-lg). We expose the
   spec's palette and typography under semantic names — no raw hex in components.

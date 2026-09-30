@@ -3,8 +3,7 @@ import { v } from "convex/values";
 import { childInputSchema } from "@klt-cyber/shared";
 import { logActivity, requireUser } from "./lib/authz";
 
-// Children of members — data records, not user accounts. See
-// docs/DATA_MODEL.md, Increment 4 — "children".
+// Children of members — data records, not user accounts.
 
 const sexValidator = v.union(v.literal("male"), v.literal("female"));
 

@@ -30,9 +30,8 @@ type AssignRoleArgs = {
 };
 
 // ── Core logic ────────────────────────────────────────────────────────────────
-// Unlike the pre-Increment-5 version, authorization here is data-dependent on
-// `args.roleType` (see docs/Alignment.md §1's authorization table), so the
-// core resolves its own caller via requireUser rather than taking a
+// Authorization here is data-dependent on `args.roleType`, so the core
+// resolves its own caller via requireUser rather than taking a
 // pre-authorized `caller` param.
 
 export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
@@ -58,9 +57,7 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
     if (!args.clanId) throw new Error("clan_elder requires a clanId");
     const clanId = args.clanId;
 
-    // Revoke-and-replace any sitting elder of this clan (one elder per clan)
-    // — restored: docs/Alignment.md §4's pseudocode dropped this pre-existing
-    // invariant without flagging it as an intentional change.
+    // Revoke-and-replace any sitting elder of this clan (one elder per clan).
     const sittingElder = await ctx.db
       .query("roleAssignments")
       .withIndex("by_clanId", (q) => q.eq("clanId", clanId))
@@ -322,7 +319,7 @@ export async function revokeRoleCore(
 // ── Registered functions (auth wrappers) ─────────────────────────────────────
 
 /**
- * Grant a role. Authorization is per-roleType — see docs/Alignment.md §1:
+ * Grant a role. Authorization is per-roleType:
  * system_admin/clan_elder require System Admin; hod requires System Admin or
  * the Administration department's active hod; department_admin requires
  * System Admin or that department's active hod. `clan_elder` cardinality

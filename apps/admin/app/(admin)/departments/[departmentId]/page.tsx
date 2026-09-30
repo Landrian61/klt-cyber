@@ -5,8 +5,8 @@ import { fetchAuthQuery } from "@/lib/auth-server";
 import { api, type Id } from "@/lib/api";
 
 // Every department other than Administration lands here — none of them have
-// a dedicated portal built yet (docs/Alignment.md marks that "Out of scope —
-// Part 2"), so this is a deliberately plain "coming soon" skeleton rather
+// a dedicated portal built yet ("Out of scope — Part 2"), so this is a
+// deliberately plain "coming soon" skeleton rather
 // than a real workspace. Access is still enforced server-side by
 // getDepartmentAccess (System Admin, roster membership, or hod/department_admin
 // for this specific department) — this page only redirects on the resulting

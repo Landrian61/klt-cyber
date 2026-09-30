@@ -1,6 +1,6 @@
 {
   // Cloudflare Workers config for the admin app, deployed via the OpenNext
-  // Cloudflare adapter (@opennextjs/cloudflare). See docs/DEPLOYMENT.md.
+  // Cloudflare adapter (@opennextjs/cloudflare). See spec/DEPLOYMENT.md.
   //
   // `nodejs_compat` is mandatory: Better Auth's token/cookie handling and the
   // Convex client rely on Node APIs (e.g. node:crypto), which the edge runtime
@@ -22,7 +22,7 @@
   // The admin app normally reaches storage through the Convex R2 component
   // (convex/uploads.ts) — no binding needed. Add a binding ONLY if the Worker
   // must read/write R2 objects at the edge itself (e.g. streaming large media).
-  // The bucket must already exist, or `wrangler deploy` fails. See docs/STORAGE.md.
+  // The bucket must already exist, or `wrangler deploy` fails. See spec/STORAGE.md.
   //
   // "r2_buckets": [
   //   { "binding": "MEDIA_BUCKET", "bucket_name": "klt-cyber-media" }

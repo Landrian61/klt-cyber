@@ -2,9 +2,7 @@ import { z } from 'zod';
 import { SEX, APPROVAL_STATUSES } from '../enums/user';
 
 // Child-record validator. Single source of truth imported by the mobile
-// profile-submission wizard and the Convex `children` mutations. See
-// docs/DATA_MODEL.md, Increment 4 — "children" (supersedes Increment 2's
-// `ageBracket`/`guardianContact` shape).
+// profile-submission wizard and the Convex `children` mutations.
 
 // Convex ids are opaque strings on the wire; the Convex layer re-validates them
 // as `v.id(...)`. Here we only assert non-empty strings.

@@ -2,7 +2,7 @@ import { R2 } from "@convex-dev/r2";
 import { components } from "../_generated/api";
 
 // Shared media-URL resolver. Uploaded files are stored as R2 object KEYS (see
-// convex/uploads.ts + docs/STORAGE.md); this turns a stored value into a
+// convex/uploads.ts + spec/STORAGE.md); this turns a stored value into a
 // display-ready URL at query time, so client display code never has to know
 // whether a value is a key or a URL.
 //

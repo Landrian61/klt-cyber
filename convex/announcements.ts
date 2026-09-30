@@ -53,7 +53,7 @@ function schedulePublishNotification(
 
 // Announcements. The lifecycle draft → published → active → expired/disabled →
 // archived (spec §10.8) is derived at query time; only draft/published/archived
-// are stored. See docs/DATA_MODEL.md, Increment 3.
+// are stored.
 //
 //   active   = status "published" AND startDate <= now <= endDate
 //   expired  = status "published" AND now > endDate
@@ -233,8 +233,8 @@ async function setStatus(
 
 /**
  * Make an announcement live (draft → published), and fire the first
- * real end-to-end notification trigger (docs/DATA_MODEL.md, Increment 6):
- * schedule `internal.notifications.dispatch` to fan the announcement out to
+ * real end-to-end notification trigger: schedule
+ * `internal.notifications.dispatch` to fan the announcement out to
  * everyone. Scheduled (not awaited inline) so a slow/failed push dispatch
  * never blocks or fails the publish itself — publishing is the source of
  * truth; the notification is a best-effort side effect of it.

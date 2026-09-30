@@ -12,10 +12,9 @@ import {
 // Read-only "who am I" queries, plus `updateMyProfile` below for self-service
 // edits to an *already-verified* profile's contact/bio fields. Profile
 // *submission* and *verification* are handled by `submitProfile` /
-// `verifyProfile` in convex/memberProfiles.ts — see docs/DATA_MODEL.md,
-// Increment 4. Creating a `memberProfiles` row is gated on mentorship
-// completion and does not by itself promote the caller to member (that only
-// happens once Church Admin verifies the submission).
+// `verifyProfile` in convex/memberProfiles.ts. Creating a `memberProfiles`
+// row is gated on mentorship completion and does not by itself promote the
+// caller to member (that only happens once Church Admin verifies the submission).
 
 export async function getMyAccountCore(
   ctx: QueryCtx | MutationCtx,
@@ -95,8 +94,8 @@ export const getMyProfile = query({
 });
 
 /**
- * Drives the mobile profile-completion flow (docs/Profile-completion-mobile.md):
- * the caller's own `memberProfiles` row if one exists, else null. The client
+ * Drives the mobile profile-completion flow: the caller's own `memberProfiles`
+ * row if one exists, else null. The client
  * gates on the result — null shows the 7-step wizard, `pending_verification`
  * shows the review-pending screen, `verified` means the member experience
  * applies and the flow has nothing to do.

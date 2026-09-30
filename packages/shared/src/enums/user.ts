@@ -1,8 +1,8 @@
 // Consumer-lifecycle and profile enums — single source of truth shared by the
-// mobile app, the web admin, and Convex. See docs/DATA_MODEL.md, Increment 2.
+// mobile app, the web admin, and Convex.
 
-// `system_admin` was dropped from the base role in Increment 2 — administrative
-// authority now lives in `roleAssignments`, orthogonal to the consumer lifecycle.
+// `system_admin` is not a base role — administrative authority lives in
+// `roleAssignments`, orthogonal to the consumer lifecycle.
 export const USER_ROLES = ['visitor', 'member'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 

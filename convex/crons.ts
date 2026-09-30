@@ -1,8 +1,6 @@
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
 
-// See docs/DATA_MODEL.md, Increment 7.
-
 const crons = cronJobs();
 
 // 06:00 UTC = 09:00 Kampala — Africa/Kampala is a fixed UTC+3 offset with no

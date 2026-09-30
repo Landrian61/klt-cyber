@@ -2,7 +2,7 @@ Create a new screen following the KLT Cyber Church design system.
 
 Instructions:
 1. Determine the target surface from the request: **mobile** (`apps/mobile/app/**`, Expo Router) or **web admin** (`apps/admin/app/**`, Next.js App Router).
-2. Load the matching design skill first — `klt-cyber-brand` for mobile, `klt-cyber-web-ui` for web admin. Consult `docs/INTERFACE_SPEC.md` for any screen-specific spec: $ARGUMENTS
+2. Load the matching design skill first — `klt-cyber-brand` for mobile, `klt-cyber-web-ui` for web admin. Consult `spec/INTERFACE_SPEC.md` for any screen-specific spec: $ARGUMENTS
 3. Create the screen in the correct location for that surface's routing convention.
 4. Reuse existing components before writing new markup:
    - Mobile: `apps/mobile/components/` (+ `components/ui/` primitives)

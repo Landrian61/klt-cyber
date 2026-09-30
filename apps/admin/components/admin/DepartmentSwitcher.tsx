@@ -23,7 +23,7 @@ import {
 // departments they're rostered in or hold hod/department_admin for.
 //
 // Administration is the one department with a dedicated portal today; the rest
-// route to their placeholder page (docs/Alignment.md, "Out of scope — Part 2").
+// route to their placeholder page ("Out of scope — Part 2").
 const ADMINISTRATION = "Administration";
 
 function hrefFor(name: string, id: string) {

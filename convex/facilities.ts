@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { canManageChurchAdmin, logActivity } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
 
-// Tower of Faith facilities directory (docs/DATA_MODEL.md, Increment 4).
+// Tower of Faith facilities directory.
 
 const facilityFields = {
   name: v.string(),

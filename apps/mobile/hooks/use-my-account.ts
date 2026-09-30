@@ -6,8 +6,7 @@ import { api } from '@/lib/api';
  * `getMyAccount`. Returns the base user, their member profile (or null), and
  * their active role assignments.
  *
- * Membership is keyed off `user.role`, NOT `profile !== null`: since the
- * Increment-4 wizard (docs/Profile-completion-mobile.md), a `memberProfiles`
+ * Membership is keyed off `user.role`, NOT `profile !== null`: a `memberProfiles`
  * row exists in `pending_verification` before the user is a member — the role
  * only flips to `member` once a church admin verifies it. So a submitted-but-
  * unverified user is `isPending`, not `isMember`, and stays gated out of

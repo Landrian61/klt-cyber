@@ -162,6 +162,6 @@ Hover/press feedback is CSS, not anime.js: `transition-all hover:-translate-y-0.
 
 ## Related
 
-- `docs/INTERFACE_SPEC.md` — the authoritative design specification (this skill is the working subset).
+- `spec/INTERFACE_SPEC.md` — the authoritative design specification (this skill is the working subset).
 - `klt-cyber-brand` skill — same design language for the React Native mobile app.
 - `shadcn` skill — component APIs, composition rules, and the CLI.

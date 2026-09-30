@@ -8,7 +8,7 @@ The single backend for both apps: schema, queries, mutations, actions, crons, HT
 
 | File | Owns |
 |---|---|
-| `schema.ts` | Domain tables and indexes (must match `docs/DATA_MODEL.md`) |
+| `schema.ts` | Domain tables and indexes — the source of truth for shape, no separate mirrored doc |
 | `convex.config.ts` | Registered components (Better Auth, R2, push notifications) |
 | `auth.ts`, `auth.config.ts`, `http.ts` | Better Auth integration and HTTP routes |
 | `lib/authz.ts` | `getCurrentUser`, `requireUser`, role checks, audit helpers |

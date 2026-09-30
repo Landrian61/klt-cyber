@@ -3,7 +3,7 @@
  *
  * Design language: "Kingdom Radiant" — dawn breaking over a worship night.
  * Deep heaven-blue depth, blazing gold glory, red heartbeat, on a warm cream
- * base. A single warm light theme (no dark mode). See docs/INTERFACE_SPEC.md §1.
+ * base. A single warm light theme (no dark mode). See spec/INTERFACE_SPEC.md §1.
  *
  * The three sacred KLT colours (from the Kingdom Life Tabernacle crown logo):
  *   Gold  — Kingdom & glory

@@ -1,7 +1,6 @@
 import { internalMutation, type MutationCtx } from "./_generated/server";
 
-// The 12 clans in birth order (Genesis 29–30, 35). See docs/DATA_MODEL.md,
-// Increment 2 — "clans".
+// The 12 clans in birth order (Genesis 29–30, 35).
 const CLAN_NAMES = [
   "Reuben",
   "Simeon",
@@ -120,7 +119,7 @@ export const promoteSeedAdmin = internalMutation({
   handler: (ctx) => bootstrapSystemAdminHandler(ctx),
 });
 
-// The 13 Areas of Service (docs/Alignment.md, Increment 5). "Administration"
+// The 13 Areas of Service. "Administration"
 // must be first/present — convex/lib/authz.ts looks it up by exact name.
 // `description` is a one-line hint of what the department does, shown on its
 // picker card — still fixed/seeded data, not admin-editable. Phrased in

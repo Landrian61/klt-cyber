@@ -1,7 +1,7 @@
 import { query } from "./_generated/server";
 
-// Fixed reference data — the 13 Areas of Service (docs/Alignment.md,
-// Increment 5). Seeded via seed:departments. No mutations: not admin-created,
+// Fixed reference data — the 13 Areas of Service. Seeded via seed:departments.
+// No mutations: not admin-created,
 // not admin-edited, no deactivation. Mirrors clans.ts exactly.
 export const listDepartments = query({
   args: {},

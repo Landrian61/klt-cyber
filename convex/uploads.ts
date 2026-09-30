@@ -7,7 +7,7 @@ import { requireUser, canManageChurchAdmin } from "./lib/authz";
 
 // The platform's shared storage service, backed by Cloudflare R2 through the
 // `@convex-dev/r2` component. Provisioning and environment setup are documented
-// in docs/STORAGE.md — the component reads R2_BUCKET / R2_ENDPOINT /
+// in spec/STORAGE.md — the component reads R2_BUCKET / R2_ENDPOINT /
 // R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY (and R2_TOKEN) from the Convex
 // deployment env, so no credentials live in the client bundle.
 //

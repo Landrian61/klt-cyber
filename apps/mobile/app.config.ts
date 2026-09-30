@@ -4,8 +4,8 @@ import type { ExpoConfig } from "expo/config";
 // resolve to an EAS-hosted file environment variable in cloud builds, where
 // the gitignored local file never exists on the build worker. See the
 // GOOGLE_SERVICES_JSON env var (file type) uploaded per-environment via
-// `eas env:create`, and docs/CONTRIBUTING.md §9 (secrets are never
-// committed). Pattern per Expo's docs:
+// `eas env:create`, and AGENTS.md (secrets are never committed). Pattern
+// per Expo's docs:
 // https://docs.expo.dev/eas/environment-variables/faq/
 
 // App variants (https://docs.expo.dev/build-reference/variants/): each EAS

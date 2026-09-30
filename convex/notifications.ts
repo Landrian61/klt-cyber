@@ -144,7 +144,7 @@ function resolveUsersAudience(userIds: Id<"users">[]): Id<"users">[] {
 
 /**
  * Active holders of a role. The "role" audience variant carries no
- * `departmentId` (see docs/DATA_MODEL.md, Increment 6), so for the
+ * `departmentId`, so for the
  * department-scoped role types (`hod`, `department_admin`) this returns
  * holders across every department, not one. Deduped since a user can hold
  * more than one active assignment of the same `roleType` (e.g. hod of two

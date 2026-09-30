@@ -2,7 +2,7 @@ name: Deploy (staging)
 
 # Staging pipeline. On every push to `main`:
 #   - convex-deploy  : pushes Convex functions/schema to the staging deployment
-#                      (the klt-cyber project's prod deployment — see docs/DEPLOYMENT.md)
+#                      (the klt-cyber project's prod deployment — see spec/DEPLOYMENT.md)
 #   - mobile-update  : publishes an EAS Update (OTA) to the "staging" channel
 #
 # The web admin (apps/admin) is NOT deployed here — Cloudflare Workers Builds

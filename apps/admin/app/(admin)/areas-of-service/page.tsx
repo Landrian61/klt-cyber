@@ -9,7 +9,7 @@ import {
 
 // The only Area of Service with a dedicated portal today — every other
 // department gets the generic read-only overview page until its own portal
-// ships (see docs/Alignment.md, "Out of scope — Part 2").
+// ships ("Out of scope — Part 2").
 const ADMINISTRATION_DEPARTMENT_NAME = "Administration";
 
 function departmentHref(departmentName: string, departmentId: Id<"departments">) {
@@ -19,7 +19,7 @@ function departmentHref(departmentName: string, departmentId: Id<"departments">)
 }
 
 // Post-login landing for every minister with ≥1 Area of Service or clan_elder
-// assignment (docs/Alignment.md, "Part 2"). System Admin sees every seeded
+// assignment. System Admin sees every seeded
 // department, full access, no separate System Admin tile here — that portal
 // is reached from inside a department (System Admin Sidebar/TopBar "Areas of
 // Service" link goes the other way) or by direct navigation to /system-admin.
@@ -29,7 +29,7 @@ export default async function AreasOfServicePage() {
 
   const { user, activeRoles } = account;
 
-  // The web portal authorization invariant (docs/DATA_MODEL.md): a portal
+  // The web portal authorization invariant: a portal
   // session is valid only when the caller holds >=1 active roleAssignments
   // record. Stated here in its canonical form rather than being inferred from
   // "no tiles to show" further down — this route previously leaned on

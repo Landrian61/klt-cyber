@@ -52,8 +52,7 @@ function InitialBadge({ letter }: { letter: string }) {
 // into a responsive grid on the Kingdom Radiant canvas — the same immersive
 // design as the old role picker, restructured for up to 13 tiles instead of
 // 1-3. Deliberately no System Administrator tile here; that portal is
-// reached via the small badge in the header instead (docs/Alignment.md,
-// "Part 2").
+// reached via the small badge in the header instead.
 export function AreasOfServiceClient({
   displayName,
   departments,

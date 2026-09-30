@@ -1,9 +1,10 @@
-Review an implementation against the KLT Cyber Church design system.
+Review an implementation against the KLT Cyber Church design system and the SRS.
 
 Instructions:
-1. Load the design skill for the surface under review — `klt-cyber-brand` (mobile) or `klt-cyber-web-ui` (web admin) — and read `docs/INTERFACE_SPEC.md`.
+1. Load the design skill for the surface under review — `klt-cyber-brand` (mobile) or `klt-cyber-web-ui` (web admin) — and read `spec/INTERFACE_SPEC.md`.
 2. Review the screen or component specified: $ARGUMENTS
-3. Check for:
+3. If the change implements or touches a story ID (e.g. `F2-03`, `M-07`), read that story in `spec/SRS.md` and confirm the implementation matches its requirement and status. Flag any mismatch as a bug, not something to silently resolve.
+4. Check for:
    - **Tokens** — no hardcoded hex, no raw Tailwind palette colours (`bg-amber-100`, `text-blue-700`), no scoped token override blocks in `globals.css`
    - **No-Line Rule** — no 1px solid borders used as structure; depth via tonal surface steps + ambient shadow, or a `Separator` where a real divider is meant
    - **Warm parchment** — no cold white/grey page backgrounds; `#FFFFFF` only for lifted cards; no pure-black text
@@ -13,4 +14,4 @@ Instructions:
    - **Motion** — purposeful rather than decorative; bails out on `prefers-reduced-motion`; cleans up on unmount; admin motion short (~300–500ms) and small (~8–12px)
    - **Interaction split** — destructive actions confirm in a `Dialog`, additive actions open a `Sheet`
    - **Accessibility** — keyboard reachable, accessible names, focus ring not suppressed
-4. Report each deviation with its file path and line, then fix them.
+5. Report each deviation with its file path and line, then fix them.

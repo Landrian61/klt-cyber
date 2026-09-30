@@ -33,7 +33,7 @@ function formatDob(v: DobValue): string {
 }
 
 /**
- * Date-of-birth control (docs/Profile-completion-mobile.md, Step 1). Standard
+ * Date-of-birth control (profile-completion wizard, Step 1). Standard
  * native pickers assume a complete date, but here the birth year is optional:
  * someone may share their birthday and decline the year. So the native picker
  * captures a full day/month/year, and a separate "Include birth year" toggle

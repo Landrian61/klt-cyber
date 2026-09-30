@@ -59,9 +59,7 @@ export default defineSchema({
 
   // The rich church-domain profile submitted via the mobile 7-step wizard.
   // 1:1 with `users`; created once at final submission (not on first form
-  // open) and gated by verification before the user becomes a member. See
-  // docs/DATA_MODEL.md, Increment 4. Supersedes Increment 2's lightweight,
-  // self-service `memberProfiles` design.
+  // open) and gated by verification before the user becomes a member.
   memberProfiles: defineTable({
     userId: v.id("users"),
 
@@ -187,8 +185,7 @@ export default defineSchema({
   }).index("by_parentUserId", ["parentUserId"]),
 
   // The 13 fixed Areas of Service — seeded reference data (seed:departments).
-  // See docs/Alignment.md, Increment 5. Mirrors `clans` below: no toggle, no
-  // admin-created/edited rows.
+  // Mirrors `clans` below: no toggle, no admin-created/edited rows.
   departments: defineTable({
     name: v.string(),
     order: v.number(),
@@ -308,9 +305,9 @@ export default defineSchema({
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
-    // Scheduled-function ids for the week-before/day-before reminder pushes
-    // (docs/DATA_MODEL.md, Increment 7) — unset when the reminder was never
-    // scheduled (already past at create/update time) or has been cancelled
+    // Scheduled-function ids for the week-before/day-before reminder pushes —
+    // unset when the reminder was never scheduled (already past at create/update
+    // time) or has been cancelled
     // (startDateTime changed, or the event was archived).
     weekBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
     dayBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
@@ -349,8 +346,7 @@ export default defineSchema({
   }).index("by_status_startDate", ["status", "startDate"]),
 
   // Scoped administrative role grants. A user may hold any number of these.
-  // `hod`/`department_admin` are department-scoped (docs/Alignment.md,
-  // Increment 5), replacing the free-floating `church_admin` role.
+  // `hod`/`department_admin` are department-scoped.
   roleAssignments: defineTable({
     userId: v.id("users"),
     roleType: v.union(
@@ -378,7 +374,7 @@ export default defineSchema({
     .index("by_clanId", ["clanId"])
     .index("by_departmentId", ["departmentId"]),
 
-  // Department roster (docs/Alignment.md, Increment 5). Separate from
+  // Department roster. Separate from
   // `roleAssignments`: membership doesn't imply administrative authority.
   departmentMemberships: defineTable({
     userId: v.id("users"),
@@ -393,7 +389,7 @@ export default defineSchema({
     .index("by_userId_status", ["userId", "status"])
     .index("by_departmentId_status", ["departmentId", "status"]),
 
-  // Year Planner (docs/Admin_Portal.md). Internal planning records — never
+  // Year Planner. Internal planning records — never
   // shown to members — distinct from `weeklyPrograms`/`events`. The planner
   // UI merges all three into one calendar. No stored `month`: it's derived
   // from `targetDate` at query/render time, same as "current theme" derives
