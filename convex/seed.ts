@@ -1,4 +1,5 @@
 import { internalMutation, type MutationCtx } from "./_generated/server";
+import { KAMPALA_OFFSET_MS } from "./calendar";
 
 // The 12 clans in birth order (Genesis 29–30, 35).
 const CLAN_NAMES = [
@@ -210,5 +211,158 @@ export const departments = internalMutation({
     }
     const total = (await ctx.db.query("departments").collect()).length;
     return { created, updated, total };
+  },
+});
+
+// The three Tower of Faith facilities, seeded everywhere (including
+// production) as hidden drafts — name only, so Real Estate fills in the rest
+// after launch (spec 0001, AC-3).
+const FACILITY_DRAFT_NAMES = [
+  "KLT Media Studio",
+  "KLT Resource Library",
+  "KLT Fellowship Hall",
+] as const;
+
+/**
+ * Ensure the three Tower of Faith facilities exist as hidden drafts
+ * (active: false, name only), attributed to the SEED_ADMIN_EMAIL user. Safe
+ * everywhere including production. Idempotent — inserts only if absent by name, so it can
+ * run in either order relative to churchAdminSeed:seedChurchAdmin without
+ * creating duplicates (AC-7).
+ */
+export const facilityDrafts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const email = process.env.SEED_ADMIN_EMAIL;
+    if (!email) return { ok: false as const, reason: "SEED_ADMIN_EMAIL not set" };
+    const admin = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (!admin) {
+      return { ok: false as const, reason: "no SEED_ADMIN_EMAIL user yet" };
+    }
+
+    const now = Date.now();
+    let created = 0;
+    for (const name of FACILITY_DRAFT_NAMES) {
+      const existing = await ctx.db
+        .query("facilities")
+        .filter((q) => q.eq(q.field("name"), name))
+        .first();
+      if (!existing) {
+        await ctx.db.insert("facilities", {
+          name,
+          active: false,
+          createdBy: admin._id,
+          createdAt: now,
+          updatedAt: now,
+        });
+        created++;
+      }
+    }
+    const total = (await ctx.db.query("facilities").collect()).length;
+    return { ok: true as const, created, total };
+  },
+});
+
+// The five recurring weekly programs — real content, not sample data (the
+// engineer's call, spec 0001), so this carries no production guard. Extracted
+// from contentSeed.ts and rewritten onto the current recurrence fields
+// (recurrence/daysOfWeek/startDate/startTime), dropping the deprecated
+// dayOfWeek/time pair and the Unsplash coverImageUrl placeholders.
+const WEEKLY_PROGRAMS = [
+  {
+    title: "Sunday Service",
+    description:
+      "Our main weekly gathering — worship, the Word, and fellowship for the whole family.",
+    daysOfWeek: [0],
+    startDate: Date.UTC(2026, 0, 4) - KAMPALA_OFFSET_MS,
+    startTime: "09:00",
+    location: "KLT Main Auditorium",
+  },
+  {
+    title: "Women's Fellowship",
+    description:
+      "A weekly gathering for the women of the Kingdom — fellowship, prayer, and encouragement.",
+    daysOfWeek: [1],
+    startDate: Date.UTC(2026, 0, 5) - KAMPALA_OFFSET_MS,
+    startTime: "17:00",
+    location: "KLT Main Auditorium",
+  },
+  {
+    title: "Mid-Week Service",
+    description:
+      "Recharge your week with the Word and worship. Join in person or online.",
+    daysOfWeek: [3],
+    startDate: Date.UTC(2026, 0, 7) - KAMPALA_OFFSET_MS,
+    startTime: "17:00",
+    location: "KLT Main Auditorium",
+  },
+  {
+    title: "Eagles Youth Cell",
+    description:
+      "Open Counsel — a safe space for the youth to gather, share, and grow together in faith.",
+    daysOfWeek: [4],
+    startDate: Date.UTC(2026, 0, 8) - KAMPALA_OFFSET_MS,
+    startTime: "17:00",
+    location: "KLT Main Auditorium",
+  },
+  {
+    title: "Tongues of Fire",
+    description:
+      "Three hours of unbroken praying in the Spirit every Friday night.",
+    daysOfWeek: [5],
+    startDate: Date.UTC(2026, 0, 9) - KAMPALA_OFFSET_MS,
+    startTime: "23:00",
+    location: "KLT Main Auditorium",
+  },
+] as const;
+
+/**
+ * Ensure the five recurring weekly programs exist, attributed to the
+ * SEED_ADMIN_EMAIL user, written onto the current recurrence fields. Safe
+ * everywhere including production (real content, no guard). Idempotent on
+ * `title`.
+ */
+export const weeklyPrograms = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const email = process.env.SEED_ADMIN_EMAIL;
+    if (!email) return { ok: false as const, reason: "SEED_ADMIN_EMAIL not set" };
+    const admin = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (!admin) {
+      return { ok: false as const, reason: "no SEED_ADMIN_EMAIL user yet" };
+    }
+
+    const now = Date.now();
+    let created = 0;
+    for (const program of WEEKLY_PROGRAMS) {
+      const existing = await ctx.db
+        .query("weeklyPrograms")
+        .filter((q) => q.eq(q.field("title"), program.title))
+        .first();
+      if (!existing) {
+        await ctx.db.insert("weeklyPrograms", {
+          title: program.title,
+          description: program.description,
+          recurrence: "weekly",
+          daysOfWeek: [...program.daysOfWeek],
+          startDate: program.startDate,
+          startTime: program.startTime,
+          location: program.location,
+          active: true,
+          createdBy: admin._id,
+          createdAt: now,
+          updatedAt: now,
+        });
+        created++;
+      }
+    }
+    const total = (await ctx.db.query("weeklyPrograms").collect()).length;
+    return { ok: true as const, created, total };
   },
 });

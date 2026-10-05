@@ -54,9 +54,17 @@ SRS: F5-01 · code: `spec/`, `AGENTS.md`, `.gitignore` (commits `54e539f`, `378f
 ### 2. Staging and production environments, safe seeding, backups · in-progress
 Track A. Give the app real staging and production homes with the right data in each, so nothing built after this runs against a fake or unsafe environment.
 **Done when:** F5-02: separate staging and production Convex/R2/Cloudflare/EAS environments exist. F5-03: production seeds only the 12 clans, 13 departments, seeded radio programs and Tower of Faith facility names as hidden drafts, the first System Admin only from `SEED_ADMIN_EMAIL`, and no sample data; staging gets sample data. F5-04: staging mirrors production and every change is tested there first. F5-05: regular restorable backups, and one before any risky change.
-- [ ] Design it (spec): `/architect staging and production environments`
-Spec: not yet captured
-SRS: F5-02, F5-03, F5-04, F5-05, NF-15, NF-16 · code: `convex/seed.ts` (`bootstrapSystemAdmin` already reads `SEED_ADMIN_EMAIL`), `convex/churchAdminSeed.ts`, `convex/contentSeed.ts`
+- [x] Design it (spec): `/architect staging and production environments`
+Spec: [0001](../specs/_root/0001-production-readiness-safe-seeding.md)
+- [x] Build it: `/develop staging and production environments`
+  - [x] Guard infrastructure: `convex/lib/environment.ts` (`isProductionDeployment`, a pure function), satisfies AC-2, AC-6
+  - [x] Safe-everywhere reference seeds: `seed.ts:facilityDrafts`, `seed.ts:weeklyPrograms`, satisfies AC-3, AC-4
+  - [x] Guard + bug fixes on the sample seeds: `contentSeed.ts` (remove the role-grant bug, add `allowSampleData` + the guard), `churchAdminSeed.ts` (same guard, fix the seeding-order check), satisfies AC-1, AC-2, AC-5, AC-7
+  - [x] Automated tests for the guard, idempotency, and order-independence, satisfies AC-1 through AC-7
+- [ ] Verify it: `/check verify staging and production environments`
+- [x] Test it: `/test staging and production environments`
+- [x] Document it: `/document staging and production environments`
+SRS: F5-02, F5-03, F5-04, F5-05, NF-15, NF-16 · code: `convex/seed.ts` (`bootstrapSystemAdmin` already reads `SEED_ADMIN_EMAIL`), `convex/churchAdminSeed.ts`, `convex/contentSeed.ts`, `convex/lib/environment.ts`
 
 ### 3. Error screens, Sentry, update channels · planned
 Track A. Make failure visible and recoverable instead of a blank screen or crash, and get eyes on production errors before ministers report them.
