@@ -26,6 +26,7 @@ import type * as facilities from "../facilities.js";
 import type * as http from "../http.js";
 import type * as leadershipMigration from "../leadershipMigration.js";
 import type * as lib_authz from "../lib/authz.js";
+import type * as lib_environment from "../lib/environment.js";
 import type * as lib_media from "../lib/media.js";
 import type * as lib_recurrence from "../lib/recurrence.js";
 import type * as lib_reminders from "../lib/reminders.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   leadershipMigration: typeof leadershipMigration;
   "lib/authz": typeof lib_authz;
+  "lib/environment": typeof lib_environment;
   "lib/media": typeof lib_media;
   "lib/recurrence": typeof lib_recurrence;
   "lib/reminders": typeof lib_reminders;

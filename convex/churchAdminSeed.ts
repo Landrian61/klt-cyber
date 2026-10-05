@@ -1,13 +1,23 @@
+import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { assertSampleSeedAllowed } from "./lib/environment";
 
 // Seed realistic data: Tower of Faith facilities, and a varied spread of
 // pending-verification member profiles (one with mentorship proof, one
 // without, one with children, one with a linked spouse). Departments are
 // now fixed reference data seeded separately via `seed:departments` — this
-// file no longer seeds any. Idempotent — skips if facilities already exist.
+// file no longer seeds any.
 //
-// Run: npx convex run churchAdminSeed:seedChurchAdmin
+// Sample data only — never safe for production. Requires an explicit
+// `allowSampleData: true` argument AND the production guard to pass before
+// writing anything (spec 0001, AC-2). Idempotent — the already-seeded check
+// keys off the seed user (grace.nakato...) rather than any facility
+// existing, so this can run before or after seed.ts:facilityDrafts without
+// either suppressing the other's writes (AC-7); facility inserts insert only if absent by
+// name for the same reason.
+//
+// Run: npx convex run churchAdminSeed:seedChurchAdmin '{"allowSampleData": true}'
 
 const IMG = {
   media: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=1200&q=80",
@@ -52,9 +62,13 @@ async function ensureSeedUser(
   });
 }
 
+const SEED_USER_EMAIL = "grace.nakato@seed.kltcyberchurch.org";
+
 export const seedChurchAdmin = internalMutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { allowSampleData: v.optional(v.boolean()) },
+  handler: async (ctx, { allowSampleData }) => {
+    assertSampleSeedAllowed(allowSampleData);
+
     const createdBy = await resolveActor(ctx);
     if (!createdBy) {
       return {
@@ -63,9 +77,14 @@ export const seedChurchAdmin = internalMutation({
       };
     }
 
-    const existing = await ctx.db.query("facilities").first();
-    if (existing) {
-      return { ok: false as const, reason: "already seeded (facilities exist)" };
+    // Keyed off the seed user, never off any facility existing (AC-7) — a
+    // facility existing only proves facilityDrafts ran, not this function.
+    const existingSeedUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", SEED_USER_EMAIL))
+      .unique();
+    if (existingSeedUser) {
+      return { ok: false as const, reason: "already seeded (seed user exists)" };
     }
 
     const now = Date.now();
@@ -107,13 +126,21 @@ export const seedChurchAdmin = internalMutation({
         imageUrl: IMG.hall,
       },
     ];
+    let facilitiesCreated = 0;
     for (const facility of facilities) {
-      await ctx.db.insert("facilities", { ...facility, active: true, ...meta });
+      const existingFacility = await ctx.db
+        .query("facilities")
+        .filter((q) => q.eq(q.field("name"), facility.name))
+        .first();
+      if (!existingFacility) {
+        await ctx.db.insert("facilities", { ...facility, active: false, ...meta });
+        facilitiesCreated++;
+      }
     }
 
     // ── Member profiles (pending_verification, varied spread) ───────────────
     const graceId = await ensureSeedUser(ctx, {
-      email: "grace.nakato@seed.kltcyberchurch.org",
+      email: SEED_USER_EMAIL,
       firstName: "Grace",
       lastName: "Nakato",
     });
@@ -248,7 +275,7 @@ export const seedChurchAdmin = internalMutation({
 
     return {
       ok: true as const,
-      facilities: facilities.length,
+      facilities: facilitiesCreated,
       memberProfiles: 4,
     };
   },

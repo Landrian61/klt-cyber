@@ -1,0 +1,9 @@
+{
+  "tool": "vitest",
+  "gate": null,
+  "additionalTools": [],
+  "e2eTool": "none",
+  "testDir": "convex",
+  "filePattern": "*.test.ts",
+  "packageManager": "pnpm"
+}

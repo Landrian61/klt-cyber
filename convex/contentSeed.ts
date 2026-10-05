@@ -1,19 +1,25 @@
+import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { assertSampleSeedAllowed } from "./lib/environment";
 
-// Seed realistic Increment 3 content: one current annual theme, one current
-// monthly theme, active weekly programs across different days, upcoming events
-// (with a featured one), and published announcements (mixed priority, one with
-// a link + cover image). Content insertion is idempotent — skips if any themes
-// already exist.
+// Seed realistic Increment 3 *sample* content: one current annual theme, one
+// current monthly theme, upcoming events (with a featured one), and published
+// announcements (mixed priority, one with a link + cover image). Content
+// insertion is idempotent — skips if any themes already exist.
 //
-// Run: npx convex run contentSeed:seedContent
+// Sample data only — never safe for production. Requires an explicit
+// `allowSampleData: true` argument AND the production guard to pass before
+// writing anything (spec 0001, AC-2). The five recurring weekly programs are
+// real content, not sample data, and have moved to seed.ts:weeklyPrograms,
+// which carries no guard.
+//
+// Run: npx convex run contentSeed:seedContent '{"allowSampleData": true}'
 //
 // `createdBy` is attributed to the SEED_ADMIN_EMAIL user (the bootstrapped
-// system admin) if present, otherwise the earliest-created user. That actor is
-// also granted an active `system_admin` roleAssignments row (idempotent) so a
-// freshly seeded deployment has a working content admin (PR7a gate) with no
-// manual Convex-dashboard step.
+// system admin) if present, otherwise the earliest-created user. This
+// mutation never grants any role (spec 0001, AC-1) — the only role grant in
+// any seed function is seed:bootstrapSystemAdmin's.
 
 const KAMPALA_OFFSET_MS = 3 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -41,38 +47,11 @@ async function resolveActor(ctx: MutationCtx): Promise<Id<"users"> | null> {
   return first?._id ?? null;
 }
 
-/**
- * Ensure `userId` holds an active `system_admin` role assignment (PR7a content
- * gate). Idempotent — inserts one only when absent. Returns whether a new grant
- * was written.
- */
-async function ensureContentAdmin(
-  ctx: MutationCtx,
-  userId: Id<"users">
-): Promise<"granted" | "already-admin"> {
-  const active = await ctx.db
-    .query("roleAssignments")
-    .withIndex("by_userId_status", (q) =>
-      q.eq("userId", userId).eq("status", "active")
-    )
-    .collect();
-  if (active.some((row) => row.roleType === "system_admin")) {
-    return "already-admin";
-  }
-  await ctx.db.insert("roleAssignments", {
-    userId,
-    roleType: "system_admin",
-    assignedBy: userId, // self-bootstrap, mirroring seed:bootstrapSystemAdmin
-    status: "active",
-  });
-  return "granted";
-}
-
 export const seedContent = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    // Resolve the actor and ensure it can manage content first, so even a
-    // re-run against already-seeded content still converges on a working admin.
+  args: { allowSampleData: v.optional(v.boolean()) },
+  handler: async (ctx, { allowSampleData }) => {
+    assertSampleSeedAllowed(allowSampleData);
+
     const createdBy = await resolveActor(ctx);
     if (!createdBy) {
       return {
@@ -80,14 +59,12 @@ export const seedContent = internalMutation({
         reason: "no users exist yet — sign up a user first",
       };
     }
-    const adminGrant = await ensureContentAdmin(ctx, createdBy);
 
     const existing = await ctx.db.query("themes").first();
     if (existing) {
       return {
         ok: false as const,
         reason: "already seeded (themes exist)",
-        adminGrant,
       };
     }
 
@@ -128,62 +105,6 @@ export const seedContent = internalMutation({
       periodEnd: endOfDayUtc(year, month + 1, 0), // last day of this month
       ...meta,
     });
-
-    // ── Weekly programs (different days) ───────────────────────────────────
-    const programs = [
-      {
-        title: "Sunday Service",
-        description:
-          "Our main weekly gathering — worship, the Word, and fellowship for the whole family.",
-        dayOfWeek: 0,
-        time: "09:00",
-        location: "KLT Main Auditorium",
-        coverImageUrl: IMG.gathering,
-      },
-      {
-        title: "Women's Fellowship",
-        description:
-          "A weekly gathering for the women of the Kingdom — fellowship, prayer, and encouragement.",
-        dayOfWeek: 1,
-        time: "17:00",
-        location: "KLT Main Auditorium",
-        coverImageUrl: IMG.worship,
-      },
-      {
-        title: "Mid-Week Service",
-        description:
-          "Recharge your week with the Word and worship. Join in person or online.",
-        dayOfWeek: 3,
-        time: "17:00",
-        location: "KLT Main Auditorium",
-        coverImageUrl: IMG.prayer,
-      },
-      {
-        title: "Eagles Youth Cell",
-        description:
-          "Open Counsel — a safe space for the youth to gather, share, and grow together in faith.",
-        dayOfWeek: 4,
-        time: "17:00",
-        location: "KLT Main Auditorium",
-        coverImageUrl: IMG.gathering,
-      },
-      {
-        title: "Tongues of Fire",
-        description:
-          "Three hours of unbroken praying in the Spirit every Friday night.",
-        dayOfWeek: 5,
-        time: "23:00",
-        location: "KLT Main Auditorium",
-        coverImageUrl: IMG.night,
-      },
-    ];
-    for (const program of programs) {
-      await ctx.db.insert("weeklyPrograms", {
-        ...program,
-        active: true,
-        ...meta,
-      });
-    }
 
     // ── Upcoming events (>= one featured) ──────────────────────────────────
     const events = [
@@ -279,9 +200,7 @@ export const seedContent = internalMutation({
 
     return {
       ok: true as const,
-      adminGrant,
       themes: 2,
-      programs: programs.length,
       events: events.length,
       announcements: announcements.length,
     };

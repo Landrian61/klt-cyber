@@ -11,14 +11,18 @@
     "admin": "pnpm --filter admin dev",
     "convex": "pnpm exec convex dev",
     "lint": "pnpm -r run lint",
-    "test": "pnpm -r run test"
+    "test": "pnpm -r run test && pnpm run test:convex",
+    "test:convex": "vitest run --config convex/vitest.config.ts"
   },
   "packageManager": "pnpm@11.21.0",
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "convex": "1.42.3"
+    "@edge-runtime/vm": "^5.0.0",
+    "convex": "1.42.3",
+    "convex-test": "^0.0.54",
+    "vitest": "^5.0.3"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.2",
