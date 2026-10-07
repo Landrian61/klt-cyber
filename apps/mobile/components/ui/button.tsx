@@ -7,10 +7,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { FontFamily, Radius, Duration, GoldGradient } from '@/constants/theme';
+import { FontFamily, Radius, Duration, GoldGradient, GoldGlow } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
-export type ButtonVariant = 'primary' | 'ghost' | 'destructive' | 'textLink' | 'icon';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'textLink' | 'icon';
 
 export interface ButtonProps {
   label?: string;
@@ -43,7 +43,7 @@ export function Button({
   }));
 
   const handlePressIn = () => {
-    scale.value = withTiming(0.98, { duration: Duration.fast });
+    scale.value = withTiming(0.97, { duration: Duration.fast });
   };
 
   const handlePressOut = () => {
@@ -78,7 +78,7 @@ export function Button({
         accessibilityLabel={accessibilityLabel || label}
         accessibilityRole="link"
       >
-        <Text style={[styles.textLinkLabel, { color: Colors.primary }, disabled && { color: Colors.outline }]}>
+        <Text style={[styles.textLinkLabel, { color: Colors.primary }, disabled && { color: Colors.faint }]}>
           {label}
         </Text>
       </Pressable>
@@ -91,13 +91,13 @@ export function Button({
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={[animatedStyle, fullWidth && styles.fullWidth]}
+        style={[animatedStyle, fullWidth && styles.fullWidth, !disabled && GoldGlow, disabled && styles.disabledPrimary]}
         disabled={disabled || loading}
         accessibilityLabel={accessibilityLabel || label}
         accessibilityRole="button"
       >
         <LinearGradient
-          colors={disabled ? [Colors.surfaceHigh, Colors.surfaceHigh] : [...GoldGradient.colors]}
+          colors={[...GoldGradient.colors]}
           start={GoldGradient.start}
           end={GoldGradient.end}
           style={[styles.base, fullWidth && styles.fullWidth]}
@@ -105,17 +105,27 @@ export function Button({
           {loading ? (
             <ActivityIndicator size="small" color={Colors.onPrimary} />
           ) : (
-            <Text style={[styles.primaryLabel, { color: Colors.onPrimary }, disabled && { color: Colors.outline }]}>
-              {label}
-            </Text>
+            <Text style={[styles.primaryLabel, { color: Colors.onPrimary }]}>{label}</Text>
           )}
         </LinearGradient>
       </AnimatedPressable>
     );
   }
 
-  // Ghost and Destructive variants
+  // Secondary (gold tint), Ghost (soft inset ring), Destructive (solid red).
   const isDestructive = variant === 'destructive';
+  const isGhost = variant === 'ghost';
+
+  const fill = isDestructive
+    ? Colors.secondary
+    : isGhost
+      ? 'transparent'
+      : Colors.goldTint; // secondary
+  const textColor = isDestructive
+    ? Colors.onSecondary
+    : isGhost
+      ? Colors.onSurface
+      : Colors.primaryDeep;
 
   return (
     <AnimatedPressable
@@ -126,30 +136,19 @@ export function Button({
       style={[
         animatedStyle,
         styles.base,
-        isDestructive
-          ? [styles.destructive, { backgroundColor: Colors.secondaryLight }]
-          : styles.ghost,
+        styles.soft,
+        { backgroundColor: fill },
+        isGhost && { borderWidth: 1.5, borderColor: 'rgba(36,27,16,0.18)' },
+        disabled && { opacity: 0.5 },
         fullWidth && styles.fullWidth,
       ]}
       accessibilityLabel={accessibilityLabel || label}
       accessibilityRole="button"
     >
       {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={isDestructive ? Colors.secondary : Colors.primary}
-        />
+        <ActivityIndicator size="small" color={textColor} />
       ) : (
-        <Text
-          style={[
-            styles.ghostLabel,
-            { color: Colors.primary },
-            isDestructive && { color: Colors.secondary },
-            disabled && { color: Colors.outline },
-          ]}
-        >
-          {label}
-        </Text>
+        <Text style={[styles.softLabel, { color: textColor }]}>{label}</Text>
       )}
     </AnimatedPressable>
   );
@@ -157,39 +156,36 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 52,
-    borderRadius: Radius.md,
+    height: 54,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
   },
+  // Secondary / ghost / destructive sit a touch shorter than the primary CTA.
+  soft: {
+    height: 50,
+  },
   fullWidth: {
     width: '100%',
   },
+  disabledPrimary: {
+    opacity: 0.4,
+  },
   primaryLabel: {
-    fontFamily: FontFamily.bodySemiBold,
+    fontFamily: FontFamily.bodyExtraBold,
     fontSize: 16,
     lineHeight: 24,
   },
-  ghost: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(120, 86, 0, 0.20)',
-  },
-  ghostLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  destructive: {
-    borderWidth: 1,
-    borderColor: 'rgba(171, 51, 50, 0.20)',
+  softLabel: {
+    fontFamily: FontFamily.bodyBold,
+    fontSize: 15,
+    lineHeight: 22,
   },
   textLinkLabel: {
-    fontFamily: FontFamily.bodyMedium,
+    fontFamily: FontFamily.bodyExtraBold,
     fontSize: 14,
-    lineHeight: 22.4,
-    textDecorationLine: 'underline',
+    lineHeight: 20,
   },
   iconButton: {
     width: 44,

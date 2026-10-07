@@ -10,12 +10,12 @@ export interface ActionButtonProps
 }
 
 // Compact row action (INTERFACE_SPEC §1.7): a small tonal button for table
-// rows and toolbars — light gold, light crimson, or neutral parchment fills.
-// Never a border; hover deepens the tone.
+// rows and toolbars — light gold, light crimson, or neutral parchment fills,
+// each with a hairline border (Hairline Border Rule); hover deepens the tone.
 const variants: Record<ActionVariant, string> = {
-  gold: "text-primary bg-primary-light hover:bg-primary-dim",
-  danger: "text-crimson bg-crimson-light hover:brightness-95",
-  neutral: "text-on-surface-variant bg-surface-low hover:bg-surface-high",
+  gold: "border border-border text-primary bg-primary-light hover:bg-primary-dim",
+  danger: "border border-border text-crimson bg-crimson-light hover:brightness-95",
+  neutral: "border border-border text-on-surface-variant bg-surface-low hover:bg-surface-high",
 };
 
 export function ActionButton({

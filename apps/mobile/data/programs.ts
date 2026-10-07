@@ -1,5 +1,12 @@
 import { ImageSourcePropType } from 'react-native';
 
+// Bundled program content for the Radio tab's "Program schedule" list
+// (apps/mobile/app/(tabs)/radio.tsx), which needs a `locationType`/`onlineUrl`
+// distinction that convex/weeklyPrograms.ts doesn't model — that screen isn't
+// wired to Convex yet. Every other program/event surface (Home, /programs,
+// /events, and their detail screens) reads real data from Convex directly;
+// see convex/weeklyPrograms.ts, convex/events.ts, convex/calendar.ts.
+
 export interface Program {
   id: string;
   name: string;
@@ -12,16 +19,6 @@ export interface Program {
   locationType: 'in-person' | 'online' | 'hybrid';
   onlineUrl?: string;
   description: string;
-  image: ImageSourcePropType;
-}
-
-export interface UpcomingEvent {
-  id: string;
-  name: string;
-  description: string;
-  dateRange: string;
-  time: string;
-  location: string;
   image: ImageSourcePropType;
 }
 
@@ -171,109 +168,6 @@ export const PROGRAMS: Program[] = [
     image: require('@/assets/images/Crossover.jpg'),
   },
 ];
-
-export const UPCOMING_EVENTS: UpcomingEvent[] = [
-  {
-    id: 'mwat-women',
-    name: 'MWAT — Women Only',
-    description:
-      'Moment With Apostle Tonny (MWAT) — Week 1 is dedicated to the women. A week of intimate sessions of teaching, prayer, and impartation from Monday through Friday.',
-    dateRange: '30 Mar – 3 Apr 2026',
-    time: '9:00 PM – 1:00 AM, Fridays till 2:00 AM',
-    location: 'KLT Main Auditorium',
-    image: require('@/assets/images/MWAT.jpg'),
-  },
-  {
-    id: 'mwat-men',
-    name: 'MWAT — Men Only',
-    description:
-      'Moment With Apostle Tonny (MWAT) — Week 2 is for the men. A dedicated week of Kingdom leadership training, prayer, and fellowship.',
-    dateRange: '6 – 10 Apr 2026',
-    time: '9:00 PM – 1:00 AM, Fridays till 2:00 AM',
-    location: 'KLT Main Auditorium',
-    image: require('@/assets/images/MWAT.jpg'),
-  },
-  {
-    id: 'mwat-youth',
-    name: 'MWAT — Youth Only',
-    description:
-      'Moment With Apostle Tonny (MWAT) — Week 3 is for the youth. Encounter sessions designed for the next generation of Kingdom leaders.',
-    dateRange: '13 – 17 Apr 2026',
-    time: '9:00 PM – 1:00 AM, Fridays till 2:00 AM',
-    location: 'KLT Main Auditorium',
-    image: require('@/assets/images/MWAT.jpg'),
-  },
-  {
-    id: 'good-friday-service',
-    name: 'Good Friday Service',
-    description:
-      'A special Good Friday Service as we commemorate the sacrifice of our Lord Jesus Christ. All members are encouraged to attend.',
-    dateRange: '3 Apr 2026',
-    time: '3:00 PM – 6:00 PM',
-    location: 'KLT Main Auditorium',
-    image: require('@/assets/images/updates.jpg'),
-  },
-  {
-    id: 'water-baptism',
-    name: 'Water Baptism',
-    description:
-      'Water Baptism service. All those that haven\'t been baptised please register with Mr. Maroro Ibrahim (0757025154).',
-    dateRange: '4 Apr 2026',
-    time: '',
-    location: 'KLT Main Auditorium',
-    image: require('@/assets/images/updates.jpg'),
-  },
-  {
-    id: 'easter-sunday',
-    name: 'Easter Sunday Service',
-    description:
-      'Easter Sunday celebration with Judah Clan ministering. All members of Judah Clan are called upon to participate.',
-    dateRange: '5 Apr 2026',
-    time: '',
-    location: 'KLT Main Auditorium',
-    image: require('@/assets/images/updates.jpg'),
-  },
-  {
-    id: 'liberation-service',
-    name: 'First Liberation Service',
-    description:
-      'Our very first Liberation Service — come expecting a power-packed, transformative encounter with the Holy Spirit.',
-    dateRange: '12 Apr 2026',
-    time: '',
-    location: 'KLT Main Auditorium',
-    image: require('@/assets/images/updates.jpg'),
-  },
-  {
-    id: 'album-launch',
-    name: 'Pastor Kaggwa Album Launch — "YESU WERAGE"',
-    description:
-      'Pastor Kaggwa will be launching his album titled "YESU WERAGE". More details to follow.',
-    dateRange: '30 Aug 2026',
-    time: '',
-    location: 'KLT Main Auditorium',
-    image: require('@/assets/images/updates.jpg'),
-  },
-];
-
-export const CHURCH_THEME = {
-  year: 2026,
-  title: 'The Year of Kingdom Leadership and Governance',
-  scripture: 'Matthew 16:19',
-  scriptureText:
-    '"And I will give unto thee the keys of the kingdom of heaven: and whatsoever thou shalt bind on earth shall be bound in heaven: and whatsoever thou shalt loose on earth shall be loosed in heaven."',
-};
-
-export function getThisWeekPrograms(max = 3): Program[] {
-  return PROGRAMS.slice(0, max);
-}
-
-export function getProgramById(id: string): Program | undefined {
-  return PROGRAMS.find((p) => p.id === id);
-}
-
-export function getEventById(id: string): UpcomingEvent | undefined {
-  return UPCOMING_EVENTS.find((e) => e.id === id);
-}
 
 export function getOnlinePrograms(): Program[] {
   return PROGRAMS.filter((p) => p.locationType === 'online' || p.locationType === 'hybrid');

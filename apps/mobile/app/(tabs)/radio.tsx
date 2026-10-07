@@ -9,8 +9,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
+import { LinearGradient } from 'expo-linear-gradient';
+
 import {
-  FontFamily, Spacing, Radius, AmbientShadow,
+  FontFamily, Spacing, Radius, AmbientShadow, GoldGradient, GoldGlow,
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { getOnlinePrograms, type Program } from '@/data/programs';
@@ -139,16 +141,22 @@ export default function RadioScreen() {
               <Animated.View style={playAnimatedStyle}>
                 <Pressable
                   onPress={handlePlayToggle}
-                  style={styles.playButton}
                   accessibilityRole="button"
                   accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
                 >
-                  <Ionicons
-                    name={isPlaying ? 'pause' : 'play'}
-                    size={28}
-                    color="#FFFFFF"
-                    style={!isPlaying ? { marginLeft: 3 } : undefined}
-                  />
+                  <LinearGradient
+                    colors={[...GoldGradient.colors]}
+                    start={GoldGradient.start}
+                    end={GoldGradient.end}
+                    style={[styles.playButton, GoldGlow]}
+                  >
+                    <Ionicons
+                      name={isPlaying ? 'pause' : 'play'}
+                      size={28}
+                      color="#3A2604"
+                      style={!isPlaying ? { marginLeft: 3 } : undefined}
+                    />
+                  </LinearGradient>
                 </Pressable>
               </Animated.View>
 
@@ -323,7 +331,7 @@ const styles = StyleSheet.create({
   },
   heroScrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(28, 28, 24, 0.55)',
+    backgroundColor: 'rgba(12, 33, 84, 0.62)',
     borderRadius: Radius.xl,
     justifyContent: 'flex-end',
     padding: Spacing[5],
@@ -401,14 +409,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
   // Volume
   volumeRow: {

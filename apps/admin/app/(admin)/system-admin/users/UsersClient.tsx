@@ -7,9 +7,9 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@/lib/api";
 import { displayName, formatRelativeTime, roleLabel } from "@/lib/format";
 import { Heading } from "@/components/ui/Heading";
-import { Button } from "@/components/ui/Button";
-import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/shadcn/button";
+import { Avatar } from "@/components/shadcn/avatar";
+import { Badge } from "@/components/shadcn/badge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -19,7 +19,13 @@ import {
 } from "@/components/ui/FilterBar";
 import { Pagination } from "@/components/ui/Pagination";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { Select } from "@/components/ui/Select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/select";
 
 // Row shapes come straight from the Convex query — no hand-rolled drift.
 type UsersResult = NonNullable<FunctionReturnType<typeof api.admin.listUsers>>;
@@ -43,7 +49,6 @@ export function UsersClient() {
   const roles = searchParams.get("roles") ?? "";
   const status = searchParams.get("status") ?? "";
   const profile = searchParams.get("profile") ?? "";
-  const clan = searchParams.get("clan") ?? "";
   const sortParam = searchParams.get("sort");
   const sort =
     sortParam === "name" || sortParam === "email" ? sortParam : "recent";
@@ -95,16 +100,13 @@ export function UsersClient() {
           : profile === "incomplete"
             ? false
             : undefined,
-      pendingClan: clan === "pending" ? true : undefined,
     },
     sort,
     page,
     pageSize: PAGE_SIZE,
   });
 
-  const hasActiveFilters = Boolean(
-    q || role || roles || status || profile || clan
-  );
+  const hasActiveFilters = Boolean(q || role || roles || status || profile);
 
   const columns: Column<UserRow>[] = [
     {
@@ -183,7 +185,6 @@ export function UsersClient() {
             <span aria-hidden="true">—</span>
           )}{" "}
           accounts on record
-          {clan === "pending" && " · filtered to pending clan approvals"}
         </p>
       </header>
 
@@ -197,15 +198,18 @@ export function UsersClient() {
         />
         <div className="w-44">
           <Select
-            aria-label="Sort by"
             value={sort}
             onValueChange={(value) => setParams({ sort: value })}
-            options={[
-              { value: "recent", label: "Most recent" },
-              { value: "name", label: "Name" },
-              { value: "email", label: "Email" },
-            ]}
-          />
+          >
+            <SelectTrigger aria-label="Sort by">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Most recent</SelectItem>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="email">Email</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -260,11 +264,6 @@ export function UsersClient() {
         >
           Incomplete
         </FilterChip>
-        {clan === "pending" && (
-          <FilterChip selected onClick={() => setParams({ clan: "" })}>
-            Pending clan approval
-          </FilterChip>
-        )}
       </FilterBar>
 
       <DataTable<UserRow>

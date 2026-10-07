@@ -42,9 +42,10 @@ app-example
 /ios
 /android
 
-# Claude Code
-.claude/plans/
-.claude/settings.json
+# Claude Code — local tooling config/skills, not project source.
+.claude/
+.agents/
+skills-lock.json
 
 # Editor
 .vscode/

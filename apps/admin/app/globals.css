@@ -1,19 +1,23 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
-  The Sacred Curator — design tokens (from docs/INTERFACE_SPEC.md §1.2–1.3).
+  The Sacred Curator — design tokens (from spec/INTERFACE_SPEC.md §1.2–1.3).
   Tailwind v4 is CSS-first: tokens declared in @theme generate utilities
   (e.g. bg-parchment, text-primary, font-display, rounded-lg). We expose the
   spec's palette and typography under semantic names — no raw hex in components.
 */
+
+
 @theme {
-  /* --- Primary: Gold --- */
-  --color-primary: #785600; /* surface tint — text, icons */
-  --color-primary-container: #986d00; /* gradient end point for CTAs */
-  --color-primary-dim: #f5e6c8; /* active background states (primary-fixed-dim) */
-  --color-primary-light: #fbf3e0; /* very light gold — badge fills, tinted surfaces */
-  --color-on-primary: #ffffff; /* text on primary-filled backgrounds */
-  --color-brand: #b8860b; /* gold brand — gradients, highlights, accents */
+  /* --- Primary: Gold (deepened to the Kingdom Radiant palette, matching the
+         mobile app's #C47F08 family - refreshes every gold admin surface) --- */
+  --color-primary: #c47f08;
+  --color-primary-container: #9a6305;
+  --color-primary-dim: #f3e4c0;
+  --color-primary-light: #fbf1da;
+  --color-on-primary: #ffffff;
+  --color-brand: #dd9814;
 
   /* --- Secondary: Crimson --- */
   --color-crimson: #ab3332;
@@ -40,21 +44,112 @@
   /* --- Semantic --- */
   --color-success: #2e7d32;
   --color-success-light: #e8f5e9;
-  --color-warning: #b8860b;
-  --color-warning-light: #fbf3e0;
+  --color-warning: #c47f08;
+  --color-warning-light: #fbf1da;
   --color-error: #ab3332;
   --color-error-light: #f9e5e5;
 
-  /* --- Font families (wired to next/font CSS variables in layout.tsx) --- */
-  --font-display: var(--font-playfair), Georgia, serif;
-  --font-body: var(--font-inter), -apple-system, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), "Courier New", monospace;
+  /* --- Font families (shared with mobile; wired to next/font vars in layout.tsx) --- */
+  --font-display: var(--font-bricolage), "Segoe UI", system-ui, sans-serif;
+  --font-body: var(--font-jakarta), -apple-system, system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), "Courier New", monospace;
 
   /* --- Radii (§1.5) --- */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 20px;
+
+  /*
+    --- Elevation (§1.6 Tonal Layering, revised) ---
+    Depth now reads primarily from a hairline border (--color-border, a warm-
+    ink line at low opacity — see the shadcn-contract block below) with only a
+    whisper of shadow behind it, not the other way around. This replaced an
+    earlier all-shadow "No-Line Rule" pass whose blue-tinted glows (12–26px
+    blur, up to 24% opacity) read as heavy — a crisp hairline edge with almost
+    no shadow is the reference now. Mobile is untouched; this is a web-admin-
+    only revision (see the klt-cyber-web-ui skill for the rationale).
+    Three tiers still cover the admin's stacking:
+      e1 — resting surfaces: cards, table shells, stat cards, list tiles.
+      e2 — raised: hover-lifted cards, dropdowns, selects, tooltips.
+      e3 — topmost chrome: dialogs, sheets — the deepest float in the stack.
+    Exposed as --shadow-* so Tailwind generates shadow-e1/e2/e3 utilities
+    (mirrors how --radius-* above already generates rounded-sm/md/lg/xl).
+  */
+  --shadow-e1: 0 1px 2px rgba(28, 28, 24, 0.05);
+  --shadow-e2: 0 3px 8px rgba(28, 28, 24, 0.07);
+  --shadow-e3: 0 8px 20px rgba(28, 28, 24, 0.1);
+  /* The sticky top bar's separator — now a literal hairline seam rather than
+     a diffuse glow, matching the border-led elevation above. */
+  --shadow-header: 0 1px 0 rgba(28, 28, 24, 0.06);
+  /* Reserved for the primary gold-leaf CTA only (§1.7 Buttons) — every other
+     surface uses the neutral tiers above. Still warm-tinted (this is the
+     app's one signature glow) but cut well down from its old 32px/50% form. */
+  --shadow-gold-glow: 0 3px 10px rgba(196, 127, 8, 0.3);
+
+  /*
+    --- Kingdom Radiant: immersive brand scenes (landing / auth / role) ---
+    The deep heaven-blue + radiant-gold system the mobile app adopted for its
+    welcome & splash. Used ONLY on the full-bleed brand canvases — the parchment
+    admin surfaces above are untouched. Mirrors mobile HeavenGradient + the
+    deepened gold (#C47F08 family). Exposed as tokens so components stay hex-free.
+  */
+  --color-heaven-deep: #0c2154; /* darkest navy — canvas base */
+  --color-heaven: #12306e; /* mid royal */
+  --color-heaven-bright: #2c63d9; /* brightest royal — gradient tail */
+  --color-gold-radiant: #edb63c; /* dawn gold — eyebrows, shimmer highlight */
+  --color-gold-rich: #c47f08; /* deepened primary gold — CTA gradient start */
+  --color-gold-deep: #7a4e04; /* gold shadow — CTA gradient end */
+  --color-gold-ink: #3a2604; /* text on gold fills */
+
+  /*
+    --- shadcn/ui semantic contract, mapped onto Sacred Curator ---
+    shadcn components style themselves against a fixed set of semantic tokens
+    (background/foreground/card/primary/muted/…). Rather than let the CLI bolt
+    on its own oklch palette, we bind that contract to our existing parchment +
+    gold tokens, so every shadcn primitive inherits the design language for
+    free. The focus ring is gold.
+  */
+  --color-background: var(--color-parchment);
+  --color-foreground: var(--color-on-surface);
+  --color-card: var(--color-surface-lowest);
+  --color-card-foreground: var(--color-on-surface);
+  --color-popover: var(--color-surface-lowest);
+  --color-popover-foreground: var(--color-on-surface);
+  --color-primary-foreground: var(--color-on-primary);
+  --color-secondary: var(--color-surface-low);
+  --color-secondary-foreground: var(--color-on-surface);
+  --color-muted: var(--color-surface-low);
+  --color-muted-foreground: var(--color-on-surface-variant);
+  --color-accent: var(--color-primary-light);
+  --color-accent-foreground: var(--color-primary);
+  --color-destructive: var(--color-crimson);
+  --color-destructive-foreground: #ffffff;
+  /* The hairline border (Hairline Border Rule, replacing the old No-Line
+     Rule): a warm-ink line at low opacity, not a tonal near-match to the
+     surface. Visible enough to define a card/button/dialog edge on sight —
+     restrained enough to still read as "parchment", not office-suite grey. */
+  --color-border: rgba(28, 28, 24, 0.1);
+  --color-input: rgba(28, 28, 24, 0.1);
+  --color-ring: var(--color-primary);
+
+  /*
+    --- shadcn sidebar contract (the dark heaven-blue admin rail) ---
+    The Sidebar primitive styles itself against these. Our rail is dark, so the
+    foreground is light and the active/hover accents are translucent white; the
+    deep-gold active TEXT is applied per-item in AppSidebar.
+  */
+  --color-sidebar: #0c2154; /* base (a gradient overlay sits on top in AppSidebar) */
+  --color-sidebar-foreground: rgba(255, 255, 255, 0.72);
+  --color-sidebar-primary: #edb63c; /* radiant gold — active nav + "Admin Portal" */
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: rgba(255, 255, 255, 0.1); /* hover / active surface */
+  --color-sidebar-accent-foreground: #ffffff;
+  --color-sidebar-border: rgba(255, 255, 255, 0.12);
+  --color-sidebar-ring: #edb63c;
+
+  /* shadcn radius base (components read rounded-md/lg from these). */
+  --radius: 8px;
 }
 
 /*
@@ -99,5 +194,83 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+  Kingdom Radiant motion primitives. anime.js drives the entrance/particle
+  choreography imperatively (see components/motion + components/brand); these
+  CSS utilities cover the always-on, GPU-cheap ambient effects. The reduced-
+  motion block above freezes them to their first frame automatically.
+*/
+
+/* Living gold on the hero wordmark - a slow light-sweep across gilt letters. */
+@keyframes kr-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+.kr-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-gold-deep) 0%,
+    var(--color-gold-radiant) 30%,
+    #fff6df 50%,
+    var(--color-gold-radiant) 70%,
+    var(--color-gold-deep) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: kr-shimmer 7s linear infinite;
+  display: inline-block;
+  padding-bottom: 0.18em;
+  margin-bottom: -0.18em;
+}
+
+@keyframes kr-halo {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.06);
+    opacity: 0.85;
+  }
+}
+.kr-halo {
+  animation: kr-halo 9s ease-in-out infinite;
+}
+
+/*
+  A quiet scrollbar for scrollable overlay surfaces (e.g. the Areas-of-Service
+  switcher menu). Pair with `overflow-y-auto` so the bar appears only when the
+  content actually overflows — the affordance is present when it's needed and
+  absent when it isn't. Slim and tonal rather than the chunky OS default, so it
+  reads as part of the surface instead of chrome cutting through it.
+*/
+@utility subtle-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--color-surface-high) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-surface-high);
+    border-radius: var(--radius-xl);
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-outline);
   }
 }

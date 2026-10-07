@@ -1,23 +1,41 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useMutation } from "convex/react";
 import { api, type Id } from "@/lib/api";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/shadcn/card";
+import { Badge } from "@/components/shadcn/badge";
+import { Button } from "@/components/shadcn/button";
 import { ActionButton } from "@/components/ui/ActionButton";
-import { Modal } from "@/components/ui/Modal";
-import { Label } from "@/components/ui/Label";
-import { Textarea } from "@/components/ui/Textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shadcn/dialog";
+import { Field } from "@/components/shadcn/field";
+import { Textarea } from "@/components/shadcn/textarea";
 import { displayName, formatDate, roleLabel } from "@/lib/format";
-import { AssignRoleSheet } from "./AssignRoleSheet";
 import {
   CardHeading,
   errorMessage,
   type ActiveRoleAssignment,
   type UserDetail,
 } from "./shared";
+
+// The assign Sheet statically imports the @klt-cyber/shared barrel for its
+// discriminated-union payload validator, which drags zod's full runtime
+// (~64 KB gzip) onto this route. The Sheet is dialog-gated and most visits
+// never open it, so it loads on first open instead. It is rendered only once
+// `assignMounted` flips — otherwise next/dynamic would resolve it on mount
+// (a rendered `open={false}` still renders) — and never unmounts after that,
+// so the Sheet keeps its exit animation.
+const AssignRoleSheet = dynamic(
+  () => import("./AssignRoleSheet").then((m) => m.AssignRoleSheet),
+  { ssr: false },
+);
 
 // Active + past role assignments with the module's canonical interaction
 // split: assigning (non-destructive) opens a right Sheet; revoking
@@ -32,6 +50,9 @@ export function RolesCard({
   const revokeRole = useMutation(api.roles.revokeRole);
 
   const [assignOpen, setAssignOpen] = useState(false);
+  // Latches true on first open and never resets, so the Sheet mounts (and its
+  // chunk loads) on demand but survives closing.
+  const [assignMounted, setAssignMounted] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ActiveRoleAssignment | null>(
     null,
   );
@@ -72,7 +93,7 @@ export function RolesCard({
     : "";
 
   return (
-    <Card>
+    <Card className="p-6">
       <CardHeading>Roles</CardHeading>
 
       {/* Active assignments */}
@@ -116,7 +137,13 @@ export function RolesCard({
         variant="secondary"
         size="sm"
         className="mt-5 w-full"
-        onClick={() => setAssignOpen(true)}
+        onClick={() => {
+          setAssignMounted(true);
+          setAssignOpen(true);
+        }}
+        // Start fetching the Sheet chunk on intent, so the click opens instantly.
+        onMouseEnter={() => setAssignMounted(true)}
+        onFocus={() => setAssignMounted(true)}
       >
         Assign role
       </Button>
@@ -147,20 +174,44 @@ export function RolesCard({
       )}
 
       {/* Non-destructive: assign via Sheet */}
-      <AssignRoleSheet
-        open={assignOpen}
-        onClose={() => setAssignOpen(false)}
-        userId={userId}
-        profileCompleted={detail.user.profileCompleted}
-      />
+      {assignMounted && (
+        <AssignRoleSheet
+          open={assignOpen}
+          onClose={() => setAssignOpen(false)}
+          userId={userId}
+          profileCompleted={detail.user.profileCompleted}
+        />
+      )}
 
-      {/* Destructive: revoke via Modal */}
-      <Modal
+      {/* Destructive: revoke via Dialog */}
+      <Dialog
         open={revokeTarget !== null}
-        onClose={closeRevoke}
-        title={`Revoke ${revokeTargetLabel}?`}
-        footer={
-          <>
+        onOpenChange={(next) => {
+          if (!next) closeRevoke();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{`Revoke ${revokeTargetLabel}?`}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="font-body text-sm text-on-surface-variant">
+              &lsquo;{revokeTargetLabel}&rsquo; will be removed from{" "}
+              {targetName}. This is recorded in the activity log.
+            </p>
+            <Field label="Note (optional)" htmlFor="revoke-note">
+              <Textarea
+                id="revoke-note"
+                value={revokeNote}
+                onChange={(event) => setRevokeNote(event.target.value)}
+                placeholder="Why is this role being revoked?"
+              />
+            </Field>
+            {revokeError && (
+              <p className="font-body text-sm text-error">{revokeError}</p>
+            )}
+          </div>
+          <DialogFooter>
             <Button variant="ghost" size="sm" onClick={closeRevoke}>
               Cancel
             </Button>
@@ -172,28 +223,9 @@ export function RolesCard({
             >
               Revoke role
             </ActionButton>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <p className="font-body text-sm text-on-surface-variant">
-            &lsquo;{revokeTargetLabel}&rsquo; will be removed from{" "}
-            {targetName}. This is recorded in the activity log.
-          </p>
-          <div>
-            <Label htmlFor="revoke-note">Note (optional)</Label>
-            <Textarea
-              id="revoke-note"
-              value={revokeNote}
-              onChange={(event) => setRevokeNote(event.target.value)}
-              placeholder="Why is this role being revoked?"
-            />
-          </div>
-          {revokeError && (
-            <p className="font-body text-sm text-error">{revokeError}</p>
-          )}
-        </div>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

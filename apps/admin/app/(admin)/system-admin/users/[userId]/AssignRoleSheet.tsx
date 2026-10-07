@@ -5,11 +5,23 @@ import { useMutation } from "convex/react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { roleAssignmentInputSchema } from "@klt-cyber/shared";
 import { api, type Id } from "@/lib/api";
-import { Sheet } from "@/components/ui/Sheet";
-import { Button } from "@/components/ui/Button";
-import { Label } from "@/components/ui/Label";
-import { Select } from "@/components/ui/Select";
-import { Textarea } from "@/components/ui/Textarea";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shadcn/sheet";
+import { Button } from "@/components/shadcn/button";
+import { Field } from "@/components/shadcn/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/select";
+import { Textarea } from "@/components/shadcn/textarea";
 import { errorMessage } from "./shared";
 
 type RoleChoice = "" | "system_admin" | "clan_elder";
@@ -116,68 +128,80 @@ export function AssignRoleSheet({
   return (
     <Sheet
       open={open}
-      onClose={handleClose}
-      title="Assign a role"
-      footer={
-        <>
-          <Button variant="ghost" size="sm" onClick={handleClose}>
-            Cancel
-          </Button>
-          {profileCompleted && (
-            <Button size="sm" loading={busy} onClick={handleSubmit}>
-              Assign role
-            </Button>
-          )}
-        </>
-      }
+      onOpenChange={(next) => {
+        if (!next) handleClose();
+      }}
     >
-      {profileCompleted ? (
-        <div className="space-y-6">
-          <div>
-            <Label htmlFor="assign-role-type">Role</Label>
+      <SheetContent side="right">
+        <SheetHeader>
+          <SheetTitle>Assign a role</SheetTitle>
+        </SheetHeader>
+
+        <div className="flex-1 space-y-6 overflow-y-auto">
+          <Field label="Role" htmlFor="assign-role-type">
             <Select
-              id="assign-role-type"
               value={roleType}
               onValueChange={(value) => {
                 setRoleType(value as RoleChoice);
                 setError(null);
               }}
-              placeholder="Choose a role…"
-              options={[
-                { value: "system_admin", label: "System Administrator" },
-                { value: "clan_elder", label: "Clan Elder" },
-              ]}
-            />
-          </div>
+            >
+              <SelectTrigger id="assign-role-type">
+                <SelectValue placeholder="Choose a role…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="system_admin">
+                  System Administrator
+                </SelectItem>
+                {/* Every role but System Admin is a ministry position held by
+                    a verified member, so it needs a completed profile. System
+                    Admin is a technical steward — a "ghost" account with no
+                    church-domain data — and is exempt. */}
+                <SelectItem value="clan_elder" disabled={!profileCompleted}>
+                  Clan Elder
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {!profileCompleted && (
+            <p className="rounded-md bg-surface-low p-3 font-body text-xs text-on-surface-variant">
+              This user hasn&apos;t completed a member profile, so only System
+              Administrator — which doesn&apos;t require one — can be assigned.
+            </p>
+          )}
 
           {roleType === "clan_elder" && (
-            <div>
-              <Label htmlFor="assign-clan">Clan</Label>
+            <Field label="Clan" htmlFor="assign-clan">
               <Select
-                id="assign-clan"
                 value={clanId}
                 onValueChange={(value) => {
                   setClanId(value);
                   setError(null);
                 }}
-                placeholder="Choose a clan…"
-                options={(clans ?? []).map((clan) => ({
-                  value: clan._id,
-                  label: clan.name,
-                }))}
-              />
-            </div>
+              >
+                <SelectTrigger id="assign-clan">
+                  <SelectValue placeholder="Choose a clan…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(clans ?? []).map((clan) => (
+                    <SelectItem key={clan._id} value={clan._id}>
+                      {clan.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
           )}
 
-          <div>
-            <Label htmlFor="assign-note">Note (optional)</Label>
+          <Field label="Note (optional)" htmlFor="assign-note">
             <Textarea
               id="assign-note"
               value={note}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Context for the audit trail"
             />
-          </div>
+          </Field>
 
           {chosenClanName && (
             <p className="rounded-md bg-warning-light p-3 font-body text-xs text-on-surface-variant">
@@ -188,12 +212,16 @@ export function AssignRoleSheet({
 
           {error && <p className="font-body text-sm text-error">{error}</p>}
         </div>
-      ) : (
-        <div className="rounded-md bg-surface-low p-4 font-body text-sm text-on-surface-variant">
-          This user must complete their member profile before roles can be
-          assigned.
-        </div>
-      )}
+
+        <SheetFooter className="flex-row items-center justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button size="sm" loading={busy} onClick={handleSubmit}>
+            Assign role
+          </Button>
+        </SheetFooter>
+      </SheetContent>
     </Sheet>
   );
 }

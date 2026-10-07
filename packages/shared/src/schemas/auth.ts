@@ -3,7 +3,7 @@ import { USER_ROLES, USER_STATUSES } from '../enums/user';
 
 export const signUpInputSchema = z.object({
   // Captured at sign-up so every account (email/password or Google) arrives
-  // with a name — see docs/DATA_MODEL.md. Trimmed; both required.
+  // with a name. Trimmed; both required.
   firstName: z.string().trim().min(1).max(50),
   lastName: z.string().trim().min(1).max(50),
   email: z.string().email(),

@@ -8,7 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "latest"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@klt-cyber/config": "workspace:*"

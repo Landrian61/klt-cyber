@@ -1,30 +1,28 @@
-import { ScrollView, View, Text, Pressable, ImageBackground, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from 'convex/react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeInUp, useSharedValue, useAnimatedStyle, withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration, HeavenGradient, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
+import { Cover } from '@/components/ui/cover';
 import { Badge } from '@/components/ui/badge';
-import { MemberGate } from '@/components/member-gate';
-import {
-  getPinnedAnnouncements,
-  getRegularAnnouncements,
-  type Announcement,
-} from '@/data/announcements';
+import { api, type Doc } from '@/lib/api';
+import { formatFullDate } from '@/lib/content-format';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const CATEGORY_BADGE: Record<string, { label: string; variant: 'member' | 'priority' | 'pastoral' | 'hod' | 'visitor' }> = {
-  general: { label: 'General', variant: 'member' },
-  program: { label: 'Program', variant: 'pastoral' },
-  event: { label: 'Event', variant: 'hod' },
-  admin: { label: 'Admin', variant: 'visitor' },
-  youth: { label: 'Youth', variant: 'member' },
+const PRIORITY_BADGE: Record<string, { label: string; variant: 'priority' | 'member' | 'pending' }> = {
+  high: { label: 'Priority', variant: 'priority' },
+  normal: { label: 'Update', variant: 'member' },
+  low: { label: 'Notice', variant: 'pending' },
 };
 
 function AnnouncementCard({
@@ -32,7 +30,7 @@ function AnnouncementCard({
   index,
   onPress,
 }: {
-  item: Announcement;
+  item: Doc<'announcements'>;
   index: number;
   onPress: () => void;
 }) {
@@ -41,8 +39,7 @@ function AnnouncementCard({
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
-  const badge = CATEGORY_BADGE[item.category];
-  const hasLink = !!item.linkedProgramId || !!item.linkedEventId;
+  const badge = PRIORITY_BADGE[item.priority ?? 'normal'];
 
   return (
     // Wrapper carries the entering animation; press-scale stays on the pressable.
@@ -58,20 +55,21 @@ function AnnouncementCard({
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
-        <View style={styles.announcementHeader}>
-          <Text style={[styles.announcementTitle, { color: Colors.onSurface }]} numberOfLines={2}>
-            {item.title}
+        <Cover uri={item.coverImageUrl} index={index} imageRadius={0} style={styles.announcementCover} />
+        <View style={styles.announcementCardContent}>
+          <View style={styles.announcementHeader}>
+            <Text style={[styles.announcementTitle, { color: Colors.onSurface }]} numberOfLines={1}>
+              {item.title}
+            </Text>
+            {badge && <Badge label={badge.label} variant={badge.variant} />}
+          </View>
+          <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
+            {item.body}
           </Text>
-          {badge && <Badge label={badge.label} variant={badge.variant} />}
+          <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
         </View>
-        <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
-          {item.body}
-        </Text>
-        <View style={styles.announcementFooter}>
-          <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
-          {hasLink && (
-            <Ionicons name="chevron-forward" size={16} color={Colors.outline} />
-          )}
+        <View style={styles.announcementChevron}>
+          <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
         </View>
       </AnimatedPressable>
     </Animated.View>
@@ -81,37 +79,55 @@ function AnnouncementCard({
 function UpdatesScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
-  const pinned = getPinnedAnnouncements();
-  const regular = getRegularAnnouncements();
+  const announcements = useQuery(api.announcements.listActiveAnnouncements);
+  const isLoading = announcements === undefined;
+
+  // "Pinned" isn't a stored flag — the highest-priority announcements read
+  // as pinned, matching the priority badge shown everywhere else.
+  const pinned = (announcements ?? []).filter((a) => a.priority === 'high');
+  const regular = (announcements ?? []).filter((a) => a.priority !== 'high');
 
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Hero Banner */}
+      {/* Hero Banner — heaven gradient */}
       <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.heroSection}>
-        <ImageBackground
-          source={require('@/assets/images/updates.jpg')}
-          resizeMode="cover"
-          style={styles.heroImage}
-          imageStyle={{ borderRadius: Radius.xl }}
-        >
-          <View style={styles.heroScrim}>
+        <View style={[styles.heroContainer, ShadowE2]}>
+          <LinearGradient
+            colors={[...HeavenGradient.colors]}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1.2 }}
+            style={styles.heroGrad}
+          >
+            <LinearGradient
+              colors={['transparent', 'rgba(247,198,75,0.4)']}
+              start={{ x: 0.4, y: 0.3 }}
+              end={{ x: 1.15, y: 1.1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
             <Text style={styles.heroLabel}>WEEKLY</Text>
             <Text style={styles.heroTitle}>KLT Announcements</Text>
-            <Text style={styles.heroDate}>Week of 29 March 2026</Text>
-          </View>
-        </ImageBackground>
+            <Text style={styles.heroDate}>Shalom, Saints!</Text>
+          </LinearGradient>
+        </View>
       </Animated.View>
+
+      {isLoading && (
+        <View style={styles.loading}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      )}
 
       {/* Pinned Announcements */}
       {pinned.length > 0 && (
         <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: Colors.outline }]}>PINNED</Text>
+          <Text style={[styles.sectionLabel, { color: Colors.onSurface }]}>Pinned</Text>
           {pinned.map((item) => (
             <Pressable
-              key={item.id}
+              key={item._id}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push(`/announcement-detail?id=${item.id}`);
+                router.push(`/announcement-detail?id=${item._id}`);
               }}
             >
               <Card variant="priority" style={styles.pinnedCard}>
@@ -119,10 +135,15 @@ function UpdatesScreen() {
                   <Text style={[styles.pinnedTitle, { color: Colors.onSurface }]}>{item.title}</Text>
                   <Badge label="Priority" variant="priority" />
                 </View>
-                <Text style={[styles.pinnedBody, { color: Colors.onSurfaceVariant }]} numberOfLines={4}>
-                  {item.body}
-                </Text>
-                <Text style={[styles.dateText, { color: Colors.outline }]}>{item.date}</Text>
+                <View style={styles.pinnedBodyRow}>
+                  <Text style={[styles.pinnedBody, { color: Colors.onSurfaceVariant }, styles.pinnedBodyText]} numberOfLines={4}>
+                    {item.body}
+                  </Text>
+                  {item.coverImageUrl && (
+                    <Image source={{ uri: item.coverImageUrl }} style={styles.pinnedThumb} contentFit="cover" />
+                  )}
+                </View>
+                <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
               </Card>
             </Pressable>
           ))}
@@ -130,84 +151,94 @@ function UpdatesScreen() {
       )}
 
       {/* All Announcements */}
-      <Animated.View entering={FadeInUp.duration(400).delay(320)} style={[styles.section, { marginTop: Spacing[6] }]}>
-        <Text style={[styles.sectionLabel, { color: Colors.outline }]}>ALL ANNOUNCEMENTS</Text>
-      </Animated.View>
-      {regular.map((item, index) => (
-        <View key={item.id} style={styles.announcementPad}>
-          <AnnouncementCard
-            item={item}
-            index={index}
-            onPress={() => router.push(`/announcement-detail?id=${item.id}`)}
-          />
-        </View>
-      ))}
+      {!isLoading && (
+        <>
+          <Animated.View entering={FadeInUp.duration(400).delay(320)} style={[styles.section, { marginTop: Spacing[6] }]}>
+            <Text style={[styles.sectionLabel, { color: Colors.onSurface }]}>All announcements</Text>
+          </Animated.View>
+          {regular.length > 0 ? (
+            regular.map((item, index) => (
+              <View key={item._id} style={styles.announcementPad}>
+                <AnnouncementCard
+                  item={item}
+                  index={index}
+                  onPress={() => router.push(`/announcement-detail?id=${item._id}`)}
+                />
+              </View>
+            ))
+          ) : pinned.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="megaphone-outline" size={40} color={Colors.outline} />
+              <Text style={[styles.emptyTitle, { color: Colors.onSurfaceVariant }]}>No announcements right now</Text>
+              <Text style={[styles.emptySubtitle, { color: Colors.outline }]}>New announcements from the church office will show up here.</Text>
+            </View>
+          ) : null}
+        </>
+      )}
 
       <View style={{ height: Spacing[6] }} />
     </ScrollView>
   );
 }
 
-// Member-only: visitors see the "Complete your profile" nudge instead of the feed.
+// Open to everyone, including visitors pre-verification — only the Community
+// (member directory) surface stays gated behind MemberGate.
 export default function UpdatesTab() {
-  return (
-    <MemberGate featureLabel="the weekly announcements">
-      <UpdatesScreen />
-    </MemberGate>
-  );
+  return <UpdatesScreen />;
 }
 
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
+  loading: {
+    paddingVertical: Spacing[8],
+    alignItems: 'center',
+  },
   section: {
     paddingHorizontal: Spacing[5],
     marginTop: Spacing[5],
   },
   sectionLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    letterSpacing: 0.6,
+    fontFamily: FontFamily.displaySemi,
+    fontSize: 18,
+    lineHeight: 24,
     marginBottom: Spacing[3],
   },
-  // Hero banner
+  // Hero banner — heaven gradient
   heroSection: {
     paddingHorizontal: Spacing[5],
     marginTop: Spacing[3],
   },
-  heroImage: {
-    width: '100%',
-    minHeight: 170,
-    justifyContent: 'flex-end',
-  },
-  heroScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(28, 28, 24, 0.50)',
+  heroContainer: {
     borderRadius: Radius.xl,
+    overflow: 'hidden',
+  },
+  heroGrad: {
+    width: '100%',
+    minHeight: 150,
     padding: Spacing[5],
     justifyContent: 'flex-end',
   },
   heroLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.60)',
-    letterSpacing: 0.8,
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 10.5,
+    lineHeight: 15,
+    color: '#EDB63C',
+    letterSpacing: 1.6,
   },
   heroTitle: {
     fontFamily: FontFamily.display,
     fontSize: 24,
     lineHeight: 30,
     color: '#FFFFFF',
-    marginTop: 4,
+    marginTop: 6,
   },
   heroDate: {
     fontFamily: FontFamily.body,
-    fontSize: 12,
+    fontSize: 12.5,
     lineHeight: 18,
-    color: 'rgba(255,255,255,0.60)',
+    color: 'rgba(255,255,255,0.8)',
     marginTop: Spacing[1],
   },
   // Pinned
@@ -226,20 +257,52 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: Spacing[2],
   },
+  pinnedBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: Spacing[2],
+  },
   pinnedBody: {
     fontFamily: FontFamily.body,
     fontSize: 14,
     lineHeight: 22.4,
-    marginTop: Spacing[2],
   },
-  // Announcements
+  pinnedBodyText: {
+    flex: 1,
+  },
+  // Small accent thumbnail only — the priority wash along the left edge is
+  // the card's real visual signal, not the image, so this stays compact.
+  pinnedThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: Radius.md,
+    marginLeft: Spacing[3],
+  },
+  // Announcements — compact row, same shape as programs.tsx's ProgramRow:
+  // a thumbnail on the left, truncated text on the right, tap for detail.
   announcementPad: {
     paddingHorizontal: Spacing[5],
   },
   announcementCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: Radius.lg,
-    padding: Spacing[4],
+    overflow: 'hidden',
     marginBottom: Spacing[3],
+  },
+  announcementCover: {
+    width: 80,
+    alignSelf: 'stretch',
+  },
+  announcementCardContent: {
+    flex: 1,
+    paddingVertical: Spacing[3],
+    paddingLeft: Spacing[3],
+    paddingRight: Spacing[2],
+    gap: 2,
+  },
+  announcementChevron: {
+    paddingRight: Spacing[3],
   },
   announcementHeader: {
     flexDirection: 'row',
@@ -257,18 +320,30 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 12,
     lineHeight: 18,
-    marginTop: Spacing[2],
-  },
-  announcementFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing[2],
+    marginTop: 2,
   },
   dateText: {
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
     marginTop: Spacing[2],
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: Spacing[10],
+    paddingHorizontal: Spacing[8],
+  },
+  emptyTitle: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: Spacing[3],
+  },
+  emptySubtitle: {
+    fontFamily: FontFamily.body,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: Spacing[1],
+    textAlign: 'center',
   },
 });

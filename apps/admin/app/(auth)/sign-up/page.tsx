@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signUpInputSchema } from "@klt-cyber/shared";
+import { loadValidators, warmValidators } from "@/lib/validators";
 import { authClient } from "@/lib/auth";
-import { Card } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Heading";
-import { Label } from "@/components/ui/Label";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/shadcn/card";
+import { Input } from "@/components/shadcn/input";
+import { Button } from "@/components/shadcn/button";
+import { Field } from "@/components/shadcn/field";
 import { GoogleButton } from "@/components/ui/GoogleButton";
+import { Stagger } from "@/components/motion/Stagger";
+import { TextReveal } from "@/components/motion/TextReveal";
 
 export default function SignUpPage() {
   const [firstName, setFirstName] = useState("");
@@ -31,6 +32,11 @@ export default function SignUpPage() {
     setFormError(null);
     setFieldErrors({});
 
+    // Held from here rather than after validation: the validator import is
+    // awaited, and Button disables on `loading`, so this keeps the awaited
+    // gap from leaving the submit button live for a second click.
+    setLoading(true);
+    const { signUpInputSchema } = await loadValidators();
     const parsed = signUpInputSchema.safeParse({
       firstName,
       lastName,
@@ -38,6 +44,7 @@ export default function SignUpPage() {
       password,
     });
     if (!parsed.success) {
+      setLoading(false);
       const flat = parsed.error.flatten().fieldErrors;
       setFieldErrors({
         firstName: flat.firstName?.[0],
@@ -48,8 +55,7 @@ export default function SignUpPage() {
       return;
     }
 
-    setLoading(true);
-    // Sign-up (docs/DATA_MODEL.md, Increment 1): first/last name + email +
+    // Sign-up: first/last name + email +
     // password. A fresh account is still a *visitor* (no church profile yet).
     // Better Auth stores a single `name`; the Convex onCreate trigger splits it
     // back into firstName/lastName — the same path Google sign-in uses.
@@ -67,7 +73,7 @@ export default function SignUpPage() {
       return;
     }
     // Hard navigation on purpose — see the sign-in page's submit handler.
-    window.location.assign("/select-role");
+    window.location.assign("/areas-of-service");
   }
 
   async function handleGoogle() {
@@ -75,128 +81,133 @@ export default function SignUpPage() {
     setGoogleLoading(true);
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/select-role",
+      callbackURL: "/areas-of-service",
     });
     if (error) {
       setGoogleLoading(false);
-      setFormError(
-        error.message ?? "Google sign-in is unavailable right now.",
-      );
+      setFormError(error.message ?? "Google sign-in is unavailable right now.");
     }
   }
 
   return (
     <Card className="p-8">
-      <Heading as="h1" size="xl">
-        Create your account
-      </Heading>
-      <p className="mt-1.5 font-body text-base text-on-surface-variant">
-        Tell us your name, then an email and password to get started.
-      </p>
+      <TextReveal
+        as="h1"
+        text="Create your account"
+        highlight="account"
+        stagger={64}
+        className="font-display text-2xl font-bold tracking-tight text-on-surface"
+      />
 
-      <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="firstName">First name</Label>
-            <Input
-              id="firstName"
-              type="text"
-              autoComplete="given-name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              error={!!fieldErrors.firstName}
-              placeholder="Grace"
-            />
-            {fieldErrors.firstName && (
-              <p className="font-body text-xs text-error">
-                Please enter your first name.
-              </p>
-            )}
-          </div>
+      <Stagger delay={300} gap={56}>
+        <p className="mt-1.5 font-body text-base text-muted-foreground">
+          Tell us your name, then an email and password to get started.
+        </p>
 
-          <div className="space-y-2">
-            <Label htmlFor="lastName">Last name</Label>
-            <Input
-              id="lastName"
-              type="text"
-              autoComplete="family-name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              error={!!fieldErrors.lastName}
-              placeholder="Nakato"
-            />
-            {fieldErrors.lastName && (
-              <p className="font-body text-xs text-error">
-                Please enter your last name.
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="email">Email address</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={!!fieldErrors.email}
-            placeholder="you@example.com"
-          />
-          {fieldErrors.email && (
-            <p className="font-body text-xs text-error">
-              Please enter a valid email address.
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={!!fieldErrors.password}
-            placeholder="At least 8 characters"
-          />
-          {fieldErrors.password ? (
-            <p className="font-body text-xs text-error">
-              Password must be at least 8 characters.
-            </p>
-          ) : (
-            <p className="font-body text-xs text-on-surface-variant">
-              Minimum 8 characters.
-            </p>
-          )}
-        </div>
-
-        <Button type="submit" loading={loading} className="w-full">
-          Create account
-        </Button>
-
-        {formError && (
-          <p className="text-center font-body text-sm text-error">{formError}</p>
-        )}
-      </form>
-
-      <Divider />
-
-      <GoogleButton onClick={handleGoogle} disabled={googleLoading}>
-        {googleLoading ? "Connecting…" : "Continue with Google"}
-      </GoogleButton>
-
-      <p className="mt-7 text-center font-body text-sm text-on-surface-variant">
-        Already have an account?{" "}
-        <Link
-          href="/sign-in"
-          className="font-medium text-primary underline underline-offset-2"
+        {/* Warm the validator chunk once the user starts filling the form, so
+            the dynamic import in handleSubmit is already resolved by submit. */}
+        <form
+          onSubmit={handleSubmit}
+          onFocusCapture={warmValidators}
+          noValidate
+          className="mt-8 space-y-6"
         >
-          Sign in
-        </Link>
-      </p>
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              label="First name"
+              htmlFor="firstName"
+              error={fieldErrors.firstName && "Please enter your first name."}
+            >
+              <Input
+                id="firstName"
+                type="text"
+                autoComplete="given-name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                aria-invalid={!!fieldErrors.firstName}
+                placeholder="Grace"
+              />
+            </Field>
+
+            <Field
+              label="Last name"
+              htmlFor="lastName"
+              error={fieldErrors.lastName && "Please enter your last name."}
+            >
+              <Input
+                id="lastName"
+                type="text"
+                autoComplete="family-name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                aria-invalid={!!fieldErrors.lastName}
+                placeholder="Nakato"
+              />
+            </Field>
+          </div>
+
+          <Field
+            label="Email address"
+            htmlFor="email"
+            error={fieldErrors.email && "Please enter a valid email address."}
+          >
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={!!fieldErrors.email}
+              placeholder="you@example.com"
+            />
+          </Field>
+
+          <Field
+            label="Password"
+            htmlFor="password"
+            hint="Minimum 8 characters."
+            error={
+              fieldErrors.password && "Password must be at least 8 characters."
+            }
+          >
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={!!fieldErrors.password}
+              placeholder="At least 8 characters"
+            />
+          </Field>
+
+          <Button type="submit" loading={loading} className="w-full">
+            Create account
+          </Button>
+
+          {formError && (
+            <p className="text-center font-body text-sm text-destructive">
+              {formError}
+            </p>
+          )}
+        </form>
+
+        <Divider />
+
+        <GoogleButton onClick={handleGoogle} disabled={googleLoading}>
+          {googleLoading ? "Connecting…" : "Continue with Google"}
+        </GoogleButton>
+
+        <p className="mt-7 text-center font-body text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link
+            href="/sign-in"
+            className="font-medium text-primary underline underline-offset-2"
+          >
+            Sign in
+          </Link>
+        </p>
+      </Stagger>
     </Card>
   );
 }

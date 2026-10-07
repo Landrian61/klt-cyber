@@ -1,0 +1,35 @@
+# EAS Build uses this file INSTEAD OF .gitignore for the whole project
+# archive once it exists (it stops applying .gitignore entirely, not just
+# supplementing it), so it restates what's still relevant rather than
+# layer on top. It MUST live at the git repository root — eas-cli
+# resolves it via `git rev-parse --show-toplevel` and reads .easignore
+# from there (confirmed in eas-cli's vcs/local.js), not from whichever
+# app directory eas.json/app.config.ts happen to live in. An earlier
+# apps/mobile/.easignore was never read for this reason.
+#
+# It exists because apps/admin/.next (Next.js's build cache, 7GB+) is
+# only excluded by apps/admin's own nested .gitignore — EAS's monorepo
+# archiver walks the whole workspace to satisfy `pnpm install`, but
+# doesn't apply a sibling app's nested .gitignore while doing so, so it
+# sailed into the upload and blew past EAS's 2GB archive limit. Only
+# admin's build artifacts are excluded here, not the whole apps/admin
+# directory — pnpm-lock.yaml lists it as a workspace member, and
+# wholesale-deleting it from the archive risks `pnpm install` failing on
+# a workspace-consistency check on the build worker.
+# See https://expo.fyi/eas-build-archive.
+
+node_modules
+.git
+.expo/
+dist/
+expo-env.d.ts
+*.tsbuildinfo
+*.log
+
+apps/admin/.next
+apps/admin/.open-next
+apps/admin/.wrangler
+
+# apps/mobile secrets — never upload (see apps/mobile/.gitignore)
+apps/mobile/google-services.json
+apps/mobile/service-account.json

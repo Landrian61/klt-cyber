@@ -1,0 +1,14 @@
+diff --git a/build/ExpoConfigLoader.js b/build/ExpoConfigLoader.js
+index 247200aad38501c9fba9844a1b042a80db5870ea..b38031605eff24873cf88f35fd6e4fa8722895b9 100644
+--- a/build/ExpoConfigLoader.js
++++ b/build/ExpoConfigLoader.js
+@@ -34,7 +34,8 @@ async function runAsync(programName, args = []) {
+     // @ts-expect-error: module internal _cache
+     const loadedModules = Object.keys(module_1.default._cache)
+         .filter((modulePath) => !loadedModulesBefore.has(modulePath))
+-        .map((modulePath) => path_1.default.relative(projectRoot, modulePath));
++        // Patched: POSIX-normalise so ignore globs match on Windows (local fingerprint must equal EAS).
++        .map((modulePath) => (0, Path_1.toPosixPath)(path_1.default.relative(projectRoot, modulePath)));
+     const ignoredPaths = [
+         ...DEFAULT_CONFIG_LOADING_IGNORE_PATHS,
+         ...(await loadIgnoredPathsAsync(ignoredFile)),

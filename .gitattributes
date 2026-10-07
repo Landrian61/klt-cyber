@@ -1,0 +1,2 @@
+# pnpm patches must keep LF so they apply cleanly on Windows checkouts (core.autocrlf).
+patches/*.patch text eol=lf

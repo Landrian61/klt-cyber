@@ -16,19 +16,20 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 // a text-style action. Focus rings come from the global :focus-visible rule.
 const base =
   "inline-flex items-center justify-center gap-2 rounded-md font-body font-semibold " +
-  "transition-[filter,background-color,transform] duration-150 active:scale-[0.98] " +
+  "transition-[filter,background-color,transform,box-shadow] duration-150 active:scale-[0.98] " +
   "disabled:pointer-events-none disabled:cursor-not-allowed select-none";
 
 const variants: Record<Variant, string> = {
   // Gold leaf gradient — references tokens, never raw hex.
   primary:
-    "text-on-primary bg-[image:linear-gradient(135deg,var(--color-primary),var(--color-primary-container))] " +
-    "hover:brightness-95 disabled:bg-none disabled:bg-surface-high disabled:text-outline disabled:brightness-100",
+    "border border-border text-on-primary bg-[image:linear-gradient(135deg,var(--color-primary),var(--color-primary-container))] " +
+    "shadow-gold-glow hover:-translate-y-px hover:brightness-95 " +
+    "disabled:bg-none disabled:bg-surface-high disabled:text-outline disabled:brightness-100 disabled:shadow-none disabled:translate-y-0",
   secondary:
-    "text-primary bg-transparent ring-1 ring-inset ring-primary/20 " +
-    "hover:bg-primary-light disabled:text-outline disabled:ring-outline/20",
+    "border border-border text-primary bg-transparent " +
+    "hover:bg-primary-light disabled:text-outline",
   ghost:
-    "text-primary bg-transparent hover:bg-primary-light disabled:text-outline",
+    "border border-border text-primary bg-transparent hover:bg-primary-light disabled:text-outline",
 };
 
 const sizes: Record<Size, string> = {

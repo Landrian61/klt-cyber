@@ -12,8 +12,8 @@ import {
 } from "@/lib/activity";
 import { displayName, formatRelativeTime } from "@/lib/format";
 import { Heading } from "@/components/ui/Heading";
-import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
+import { Avatar } from "@/components/shadcn/avatar";
+import { Badge } from "@/components/shadcn/badge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FilterBar, FilterChip } from "@/components/ui/FilterBar";

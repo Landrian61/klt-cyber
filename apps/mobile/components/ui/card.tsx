@@ -1,7 +1,7 @@
 import { View, StyleSheet, ViewProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { Radius, Spacing, AmbientShadow, GoldGradient } from '@/constants/theme';
+import { Radius, Spacing, ShadowE1, ShadowE2, GoldGradient } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export type CardVariant = 'editorial' | 'hero' | 'sunken' | 'priority';
@@ -20,7 +20,7 @@ export function Card({ variant = 'editorial', children, style, ...rest }: CardPr
         colors={[...GoldGradient.colors]}
         start={GoldGradient.start}
         end={GoldGradient.end}
-        style={[styles.hero, AmbientShadow, style]}
+        style={[styles.hero, ShadowE2, style]}
         {...rest}
       >
         {children}
@@ -28,15 +28,36 @@ export function Card({ variant = 'editorial', children, style, ...rest }: CardPr
     );
   }
 
-  const variantStyle =
-    variant === 'sunken'
-      ? [styles.sunken, { backgroundColor: Colors.primaryFixedDim }]
-      : variant === 'priority'
-        ? [styles.priority, { backgroundColor: Colors.surfaceLowest, borderLeftColor: Colors.primaryBrand }]
-        : [styles.editorial, { backgroundColor: Colors.surfaceLowest }];
+  if (variant === 'sunken') {
+    return (
+      <View style={[styles.sunken, { backgroundColor: Colors.primaryFixedDim }, style]} {...rest}>
+        {children}
+      </View>
+    );
+  }
+
+  if (variant === 'priority') {
+    // No-Line: a soft red-tint wash fades in from the left edge — the heartbeat
+    // of a priority notice — rather than a hard stripe.
+    return (
+      <View
+        style={[styles.priority, ShadowE2, { backgroundColor: Colors.surfaceLowest }, style]}
+        {...rest}
+      >
+        <LinearGradient
+          colors={[Colors.redTint, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.priorityWash}
+          pointerEvents="none"
+        />
+        {children}
+      </View>
+    );
+  }
 
   return (
-    <View style={[variantStyle, style]} {...rest}>
+    <View style={[styles.editorial, ShadowE1, { backgroundColor: Colors.surfaceLowest }, style]} {...rest}>
       {children}
     </View>
   );
@@ -56,9 +77,15 @@ const styles = StyleSheet.create({
     padding: Spacing[4],
   },
   priority: {
-    borderLeftWidth: 3,
-    borderTopRightRadius: Radius.lg,
-    borderBottomRightRadius: Radius.lg,
+    borderRadius: Radius.lg,
     padding: Spacing[4],
+    overflow: 'hidden',
+  },
+  priorityWash: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 64,
   },
 });

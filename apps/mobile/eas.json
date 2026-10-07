@@ -8,18 +8,24 @@
       "developmentClient": true,
       "distribution": "internal",
       "node": "22.13.0",
+      "environment": "development",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "development"
       }
     },
     "preview": {
       "distribution": "internal",
       "channel": "staging",
       "node": "22.13.0",
+      "environment": "preview",
       "android": {
         "buildType": "apk"
       },
       "env": {
+        "APP_VARIANT": "preview",
         "EXPO_PUBLIC_CONVEX_URL": "https://polite-lemming-570.convex.cloud",
         "EXPO_PUBLIC_CONVEX_SITE_URL": "https://polite-lemming-570.convex.site"
       }
@@ -28,10 +34,12 @@
       "channel": "production",
       "autoIncrement": true,
       "node": "22.13.0",
+      "environment": "production",
       "android": {
         "buildType": "app-bundle"
       },
       "env": {
+        "APP_VARIANT": "production",
         "EXPO_PUBLIC_CONVEX_URL": "https://REPLACE_WITH_PRODUCTION.convex.cloud",
         "EXPO_PUBLIC_CONVEX_SITE_URL": "https://REPLACE_WITH_PRODUCTION.convex.site"
       }

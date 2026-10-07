@@ -32,7 +32,7 @@ klt-cyber/
 ├── packages/
 │   ├── shared/          Code shared across apps (@klt-cyber/shared)
 │   └── config/          Shared TypeScript config (@klt-cyber/config)
-├── docs/                DATA_MODEL · DEPLOYMENT · INTERFACE_SPEC · AUTH_QA_CHECKLIST
+├── spec/                SRS (source of truth) · INTERFACE_SPEC · DEPLOYMENT · STORAGE
 ├── pnpm-workspace.yaml  Workspace globs + hoisted node-linker (required by Metro)
 └── package.json         Root workspace scripts
 ```
@@ -105,6 +105,7 @@ Each app reads its own git-ignored `.env.local`, pointing at the deployment from
 ```bash
 EXPO_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
 EXPO_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
+APP_VARIANT=development   # matches the dev client build (com.kltcyber.church.dev)
 ```
 
 **`apps/admin/.env.local`**
@@ -167,10 +168,10 @@ All run from the repo root:
 
 | Document | Purpose |
 |----------|---------|
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | How each surface goes from commit → running environment |
-| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Convex schema, tables, and relationships |
-| [`docs/INTERFACE_SPEC.md`](docs/INTERFACE_SPEC.md) | Authoritative design & interface specification |
-| [`docs/AUTH_QA_CHECKLIST.md`](docs/AUTH_QA_CHECKLIST.md) | Authentication QA checklist |
+| [`spec/SRS.md`](spec/SRS.md) | Single source of truth for product behaviour — requirements, roles, data rules |
+| [`spec/INTERFACE_SPEC.md`](spec/INTERFACE_SPEC.md) | Authoritative design & interface specification |
+| [`spec/DEPLOYMENT.md`](spec/DEPLOYMENT.md) | How each surface goes from commit → running environment |
+| [`spec/STORAGE.md`](spec/STORAGE.md) | Cloudflare R2 provisioning and usage |
 
 ## License
 

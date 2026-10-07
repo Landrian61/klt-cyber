@@ -11,10 +11,16 @@ import {
   describeActivity,
   type ActivityEntry,
 } from "@/lib/activity";
-import { Card } from "@/components/ui/Card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/shadcn/card";
+import { Avatar } from "@/components/shadcn/avatar";
 import { Heading } from "@/components/ui/Heading";
 import { StatCard } from "@/components/ui/StatCard";
-import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 // System-admin dashboard landing: editorial greeting, the four headline
@@ -94,12 +100,14 @@ export function DashboardClient() {
 
       {/* ── Feed + attention column ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-        <Card>
-          <h2 className="font-body text-lg font-semibold text-on-surface">
-            Recent Activity
-          </h2>
+        <Card className="gap-4 p-6">
+          <CardHeader className="p-0">
+            <CardTitle className="font-body text-lg font-semibold text-on-surface">
+              Recent Activity
+            </CardTitle>
+          </CardHeader>
 
-          <div className="mt-4">
+          <CardContent className="p-0">
             {activity == null ? (
               <FeedSkeleton />
             ) : activity.entries.length === 0 ? (
@@ -116,16 +124,16 @@ export function DashboardClient() {
                 ))}
               </ul>
             )}
-          </div>
+          </CardContent>
 
-          <div className="mt-4 px-2">
+          <CardFooter className="p-0 px-2">
             <Link
               href="/system-admin/activity"
               className="font-body text-sm font-medium text-primary underline underline-offset-2"
             >
               View all →
             </Link>
-          </div>
+          </CardFooter>
         </Card>
 
         <div className="space-y-4 self-start">
@@ -138,10 +146,10 @@ export function DashboardClient() {
               <div className="h-24 animate-pulse rounded-lg bg-surface-low" />
               <div className="h-24 animate-pulse rounded-lg bg-surface-low" />
             </>
-          ) : stats.pendingClanAffiliations === 0 &&
+          ) : stats.pendingVerifications === 0 &&
             stats.suspendedUsers === 0 &&
             membersWithoutRoles === 0 ? (
-            <Card>
+            <Card className="p-6">
               <EmptyState
                 icon={<AllClearIcon />}
                 title="All clear."
@@ -150,12 +158,12 @@ export function DashboardClient() {
             </Card>
           ) : (
             <>
-              {stats.pendingClanAffiliations > 0 && (
+              {stats.pendingVerifications > 0 && (
                 <AttentionCard
-                  href="/system-admin/users?clan=pending"
-                  count={stats.pendingClanAffiliations}
-                  label="Pending clan affiliations"
-                  caption="Awaiting verification"
+                  href="/system-admin/users"
+                  count={stats.pendingVerifications}
+                  label="Pending verifications"
+                  caption="Member profiles awaiting review"
                   cardClass="bg-warning-light"
                   countClass="text-warning"
                 />
@@ -244,7 +252,7 @@ function AttentionCard({
     <Link
       href={href}
       className={cn(
-        "block rounded-lg p-4 transition hover:brightness-[0.98]",
+        "block rounded-md p-4 transition hover:brightness-[0.98]",
         cardClass,
       )}
     >
@@ -264,7 +272,7 @@ function AttentionCard({
 // ── Skeletons (layout-stable, §12.1) ──────────────────────────────────────
 
 function StatSkeleton() {
-  return <div className="h-32 animate-pulse rounded-xl bg-surface-low" />;
+  return <div className="h-32 animate-pulse rounded-md bg-surface-low" />;
 }
 
 function FeedSkeleton() {

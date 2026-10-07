@@ -1,21 +1,22 @@
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Linking, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQuery } from 'convex/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
-import { FontFamily, Spacing } from '@/constants/theme';
+import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getAnnouncementById } from '@/data/announcements';
+import { api } from '@/lib/api';
+import { formatFullDate } from '@/lib/content-format';
 
-const CATEGORY_BADGE: Record<string, { label: string; variant: 'member' | 'priority' | 'pastoral' | 'hod' | 'visitor' }> = {
-  general: { label: 'General', variant: 'member' },
-  program: { label: 'Program', variant: 'pastoral' },
-  event: { label: 'Event', variant: 'hod' },
-  admin: { label: 'Admin', variant: 'visitor' },
-  youth: { label: 'Youth', variant: 'member' },
+const PRIORITY_BADGE: Record<string, { label: string; variant: 'priority' | 'member' | 'pending' }> = {
+  high: { label: 'Priority', variant: 'priority' },
+  normal: { label: 'Update', variant: 'member' },
+  low: { label: 'Notice', variant: 'pending' },
 };
 
 export default function AnnouncementDetailScreen() {
@@ -23,7 +24,19 @@ export default function AnnouncementDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const announcement = getAnnouncementById(id ?? '');
+  const announcements = useQuery(api.announcements.listActiveAnnouncements);
+  const isLoading = announcements === undefined;
+  const announcement = announcements?.find((a) => a._id === id);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: Colors.surface, paddingTop: insets.top }]}>
+        <View style={styles.fallback}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   if (!announcement) {
     return (
@@ -36,7 +49,7 @@ export default function AnnouncementDetailScreen() {
     );
   }
 
-  const badge = CATEGORY_BADGE[announcement.category];
+  const badge = PRIORITY_BADGE[announcement.priority ?? 'normal'];
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface, paddingTop: insets.top }]}>
@@ -52,10 +65,20 @@ export default function AnnouncementDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing[6] }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Cover image, if the announcement has one */}
+        {announcement.coverImageUrl && (
+          <Animated.View entering={FadeInUp.duration(300)}>
+            <Image source={{ uri: announcement.coverImageUrl }} style={styles.cover} contentFit="cover" />
+          </Animated.View>
+        )}
+
         {/* Badge + date */}
         <Animated.View entering={FadeInUp.duration(300).delay(100)} style={styles.metaRow}>
           {badge && <Badge label={badge.label} variant={badge.variant} />}
-          <Text style={[styles.date, { color: Colors.outline }]}>{announcement.date}</Text>
+          {announcement.category && (
+            <Text style={[styles.category, { color: Colors.outline }]}>{announcement.category}</Text>
+          )}
+          <Text style={[styles.date, { color: Colors.outline }]}>{formatFullDate(announcement.startDate)}</Text>
         </Animated.View>
 
         {/* Title */}
@@ -68,25 +91,18 @@ export default function AnnouncementDetailScreen() {
           {announcement.body}
         </Animated.Text>
 
-        {/* Linked program/event */}
-        {announcement.linkedProgramId && (
+        {/* Links (added by the admin — CTAs to more info, forms, external pages) */}
+        {announcement.links && announcement.links.length > 0 && (
           <Animated.View entering={FadeInUp.duration(300).delay(340)} style={styles.linkSection}>
-            <Button
-              label="View program details"
-              variant="ghost"
-              fullWidth
-              onPress={() => router.push(`/program-detail?id=${announcement.linkedProgramId}`)}
-            />
-          </Animated.View>
-        )}
-        {announcement.linkedEventId && (
-          <Animated.View entering={FadeInUp.duration(300).delay(340)} style={styles.linkSection}>
-            <Button
-              label="View event details"
-              variant="ghost"
-              fullWidth
-              onPress={() => router.push(`/event-detail?id=${announcement.linkedEventId}`)}
-            />
+            {announcement.links.map((link) => (
+              <Button
+                key={`${link.label}-${link.url}`}
+                label={link.label}
+                variant="ghost"
+                fullWidth
+                onPress={() => Linking.openURL(link.url).catch(() => {})}
+              />
+            ))}
           </Animated.View>
         )}
       </ScrollView>
@@ -125,11 +141,23 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing[5],
   },
+  cover: {
+    width: '100%',
+    height: 220,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing[4],
+  },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing[3],
     marginBottom: Spacing[3],
+  },
+  category: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 11,
+    lineHeight: 15.4,
+    textTransform: 'capitalize',
   },
   date: {
     fontFamily: FontFamily.body,
@@ -149,5 +177,6 @@ const styles = StyleSheet.create({
   },
   linkSection: {
     marginTop: Spacing[6],
+    gap: Spacing[3],
   },
 });

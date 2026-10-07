@@ -4,22 +4,16 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Id } from "@/lib/api";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/shadcn/card";
 import { Heading } from "@/components/ui/Heading";
-import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
+import { Avatar } from "@/components/shadcn/avatar";
+import { Badge } from "@/components/shadcn/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import {
-  ageFrom,
-  displayName,
-  formatDate,
-  formatRelativeTime,
-} from "@/lib/format";
+import { displayName, formatDate, formatRelativeTime } from "@/lib/format";
 import { describeActivity } from "@/lib/activity";
 import { CardHeading, capitalize, type UserDetail } from "./shared";
 import { RolesCard } from "./RolesCard";
 import { AccountActionsCard } from "./AccountActionsCard";
-import { ClanAffiliationCard } from "./ClanAffiliationCard";
 
 // The richest screen of the module: bio + roles + admin actions, all fed by
 // one reactive query — every mutation on the right rail refreshes the whole
@@ -51,10 +45,6 @@ export function UserDetailClient({ userId }: { userId: string }) {
     );
   }
 
-  const showClanAffiliation =
-    detail.profile?.clanId != null &&
-    detail.profile.clanApproval?.status === "pending";
-
   return (
     <div className="space-y-6">
       <BackLink />
@@ -74,12 +64,6 @@ export function UserDetailClient({ userId }: { userId: string }) {
         <div className="space-y-6">
           <RolesCard detail={detail} userId={userId as Id<"users">} />
           <AccountActionsCard detail={detail} userId={userId as Id<"users">} />
-          {showClanAffiliation && (
-            <ClanAffiliationCard
-              detail={detail}
-              userId={userId as Id<"users">}
-            />
-          )}
         </div>
       </div>
     </div>
@@ -104,7 +88,7 @@ function HeaderCard({ detail }: { detail: UserDetail }) {
   const name = displayName(user);
 
   return (
-    <Card className="flex gap-5">
+    <Card className="flex flex-row gap-5 p-6">
       <Avatar
         size="xl"
         name={name}
@@ -141,7 +125,7 @@ function BioCard({ detail }: { detail: UserDetail }) {
   const { profile } = detail;
 
   return (
-    <Card>
+    <Card className="p-6">
       <CardHeading>Bio</CardHeading>
       {profile === null ? (
         <p className="mt-4 font-body text-sm text-on-surface-variant">
@@ -157,20 +141,20 @@ function BioCard({ detail }: { detail: UserDetail }) {
             value={capitalize(profile.maritalStatus)}
           />
           <BioRow label="Phone" value={profile.phone ?? null} />
-          <BioRow label="Profession" value={profile.profession ?? null} />
+          <BioRow label="Occupation" value={profile.occupation ?? null} />
+          <BioRow label="Clan" value={profile.clanName ?? null} />
           <BioRow
-            label="Clan"
+            label="Verification"
             value={
-              profile.clanName ? (
-                <span className="inline-flex flex-wrap items-center gap-2">
-                  {profile.clanName}
-                  {profile.clanApproval && (
-                    <Badge variant={profile.clanApproval.status}>
-                      {capitalize(profile.clanApproval.status)}
-                    </Badge>
-                  )}
-                </span>
-              ) : null
+              <Badge
+                variant={
+                  profile.profileStatus === "verified" ? "verified" : "pending"
+                }
+              >
+                {profile.profileStatus === "verified"
+                  ? "Verified"
+                  : "Pending verification"}
+              </Badge>
             }
           />
         </dl>
@@ -192,22 +176,39 @@ function BioRow({ label, value }: { label: string; value: ReactNode | null }) {
   );
 }
 
-/** "12 Jul 1990 · 36 yrs", the raw string when unparseable, null when absent. */
-function dobValue(dateOfBirth: string | undefined): ReactNode | null {
+type DateOfBirthParts = { day: number; month: number; year?: number };
+
+/** "12 Jul 1990 · 36 yrs", "12 Jul" when the year was withheld, null when absent. */
+function dobValue(dateOfBirth: DateOfBirthParts | undefined): ReactNode | null {
   if (!dateOfBirth) return null;
-  const time = new Date(dateOfBirth).getTime();
-  if (Number.isNaN(time)) return dateOfBirth;
-  const age = ageFrom(dateOfBirth);
+  const monthName = new Date(2000, dateOfBirth.month - 1, 1).toLocaleDateString(
+    "en-GB",
+    { month: "short" }
+  );
+  const datePart = `${dateOfBirth.day} ${monthName}`;
+  if (dateOfBirth.year === undefined) return datePart;
+  const age = ageFromParts(dateOfBirth.day, dateOfBirth.month, dateOfBirth.year);
   return age === null
-    ? formatDate(time)
-    : `${formatDate(time)} · ${age} yrs`;
+    ? `${datePart} ${dateOfBirth.year}`
+    : `${datePart} ${dateOfBirth.year} · ${age} yrs`;
+}
+
+/** Whole years since a day/month/year birthdate. */
+function ageFromParts(day: number, month: number, year: number): number | null {
+  const now = new Date();
+  let age = now.getFullYear() - year;
+  const hadBirthday =
+    now.getMonth() + 1 > month ||
+    (now.getMonth() + 1 === month && now.getDate() >= day);
+  if (!hadBirthday) age -= 1;
+  return age;
 }
 
 // ── Children ──────────────────────────────────────────────────────────────
 
 function ChildrenCard({ records }: { records: UserDetail["children"] }) {
   return (
-    <Card>
+    <Card className="p-6">
       <CardHeading>Children</CardHeading>
       <div className="mt-3">
         {records.map((child) => (
@@ -218,12 +219,9 @@ function ChildrenCard({ records }: { records: UserDetail["children"] }) {
             <span className="font-body text-sm font-medium text-on-surface">
               {child.name}
             </span>
-            <Badge variant="neutral">{child.ageBracket}</Badge>
-            <span className="font-body text-sm text-on-surface-variant">
-              {childDob(child.dateOfBirth)}
-            </span>
+            <Badge variant="neutral">{capitalize(child.sex)}</Badge>
             <span className="ml-auto font-body text-sm text-on-surface-variant">
-              {child.guardianContact ?? "—"}
+              {childDob(child.dateOfBirth)}
             </span>
           </div>
         ))}
@@ -232,10 +230,8 @@ function ChildrenCard({ records }: { records: UserDetail["children"] }) {
   );
 }
 
-function childDob(dateOfBirth: string | undefined): string {
-  if (!dateOfBirth) return "—";
-  const time = new Date(dateOfBirth).getTime();
-  return Number.isNaN(time) ? dateOfBirth : formatDate(time);
+function childDob(dateOfBirth: number | undefined): string {
+  return dateOfBirth === undefined ? "—" : formatDate(dateOfBirth);
 }
 
 // ── Recent activity ───────────────────────────────────────────────────────
@@ -250,7 +246,7 @@ function ActivityCard({
   const entries = detail.recentActivity.slice(0, 15);
 
   return (
-    <Card>
+    <Card className="p-6">
       <CardHeading>Recent activity</CardHeading>
       {entries.length === 0 ? (
         <p className="mt-4 font-body text-sm text-on-surface-variant">
@@ -297,7 +293,7 @@ function DetailSkeleton() {
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           {/* Header */}
-          <Card className="flex gap-5">
+          <Card className="flex flex-row gap-5 p-6">
             <div className="h-[72px] w-[72px] shrink-0 animate-pulse rounded-full bg-surface-low" />
             <div className="flex-1 space-y-3">
               <Pulse className="h-7 w-56" />
@@ -308,7 +304,7 @@ function DetailSkeleton() {
           </Card>
 
           {/* Bio */}
-          <Card>
+          <Card className="p-6">
             <Pulse className="h-5 w-14" />
             <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4">
               {Array.from({ length: 6 }).map((_, index) => (
@@ -321,7 +317,7 @@ function DetailSkeleton() {
           </Card>
 
           {/* Activity */}
-          <Card>
+          <Card className="p-6">
             <Pulse className="h-5 w-32" />
             <div className="mt-4 space-y-3">
               {Array.from({ length: 4 }).map((_, index) => (
@@ -332,7 +328,7 @@ function DetailSkeleton() {
         </div>
 
         <div className="space-y-6">
-          <Card>
+          <Card className="p-6">
             <Pulse className="h-5 w-16" />
             <div className="mt-4 space-y-3">
               <Pulse className="h-4 w-full" />
@@ -340,7 +336,7 @@ function DetailSkeleton() {
               <Pulse className="h-9 w-full" />
             </div>
           </Card>
-          <Card>
+          <Card className="p-6">
             <Pulse className="h-5 w-32" />
             <div className="mt-4 space-y-3">
               <Pulse className="h-8 w-40" />

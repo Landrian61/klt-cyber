@@ -1,153 +1,179 @@
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
-import Animated, {
-  FadeInDown,
-  FadeInUp,
-} from 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-import { FontFamily, Spacing } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/use-theme-colors';
-import { Button } from '@/components/ui/button';
-
-const { width } = Dimensions.get('window');
+import { FontFamily, Spacing, Radius, HeavenGradient, GoldGradient, GoldGlow } from '@/constants/theme';
 
 export default function WelcomeScreen() {
-  const Colors = useThemeColors();
   const router = useRouter();
 
+  const go = (path: '/(auth)/sign-in' | '/(auth)/sign-up') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(path);
+  };
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top', 'bottom']}>
-      <View style={styles.container}>
-        {/* Top decorative area */}
-        <Animated.View entering={FadeInDown.duration(600).delay(100)} style={styles.topSection}>
-          {/* Subtle background orb */}
-          <View style={styles.orbContainer}>
-            <LinearGradient
-              colors={['rgba(120,86,0,0.08)', 'rgba(184,134,11,0.04)', 'transparent']}
-              style={styles.orb}
+    <LinearGradient
+      colors={[...HeavenGradient.colors]}
+      start={{ x: 0.2, y: 0 }}
+      end={{ x: 0.8, y: 1 }}
+      style={styles.fill}
+    >
+      <StatusBar style="light" />
+      {/* Gold dawn-glow rising from below */}
+      <LinearGradient
+        colors={['transparent', 'rgba(233,168,32,0.28)', 'rgba(247,198,75,0.6)']}
+        start={{ x: 0.5, y: 0.55 }}
+        end={{ x: 0.5, y: 1.05 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      {/* Concentric halo rings */}
+      <View style={[styles.ring, styles.ring1]} pointerEvents="none" />
+      <View style={[styles.ring, styles.ring2]} pointerEvents="none" />
+
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <Animated.View entering={FadeInDown.duration(600).delay(80)} style={styles.top}>
+          <View style={styles.logoWrap}>
+            <Image
+              source={require('@/assets/images/logo-circle.png')}
+              style={styles.logo}
+              contentFit="contain"
             />
           </View>
-
-          {/* Logo */}
-          <Image
-            source={require('@/assets/images/faviconV2.png')}
-            style={styles.logoImage}
-            contentFit="cover"
-          />
-
-          {/* Church Name */}
-          <Text style={[styles.churchName, { color: Colors.primary }]}>KLT Cyber Church</Text>
-
-          {/* Tagline */}
-          <Text style={[styles.tagline, { color: Colors.onSurfaceVariant }]}>Manifesting Kingdom Life.</Text>
-
-          {/* Decorative line */}
-          <LinearGradient
-            colors={['transparent', Colors.primaryBrand, 'transparent']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.decorLine}
-          />
-
-          {/* Welcome message */}
-          <Text style={[styles.welcomeMessage, { color: Colors.outline }]}>
-            Your digital sanctuary for worship, community, and spiritual growth.
+          <Text style={styles.eyebrow}>KLT CYBER CHURCH</Text>
+          <Text style={styles.title}>Manifesting{'\n'}Kingdom Life.</Text>
+          <Text style={styles.subtitle}>
+            Shalom, Saint — you&apos;re welcome here. Tune in, belong, grow, and give, from anywhere.
           </Text>
         </Animated.View>
 
-        {/* Bottom CTA area */}
-        <Animated.View entering={FadeInUp.duration(500).delay(400)} style={styles.bottomSection}>
-          <Button
-            label="Sign in"
-            variant="primary"
-            onPress={() => router.push('/(auth)/sign-in')}
-          />
+        <Animated.View entering={FadeInUp.duration(500).delay(360)} style={styles.bottom}>
+          <Pressable onPress={() => go('/(auth)/sign-in')} accessibilityRole="button" accessibilityLabel="Sign in">
+            <LinearGradient
+              colors={[...GoldGradient.colors]}
+              start={GoldGradient.start}
+              end={GoldGradient.end}
+              style={[styles.primaryBtn, GoldGlow]}
+            >
+              <Text style={styles.primaryLabel}>Sign in</Text>
+            </LinearGradient>
+          </Pressable>
 
-          <View style={styles.gap14} />
+          <Pressable
+            onPress={() => go('/(auth)/sign-up')}
+            style={styles.ghostBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Create account"
+          >
+            <Text style={styles.ghostLabel}>Create account</Text>
+          </Pressable>
 
-          <Button
-            label="Create account"
-            variant="ghost"
-            onPress={() => router.push('/(auth)/sign-up')}
-          />
+          <Text style={styles.guest}>
+            Just visiting? <Text style={styles.guestLink}>Come in as a guest</Text>
+          </Text>
         </Animated.View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  topSection: {
-    alignItems: 'center',
-    paddingTop: '20%',
-    paddingHorizontal: Spacing[8],
-    position: 'relative',
-  },
-  orbContainer: {
+  fill: { flex: 1 },
+  safe: { flex: 1, justifyContent: 'space-between' },
+  ring: {
     position: 'absolute',
-    top: -40,
+    left: '50%',
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(247,198,75,0.16)',
+  },
+  ring1: { top: -80, width: 520, height: 520, marginLeft: -260 },
+  ring2: { top: -140, width: 660, height: 660, marginLeft: -330, borderColor: 'rgba(247,198,75,0.1)' },
+  top: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing[8],
   },
-  orb: {
-    width: width * 0.8,
-    height: width * 0.8,
-    borderRadius: width * 0.4,
-    opacity: 0.7,
+  logoWrap: {
+    borderRadius: 56,
+    marginBottom: Spacing[6],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 34,
+    elevation: 12,
   },
-  logoImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    shadowColor: '#785600',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 8,
+  logo: { width: 112, height: 112, borderRadius: 56 },
+  eyebrow: {
+    fontFamily: FontFamily.bodyBold,
+    fontSize: 11.5,
+    letterSpacing: 3,
+    color: '#EDB63C',
+    marginBottom: Spacing[3],
   },
-  churchName: {
+  title: {
     fontFamily: FontFamily.display,
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 40,
+    lineHeight: 44,
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginTop: Spacing[5],
+    letterSpacing: -0.5,
   },
-  tagline: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    letterSpacing: 1.5,
-    marginTop: Spacing[2],
-  },
-  decorLine: {
-    width: 60,
-    height: 2,
-    borderRadius: 1,
-    marginTop: Spacing[6],
-  },
-  welcomeMessage: {
+  subtitle: {
     fontFamily: FontFamily.body,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 24,
+    color: 'rgba(255,255,255,0.82)',
     textAlign: 'center',
-    marginTop: Spacing[5],
-    maxWidth: 260,
+    marginTop: Spacing[4],
+    maxWidth: 320,
   },
-  bottomSection: {
+  bottom: {
     paddingHorizontal: Spacing[6],
     paddingBottom: Spacing[6],
+    gap: Spacing[3],
   },
-  gap14: {
-    height: 14,
+  primaryBtn: {
+    height: 56,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryLabel: {
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 16,
+    color: '#3A2604',
+  },
+  ghostBtn: {
+    height: 56,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  ghostLabel: {
+    fontFamily: FontFamily.bodyBold,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  guest: {
+    textAlign: 'center',
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: 13.5,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: Spacing[1],
+  },
+  guestLink: {
+    fontFamily: FontFamily.bodyBold,
+    color: '#EDB63C',
   },
 });

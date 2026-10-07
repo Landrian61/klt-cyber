@@ -21,5 +21,9 @@
     "noEmit": true
   },
   "include": ["./**/*"],
-  "exclude": ["./_generated"]
+  // Test files use Vite-only syntax (import.meta.glob), so they're excluded from
+  // this Convex-runtime typecheck. Nothing typechecks them yet; vitest only transpiles.
+  // Convex's own bundler also never ships them as functions — it skips any
+  // filename with more than one dot (e.g. `foo.test.ts`, `vitest.config.ts`).
+  "exclude": ["./_generated", "**/*.test.ts", "test.setup.ts", "vitest.config.ts"]
 }

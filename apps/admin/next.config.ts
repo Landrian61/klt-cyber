@@ -15,5 +15,5 @@ export default nextConfig;
 
 // Enables the OpenNext Cloudflare adapter during `next dev` so local dev sees
 // the same Workers bindings/runtime as the deployed Worker. No-op in production
-// builds. See docs/DEPLOYMENT.md.
+// builds. See spec/DEPLOYMENT.md.
 initOpenNextCloudflareForDev();

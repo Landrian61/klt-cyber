@@ -1,50 +1,72 @@
 import { useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import * as Haptics from 'expo-haptics';
 
 import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
+import { api, type Doc } from '@/lib/api';
+import { formatRelativeTime } from '@/lib/content-format';
+import { resolveDeepLinkHref } from '@/lib/notification-links';
 
-type NotificationType = 'birthday' | 'activity' | 'leadership' | 'giving' | 'broadcast' | 'system';
-
-interface Notification {
-  id: string;
-  type: NotificationType;
-  sender: string;
-  message: string;
-  timestamp: string;
-  unread: boolean;
-}
-
-// Placeholder notifications
-const NOTIFICATIONS: Notification[] = [
-  { id: '1', type: 'broadcast', sender: 'Reign Radio', message: 'Morning Glory is now live with Pastor James. Tap to listen.', timestamp: '2 min ago', unread: true },
-  { id: '2', type: 'activity', sender: 'KLT Church', message: 'Bible Study starts in 30 minutes. Tap to check in.', timestamp: '1 hour ago', unread: true },
-  { id: '3', type: 'giving', sender: 'Finance Team', message: 'Your Tithe of UGX 100,000 was received. God bless you.', timestamp: 'Yesterday', unread: false },
-  { id: '4', type: 'birthday', sender: 'Pastor James', message: 'Happy Birthday Andrew! Wishing you God\'s richest blessings today.', timestamp: '3 days ago', unread: false },
-  { id: '5', type: 'system', sender: 'KLT Church', message: 'Your Hebron clan membership has been approved.', timestamp: '1 week ago', unread: false },
-];
+type NotificationItem = Doc<'notifications'> & { read: boolean };
 
 export default function NotificationsScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-  const TYPE_STYLES: Record<NotificationType, { bg: string; iconColor: string; icon: keyof typeof Ionicons.glyphMap }> = {
-    birthday: { bg: Colors.warningLight, iconColor: Colors.warning, icon: 'gift-outline' },
-    activity: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'calendar-outline' },
-    leadership: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'star-outline' },
-    giving: { bg: Colors.successLight, iconColor: Colors.success, icon: 'checkmark-circle-outline' },
-    broadcast: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'radio-outline' },
-    system: { bg: Colors.surfaceLow, iconColor: Colors.outline, icon: 'information-circle-outline' },
+  const notifications = useQuery(api.notifications.listMyNotifications);
+  const markRead = useMutation(api.notifications.markNotificationRead);
+  const markAllRead = useMutation(api.notifications.markAllNotificationsRead);
+  const dismissNotification = useMutation(api.notifications.dismissNotification);
+
+  const isLoading = notifications === undefined;
+  const items: NotificationItem[] = notifications ?? [];
+
+  // Keyed by `deepLink.type`, not a fixed enum — schema.ts's `deepLink.type`
+  // is a free-form string, so an unrecognized/future type falls back to
+  // DEFAULT_TYPE_STYLE rather than throwing.
+  const TYPE_STYLE_BY_DEEPLINK: Record<string, { bg: string; iconColor: string; icon: keyof typeof Ionicons.glyphMap }> = {
+    announcement: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'megaphone-outline' },
+    event: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'calendar-outline' },
+    program: { bg: Colors.primaryLight, iconColor: Colors.primary, icon: 'calendar-outline' },
+  };
+  const DEFAULT_TYPE_STYLE = { bg: Colors.surfaceLow, iconColor: Colors.outline, icon: 'notifications-outline' as const };
+
+  const filtered = filter === 'unread' ? items.filter((n) => !n.read) : items;
+  const hasUnread = items.some((n) => !n.read);
+
+  const handlePress = (item: NotificationItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!item.read) markRead({ notificationId: item._id }).catch(() => {});
+    // Falls back to Home rather than doing nothing when the type has no
+    // mobile screen yet — see resolveDeepLinkHref's default case.
+    router.push(resolveDeepLinkHref(item.deepLink) ?? '/(tabs)');
   };
 
-  const filtered = filter === 'unread'
-    ? NOTIFICATIONS.filter((n) => n.unread)
-    : NOTIFICATIONS;
+  const handleMarkAllRead = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    markAllRead().catch(() => {});
+  };
+
+  // Long-press menu (INTERFACE_SPEC.md §9: "Long-press: 'Mark as read' /
+  // 'Delete'"). "Delete" is per-user (dismissNotification), not a real
+  // document delete — see convex/schema.ts's notificationDismissals comment.
+  const handleLongPress = (item: NotificationItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(item.title, undefined, [
+      ...(!item.read
+        ? [{ text: 'Mark as read', onPress: () => markRead({ notificationId: item._id }).catch(() => {}) }]
+        : []),
+      { text: 'Delete', style: 'destructive' as const, onPress: () => dismissNotification({ notificationId: item._id }).catch(() => {}) },
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]} edges={['top']}>
@@ -73,38 +95,50 @@ export default function NotificationsScreen() {
             {filter === 'unread' && <View style={[styles.tabUnderline, { backgroundColor: Colors.primary }]} />}
           </Pressable>
         </View>
-        <Button label="Mark all read" variant="textLink" onPress={() => {}} />
+        {hasUnread && <Button label="Mark all read" variant="textLink" onPress={handleMarkAllRead} />}
       </View>
 
       {/* List */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => {
-          const typeStyle = TYPE_STYLES[item.type];
-          return (
-            <Pressable style={[styles.notifCard, { backgroundColor: item.unread ? Colors.primaryFixedDim : Colors.surfaceLowest }]}>
-              <View style={[styles.notifIcon, { backgroundColor: typeStyle.bg }]}>
-                <Ionicons name={typeStyle.icon} size={18} color={typeStyle.iconColor} />
-              </View>
-              <View style={styles.notifContent}>
-                <Text style={[styles.notifSender, { color: Colors.onSurface }]}>{item.sender}</Text>
-                <Text style={[styles.notifMessage, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>{item.message}</Text>
-                <Text style={[styles.notifTimestamp, { color: Colors.outline }]}>{item.timestamp}</Text>
-              </View>
-              {item.unread && <View style={[styles.unreadDot, { backgroundColor: Colors.primary }]} />}
-            </Pressable>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={40} color={Colors.outline} />
-            <Text style={[styles.emptyTitle, { color: Colors.onSurfaceVariant }]}>No notifications yet</Text>
-          </View>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => {
+            const typeStyle = TYPE_STYLE_BY_DEEPLINK[item.deepLink.type] ?? DEFAULT_TYPE_STYLE;
+            return (
+              <Pressable
+                onPress={() => handlePress(item)}
+                onLongPress={() => handleLongPress(item)}
+                style={[styles.notifCard, { backgroundColor: item.read ? Colors.surfaceLowest : Colors.primaryFixedDim }]}
+              >
+                <View style={[styles.notifIcon, { backgroundColor: typeStyle.bg }]}>
+                  <Ionicons name={typeStyle.icon} size={18} color={typeStyle.iconColor} />
+                </View>
+                <View style={styles.notifContent}>
+                  <Text style={[styles.notifSender, { color: Colors.onSurface }]}>{item.title}</Text>
+                  <Text style={[styles.notifMessage, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>{item.body}</Text>
+                  <Text style={[styles.notifTimestamp, { color: Colors.outline }]}>{formatRelativeTime(item._creationTime)}</Text>
+                </View>
+                {!item.read && <View style={[styles.unreadDot, { backgroundColor: Colors.primary }]} />}
+              </Pressable>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="notifications-off-outline" size={40} color={Colors.outline} />
+              <Text style={[styles.emptyTitle, { color: Colors.onSurfaceVariant }]}>
+                {filter === 'unread' ? "You're all caught up" : 'No notifications yet'}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -150,6 +184,10 @@ const styles = StyleSheet.create({
   tabUnderline: {
     height: 2,
     borderRadius: 1,
+  },
+  loading: {
+    paddingVertical: Spacing[10],
+    alignItems: 'center',
   },
   list: {
     paddingHorizontal: Spacing[5],

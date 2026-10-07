@@ -1,96 +1,221 @@
 import {
-  ScrollView, View, Text, Pressable, ImageBackground, StyleSheet,
+  ScrollView, View, Text, Pressable, Image, StyleSheet,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useQuery } from 'convex/react';
 import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import {
-  FontFamily, Spacing, Radius, Duration,
-} from '@/constants/theme';
+import { FontFamily, Spacing, Radius, Duration, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
+import { Cover } from '@/components/ui/cover';
+import { ProfileCompletionBanner } from '@/components/profile-completion-banner';
+import { NotificationPermissionBanner } from '@/components/notification-permission-banner';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getGreetingName } from '@/lib/user-display';
-import { CHURCH_THEME, getThisWeekPrograms, UPCOMING_EVENTS, type Program } from '@/data/programs';
+import { api, type Doc } from '@/lib/api';
+import {
+  formatEventDate, formatClockTime, formatTime, dayName,
+} from '@/lib/content-format';
 
-const SCRIPTURE_GRADIENTS: { colors: [string, string]; start: { x: number; y: number }; end: { x: number; y: number } }[] = [
-  { colors: ['#785600', '#B8860B'], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },       // Gold diagonal
-  { colors: ['#AB3332', '#D4605F'], start: { x: 0, y: 0 }, end: { x: 1, y: 0.8 } },     // Crimson warm
-  { colors: ['#145DA3', '#2E7EC7'], start: { x: 0, y: 0.2 }, end: { x: 1, y: 1 } },     // Royal Blue
-  { colors: ['#785600', '#145DA3'], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },       // Gold → Blue
-  { colors: ['#AB3332', '#785600'], start: { x: 0, y: 0 }, end: { x: 0.8, y: 1 } },     // Crimson → Gold
-];
-
-function getScriptureGradient() {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-  );
-  return SCRIPTURE_GRADIENTS[dayOfYear % SCRIPTURE_GRADIENTS.length];
-}
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function getFormattedDate(): string {
   return new Date().toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function ProgramCard({ program, index, onPress }: { program: Program; index: number; onPress: () => void }) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+// ── Section 1: Theme banner (annual + monthly, scripture, cover) ──────────────
+
+function ThemeBanner({ themes }: { themes: { annual: Doc<'themes'> | null; monthly: Doc<'themes'> | null } }) {
+  const Colors = useThemeColors();
+  const { annual, monthly } = themes;
+  if (!annual && !monthly) return null;
+
+  const annualYear = annual ? new Date(annual.periodStart).getFullYear() : null;
 
   return (
-    // Layout animation lives on the wrapper; the press-scale transform stays on
-    // the inner pressable so the two don't fight (Reanimated warning).
+    <Animated.View entering={FadeInUp.duration(400).delay(160)} style={styles.section}>
+      {annual && (
+        <View style={[styles.themeCardContainer, ShadowE2]}>
+          {/* Photo fills the whole card; content below defines its height. */}
+          <Image
+            source={require('@/assets/images/Church_Theme.jpg')}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+          {/* Heaven-blue scrim so the scripture stays legible over the photo */}
+          <LinearGradient
+            colors={['rgba(12,33,84,0.80)', 'rgba(12,33,84,0.62)']}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1.3 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          {/* Dawn gold-glow rising from the corner */}
+          <LinearGradient
+            colors={['transparent', 'rgba(247,198,75,0.4)']}
+            start={{ x: 0.35, y: 0.4 }}
+            end={{ x: 1.1, y: 1.15 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={styles.themeCardContent}>
+            <View style={styles.themePill}>
+              <Text style={styles.themePillText}>{annualYear} CHURCH THEME</Text>
+            </View>
+            <Text style={styles.themeTitle}>{annual.title}</Text>
+            <Text style={styles.themeScripture} numberOfLines={5}>
+              “{annual.scriptureText}”
+            </Text>
+            <Text style={styles.themeScriptureRef}>
+              {annual.scriptureReference?.toUpperCase()} · KJV
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {monthly && (
+        <View style={[styles.monthlyCard, { backgroundColor: Colors.surfaceLowest }]}>
+          <Text style={[styles.monthlyLabel, { color: Colors.primary }]}>THIS MONTH</Text>
+          <Text style={[styles.monthlyTitle, { color: Colors.onSurface }]}>{monthly.title}</Text>
+          <Text style={[styles.monthlyScripture, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
+            “{monthly.scriptureText}”
+          </Text>
+          <Text style={[styles.monthlyRef, { color: Colors.outline }]}>{monthly.scriptureReference}</Text>
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
+// ── Section 2: Weekly programs ("This week") ──────────────────────────────────
+
+/** One expanded occurrence from api.calendar.getCalendarRange, narrowed to
+ * type "program" — a recurring/one-time program landing on a specific day
+ * within the queried range. */
+interface ProgramOccurrence {
+  type: 'program';
+  start: number;
+  occurrenceKey: string;
+  programId: string;
+  title: string;
+  description?: string;
+  location?: string;
+  coverImageUrl?: string;
+  startTime: string;
+  endTime?: string;
+  dayOfWeek: number;
+  date: string;
+}
+
+function ProgramCard({ program, index }: { program: ProgramOccurrence; index: number }) {
+  const router = useRouter();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const schedule = `${dayName(program.dayOfWeek)}, ${formatTime(program.startTime)}`;
+  return (
     <Animated.View entering={FadeInUp.duration(300).delay(200 + index * 60)}>
       <AnimatedPressable
         onPressIn={() => { scale.value = withTiming(0.97, { duration: Duration.fast }); }}
         onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onPress();
+          router.push(`/program-detail?id=${program.programId}`);
         }}
         style={[styles.programCard, animatedStyle]}
         accessibilityRole="button"
-        accessibilityLabel={`${program.name}, ${program.day} ${program.time}`}
+        accessibilityLabel={`${program.title}, ${schedule}`}
       >
-        <ImageBackground
-          source={program.image}
-          resizeMode="cover"
-          style={styles.programCardImage}
-          imageStyle={{ borderRadius: Radius.lg }}
-        >
+        <Cover uri={program.coverImageUrl} index={index} imageRadius={Radius.lg} style={styles.programCardImage}>
           <View style={styles.programCardScrim}>
-            <Text style={styles.programCardName} numberOfLines={1}>{program.name}</Text>
-            <Text style={styles.programCardTime} numberOfLines={1}>
-              {program.day}{program.time ? `, ${program.time}` : ''}
-            </Text>
+            <Text style={styles.programCardName} numberOfLines={1}>{program.title}</Text>
+            <Text style={styles.programCardTime} numberOfLines={1}>{schedule}</Text>
           </View>
-        </ImageBackground>
+        </Cover>
       </AnimatedPressable>
     </Animated.View>
   );
 }
 
+// ── Section 3 & 4: Events ─────────────────────────────────────────────────────
+
+/** Convex-backed event card (remote cover, tonal-gradient fallback). Used for
+ * both the "Upcoming events" row and the "Featured" slider — `size` only
+ * changes the card's footprint. */
+function EventCard({
+  event, index, size = 'default',
+}: { event: Doc<'events'>; index: number; size?: 'default' | 'featured' }) {
+  const Colors = useThemeColors();
+  const router = useRouter();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const cardStyle = size === 'featured' ? styles.featuredCard : styles.eventCard;
+  return (
+    <Animated.View entering={FadeInUp.duration(300).delay(200 + index * 60)}>
+      <AnimatedPressable
+        onPressIn={() => { scale.value = withTiming(0.97, { duration: Duration.fast }); }}
+        onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/event-detail?id=${event._id}`);
+        }}
+        style={[cardStyle, animatedStyle]}
+        accessibilityRole="button"
+        accessibilityLabel={`${event.title}, ${formatEventDate(event.startDateTime)}`}
+      >
+        <Cover uri={event.coverImageUrl} index={index + 1} imageRadius={Radius.lg} style={styles.eventCardImage}>
+          <View style={styles.eventCardScrim}>
+            <View style={[styles.eventDatePill, { backgroundColor: Colors.primaryLight }]}>
+              <Text style={[styles.eventDateText, { color: Colors.primary }]} numberOfLines={1}>
+                {formatEventDate(event.startDateTime)}
+              </Text>
+            </View>
+            <View>
+              <Text style={styles.eventCardName} numberOfLines={2}>{event.title}</Text>
+              <Text style={styles.eventCardMeta} numberOfLines={1}>
+                {formatClockTime(event.startDateTime)}{event.location ? ` · ${event.location}` : ''}
+              </Text>
+            </View>
+          </View>
+        </Cover>
+      </AnimatedPressable>
+    </Animated.View>
+  );
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
+
 export default function HomeScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
-  const { user, isVisitor } = useMyAccount();
+  const { user } = useMyAccount();
   const greetingName = getGreetingName(user);
-  const thisWeekPrograms = getThisWeekPrograms(3);
+
+  const themes = useQuery(api.themes.getCurrentThemes);
+  const featured = useQuery(api.events.listFeaturedEvents);
+
+  // "This week" — weekly-program occurrences (each recurring program expanded
+  // per its own pattern) over the next 7 days. The range is memoized so the
+  // query args stay referentially stable across re-renders — otherwise a new
+  // Date.now() on every render would resubscribe the query each time.
+  const weekRange = useMemo(() => ({ startDate: Date.now(), endDate: Date.now() + WEEK_MS }), []);
+  const calendar = useQuery(api.calendar.getCalendarRange, weekRange);
+  const weekPrograms = (
+    calendar?.filter((item): item is ProgramOccurrence => item.type === 'program') ?? []
+  ).slice(0, 8);
+
+  const upcomingEvents = useQuery(api.events.listUpcomingEvents, { limit: 8 });
 
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Section 1: Greeting */}
+      {/* Greeting */}
       <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.greeting}>
         <Text style={[styles.name, { color: Colors.onSurface }]}>
           {greetingName ? `Shalom ${greetingName}` : 'Shalom'}
@@ -98,168 +223,85 @@ export default function HomeScreen() {
         <Text style={[styles.date, { color: Colors.outline }]}>{getFormattedDate()}</Text>
       </Animated.View>
 
-      {/* Section 2: Church Theme Card */}
-      <Animated.View entering={FadeInUp.duration(400).delay(160)} style={styles.section}>
-        <View style={styles.themeCardContainer}>
-          <ImageBackground
-            source={require('@/assets/images/Church_Theme.jpg')}
-            resizeMode="cover"
-            style={styles.themeCardImage}
-            imageStyle={{ borderRadius: Radius.xl }}
-          >
-            <View style={styles.themeCardScrim}>
-              <Text style={styles.themeLabel}>
-                {CHURCH_THEME.year} CHURCH THEME
-              </Text>
-              <Text style={styles.themeTitle}>{CHURCH_THEME.title}</Text>
-              <Text style={styles.themeScripture}>{CHURCH_THEME.scripture}</Text>
-            </View>
-          </ImageBackground>
-        </View>
-      </Animated.View>
+      {/* Section 1 — Theme banner (annual + monthly, scripture, cover) */}
+      {themes && <ThemeBanner themes={themes} />}
 
-      {/* Section 3: This Week */}
-      <Animated.View entering={FadeInUp.duration(400).delay(240)} style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>This week</Text>
-        <Button label="See all" variant="textLink" onPress={() => router.push('/programs')} />
-      </Animated.View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.programsRow}
-      >
-        {thisWeekPrograms.map((program, index) => (
-          <ProgramCard
-            key={program.id}
-            program={program}
-            index={index}
-            onPress={() => router.push(`/program-detail?id=${program.id}`)}
-          />
-        ))}
-      </ScrollView>
+      {/* Join-the-family invitation — sits just below the monthly theme. Shown
+          to visitors (and a review-status card to pending users); renders
+          nothing once verified. */}
+      <ProfileCompletionBanner />
 
-      {/* Section 4: Scripture of the Day */}
-      <Animated.View entering={FadeInUp.duration(400).delay(320)} style={[styles.section, { marginTop: Spacing[6] }]}>
-        <Text style={[styles.sectionLabel, { color: Colors.outline }]}>SCRIPTURE OF THE DAY</Text>
-        <LinearGradient
-          colors={getScriptureGradient().colors}
-          start={getScriptureGradient().start}
-          end={getScriptureGradient().end}
-          style={styles.scriptureGradient}
-        >
-          <Text style={styles.scriptureText}>
-            {'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."'}
-          </Text>
-          <Text style={styles.scriptureRef}>Jeremiah 29:11 (NIV)</Text>
-        </LinearGradient>
-      </Animated.View>
+      {/* Dismissible invitation to turn on push notifications — shown only in
+          the "never-asked" permission state, outside the dismiss cooldown. */}
+      <NotificationPermissionBanner />
 
-      {/* Section 5: Upcoming Events */}
-      <Animated.View entering={FadeInUp.duration(400).delay(400)}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Upcoming events</Text>
-          {UPCOMING_EVENTS.length > 3 && (
-            <Button label="See all" variant="textLink" onPress={() => router.push('/events')} />
-          )}
-        </View>
-      </Animated.View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.eventsRow}
-      >
-        {UPCOMING_EVENTS.slice(0, 3).map((event, index) => (
-          <AnimatedPressable
-            key={event.id}
-            entering={FadeInUp.duration(300).delay(440 + index * 60)}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push(`/event-detail?id=${event.id}`);
-            }}
-            style={styles.eventCard}
-            accessibilityRole="button"
-            accessibilityLabel={`${event.name}, ${event.dateRange}`}
-          >
-            <ImageBackground
-              source={event.image}
-              resizeMode="cover"
-              style={styles.eventCardImage}
-              imageStyle={{ borderRadius: Radius.lg }}
-            >
-              <View style={styles.eventCardScrim}>
-                <View style={[styles.eventDatePill, { backgroundColor: Colors.primaryLight }]}>
-                  <Text style={[styles.eventDateText, { color: Colors.primary }]}>{event.dateRange}</Text>
-                </View>
-                <Text style={styles.eventCardName} numberOfLines={2}>{event.name}</Text>
-              </View>
-            </ImageBackground>
-          </AnimatedPressable>
-        ))}
-      </ScrollView>
-
-      {/* Section 6: Join the Ministry — shown only to visitors, routes into the
-          profile-completion flow. Members are already in, so it's hidden. */}
-      {isVisitor && (
-        <Animated.View entering={FadeInUp.duration(400).delay(480)} style={styles.section}>
-          <View style={[styles.ministryCard, { backgroundColor: Colors.surfaceLow }]}>
-            <View style={styles.ministryRow}>
-              <Ionicons name="people" size={24} color={Colors.primary} />
-              <View style={styles.ministryText}>
-                <Text style={[styles.ministryTitle, { color: Colors.onSurface }]}>Become a member</Text>
-                <Text style={[styles.ministrySubtitle, { color: Colors.onSurfaceVariant }]}>Connect, grow and serve with us.</Text>
-              </View>
-            </View>
-            <Button
-              label="Complete your profile"
-              variant="ghost"
-              fullWidth
-              onPress={() => router.push('/profile-completion/bio' as any)}
-            />
-          </View>
-        </Animated.View>
+      {/* Section 2 — This week's programs (Convex: calendar.getCalendarRange) */}
+      {weekPrograms.length > 0 && (
+        <>
+          <Animated.View entering={FadeInUp.duration(400).delay(240)} style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>This week</Text>
+            <Button label="See all" variant="textLink" onPress={() => router.push('/programs')} />
+          </Animated.View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsRow}>
+            {weekPrograms.map((program, index) => (
+              <ProgramCard key={program.occurrenceKey} program={program} index={index} />
+            ))}
+          </ScrollView>
+        </>
       )}
 
-      <View style={{ height: Spacing[6] }} />
+      {/* Section 3 — Upcoming events (Convex: events.listUpcomingEvents) */}
+      {upcomingEvents && upcomingEvents.length > 0 && (
+        <>
+          <Animated.View entering={FadeInUp.duration(400).delay(320)} style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Upcoming events</Text>
+            <Button label="See all" variant="textLink" onPress={() => router.push('/events')} />
+          </Animated.View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsRow}>
+            {upcomingEvents.map((event, index) => (
+              <EventCard key={event._id} event={event} index={index} />
+            ))}
+          </ScrollView>
+        </>
+      )}
+
+      {/* Section 4 — Featured events slider */}
+      {featured && featured.length > 0 && (
+        <>
+          <Animated.View entering={FadeInUp.duration(400).delay(360)} style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Featured</Text>
+          </Animated.View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsRow}>
+            {featured.map((event, index) => (
+              <EventCard key={event._id} event={event} index={index} size="featured" />
+            ))}
+          </ScrollView>
+        </>
+      )}
+
+      <View style={{ height: Spacing[8] }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-  },
+  scroll: { flex: 1 },
   greeting: {
     paddingTop: Spacing[5],
     paddingLeft: Spacing[8],
     paddingRight: Spacing[12],
   },
-  name: {
-    fontFamily: FontFamily.display,
-    fontSize: 24,
-    lineHeight: 28.8,
-  },
-  date: {
-    fontFamily: FontFamily.body,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: Spacing[1],
-  },
-  section: {
-    paddingHorizontal: Spacing[5],
-    marginTop: Spacing[5],
-  },
-  sectionHeader: {
+  name: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 28.8 },
+  date: { fontFamily: FontFamily.body, fontSize: 12, lineHeight: 18, marginTop: Spacing[1] },
+  section: { paddingHorizontal: Spacing[5], marginTop: Spacing[5] },
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing[5],
     marginTop: Spacing[6],
   },
-  sectionTitle: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 16,
-    lineHeight: 24,
-  },
+  sectionTitle: { fontFamily: FontFamily.displaySemi, fontSize: 18, lineHeight: 24 },
   sectionLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
@@ -267,62 +309,53 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: Spacing[3],
   },
-  // Theme card
-  themeCardContainer: {
-    borderRadius: Radius.xl,
-    overflow: 'hidden',
-  },
-  themeCardImage: {
-    width: '100%',
-    minHeight: 220,
-    justifyContent: 'flex-end',
-  },
-  themeCardScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(28, 28, 24, 0.50)',
-    padding: Spacing[5],
-    justifyContent: 'flex-end',
-    borderRadius: Radius.xl,
-  },
-  themeLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 0.8,
-  },
-  themeTitle: {
-    fontFamily: FontFamily.display,
-    fontSize: 22,
-    lineHeight: 28,
-    color: '#FFFFFF',
-    marginTop: 6,
-  },
-  themeScripture: {
-    fontFamily: FontFamily.display,
-    fontSize: 12,
-    lineHeight: 18,
-    fontStyle: 'italic',
-    color: 'rgba(255,255,255,0.80)',
-    marginTop: Spacing[1],
-  },
-  // Program cards
-  programsRow: {
+  cardsRow: {
     paddingLeft: Spacing[5],
     paddingRight: Spacing[3],
     gap: Spacing[3],
     marginTop: Spacing[3],
   },
-  programCard: {
-    width: 200,
-    height: 160,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
+  // Theme card — heaven gradient (dawn over a worship night)
+  themeCardContainer: { borderRadius: Radius.xl, overflow: 'hidden' },
+  themeCardContent: { padding: Spacing[5], paddingVertical: Spacing[6] },
+  themePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EDB63C',
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  programCardImage: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  themePillText: {
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 10.5,
+    lineHeight: 14,
+    letterSpacing: 1.6,
+    color: '#0C2154',
   },
+  themeTitle: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 29, color: '#FFFFFF', marginTop: Spacing[3] },
+  themeScripture: {
+    fontFamily: FontFamily.italic,
+    fontSize: 13.5,
+    lineHeight: 22,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: Spacing[3],
+  },
+  themeScriptureRef: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 1.2,
+    color: '#EDB63C',
+    marginTop: Spacing[2],
+  },
+  monthlyCard: { borderRadius: Radius.lg, padding: Spacing[4], marginTop: Spacing[3], ...ShadowE2 },
+  monthlyLabel: { fontFamily: FontFamily.bodyExtraBold, fontSize: 10.5, letterSpacing: 1.6, lineHeight: 14 },
+  monthlyTitle: { fontFamily: FontFamily.displaySemi, fontSize: 18, lineHeight: 24, marginTop: 6 },
+  monthlyScripture: { fontFamily: FontFamily.italic, fontSize: 13, lineHeight: 21, marginTop: Spacing[2] },
+  monthlyRef: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 15.4, marginTop: Spacing[1] },
+  // Program cards
+  programCard: { width: 200, height: 160, borderRadius: Radius.lg, overflow: 'hidden' },
+  programCardImage: { flex: 1, justifyContent: 'flex-end' },
   programCardScrim: {
     backgroundColor: 'rgba(28, 28, 24, 0.7)',
     paddingHorizontal: Spacing[3],
@@ -330,56 +363,12 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: Radius.lg,
     borderBottomRightRadius: Radius.lg,
   },
-  programCardName: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#FFFFFF',
-  },
-  programCardTime: {
-    fontFamily: FontFamily.body,
-    fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.80)',
-    marginTop: 2,
-  },
-  // Scripture
-  scriptureGradient: {
-    borderRadius: Radius.lg,
-    padding: Spacing[5],
-    minHeight: 160,
-    justifyContent: 'flex-end',
-  },
-  scriptureText: {
-    fontFamily: FontFamily.display,
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#FFFFFF',
-  },
-  scriptureRef: {
-    fontFamily: FontFamily.body,
-    fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.70)',
-    marginTop: Spacing[2],
-  },
+  programCardName: { fontFamily: FontFamily.bodySemiBold, fontSize: 14, lineHeight: 20, color: '#FFFFFF' },
+  programCardTime: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 15.4, color: 'rgba(255,255,255,0.80)', marginTop: 2 },
   // Event cards
-  eventsRow: {
-    paddingLeft: Spacing[5],
-    paddingRight: Spacing[3],
-    gap: Spacing[3],
-    marginTop: Spacing[3],
-  },
-  eventCard: {
-    width: 260,
-    height: 155,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-  },
-  eventCardImage: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
+  eventCard: { width: 260, height: 155, borderRadius: Radius.lg, overflow: 'hidden' },
+  featuredCard: { width: 300, height: 180, borderRadius: Radius.lg, overflow: 'hidden' },
+  eventCardImage: { flex: 1, justifyContent: 'flex-end' },
   eventCardScrim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(28, 28, 24, 0.55)',
@@ -387,46 +376,8 @@ const styles = StyleSheet.create({
     padding: Spacing[3],
     justifyContent: 'space-between',
   },
-  eventDatePill: {
-    alignSelf: 'flex-end',
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing[2],
-    paddingVertical: 3,
-  },
-  eventDateText: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  eventCardName: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 15,
-    lineHeight: 20,
-    color: '#FFFFFF',
-  },
-  // Ministry
-  ministryCard: {
-    borderRadius: Radius.lg,
-    padding: Spacing[4],
-  },
-  ministryRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing[3],
-    marginBottom: Spacing[4],
-  },
-  ministryText: {
-    flex: 1,
-  },
-  ministryTitle: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  ministrySubtitle: {
-    fontFamily: FontFamily.body,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: Spacing[1],
-  },
+  eventDatePill: { alignSelf: 'flex-start', borderRadius: Radius.full, paddingHorizontal: Spacing[2], paddingVertical: 3 },
+  eventDateText: { fontFamily: FontFamily.bodySemiBold, fontSize: 10, lineHeight: 14 },
+  eventCardName: { fontFamily: FontFamily.bodySemiBold, fontSize: 15, lineHeight: 20, color: '#FFFFFF' },
+  eventCardMeta: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 16, color: 'rgba(255,255,255,0.80)', marginTop: 2 },
 });

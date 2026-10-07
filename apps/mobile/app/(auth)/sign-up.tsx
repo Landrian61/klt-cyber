@@ -35,7 +35,7 @@ export default function SignUpScreen() {
     setEmailError('');
     setPasswordError('');
 
-    // Sign-up (docs/DATA_MODEL.md, Increment 1): first/last name + email + password.
+    // Sign-up: first/last name + email + password.
     const parsed = signUpInputSchema.safeParse({ firstName, lastName, email, password });
     if (!parsed.success) {
       const fields = parsed.error.flatten().fieldErrors;
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(120, 86, 0, 0.20)',
+    borderColor: 'rgba(36, 27, 16, 0.15)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
