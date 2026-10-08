@@ -2,11 +2,12 @@
 
 > **Status:** Staging and production both have real, separate homes as of
 > 2026-10-07: separate Convex projects, separate Cloudflare Workers, separate
-> EAS Update channels. Production's first deploy was driven by hand, not CI —
-> see §4.4. Three things are still genuinely open, not yet done: a production
-> R2 bucket (§3.4, §10), a restorable backup policy for either environment
-> (§10), and merging the drafted production deploy workflow (§4.4). Track
-> these against `docs/scope/scope.md` row 2 / spec 0001, not as finished here.
+> EAS Update channels, and (as of 2026-10-08, credentials verified live) separate
+> R2 buckets. Production's first deploy was driven by hand, not CI — see §4.4.
+> Two things are still genuinely open, not yet done: a restorable backup policy
+> for either environment (§10), and merging the drafted production deploy
+> workflow (§4.4). Track these against `docs/scope/scope.md` row 2 / spec 0001,
+> not as finished here.
 
 This document is the source of truth for how the three deployable surfaces of
 KLT Cyber — the **Convex backend**, the **web admin** (`apps/admin`), and the
@@ -129,7 +130,8 @@ Two separate Cloudflare projects, each with its own copy of these — `klt-cyber
 | `BETTER_AUTH_SECRET` | set | set, **distinct value** from staging/dev | read by Better Auth internally |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | — | **optional** — Google sign-in is enabled only when both are set (`convex/auth.ts`). Not set on either deployment yet |
 | `SEED_ADMIN_EMAIL` | set | set, to `luswataandrew190@gmail.com` | used by `convex/seed.ts:bootstrapSystemAdmin` (and the deprecated alias `promoteSeedAdmin`) |
-| `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_TOKEN` | set | **not set — gap** | the `@convex-dev/r2` component is registered for both deployments (`convex/convex.config.ts`) but has no production bucket or credentials yet; any upload/profile-photo path will fail on production until this exists. Tracked in §10 |
+| `R2_BUCKET`, `R2_ENDPOINT` | set | set — bucket `klt-cyber-media-prod` created 2026-10-08, CORS applied (`infra/r2-cors-prod.json`), these two vars set on `superb-dog-305` | the `@convex-dev/r2` component is registered for both deployments (`convex/convex.config.ts`), see `spec/STORAGE.md` |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_TOKEN` | set | set (2026-10-08) — bucket-scoped API token, set via clipboard-piped `convex env set` so the values never touched chat or shell history |
 | `CONVEX_SITE_URL` | — | — | **auto-provided by Convex**; do not set. Used as Better Auth `baseURL` |
 
 ---
@@ -336,11 +338,12 @@ Tracked against `docs/scope/scope.md` row 2 / spec
 the honest "not done yet" list, kept here so it doesn't quietly drop out of
 sight once the rest of the document reads as finished.
 
-- **No production R2 bucket.** `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`,
-  `R2_SECRET_ACCESS_KEY`, `R2_TOKEN` are unset on `superb-dog-305` (§3.4). The
-  `r2` component is registered either way (`convex/convex.config.ts`), so any
-  upload or profile-photo path will throw on production, not just degrade,
-  until this exists. See `spec/STORAGE.md` for provisioning steps.
+- ~~Production R2 bucket/credentials~~ — **done 2026-10-08.** `klt-cyber-media-prod`
+  exists, CORS applied, all five `R2_*` vars set on `superb-dog-305`, and
+  proven with a real round trip (a temporary Convex action wrote an object
+  through the production credentials, the signed URL it returned was fetched
+  back over HTTPS with matching content, then both the object and the
+  temporary function were removed). See `spec/STORAGE.md`.
 - **No backup policy for either environment.** Scope row 2's F5-05 ("regular
   restorable backups, and one before any risky change") hasn't been set up —
   neither a schedule nor a one-off pre-change backup has been taken for

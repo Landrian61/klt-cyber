@@ -57,6 +57,12 @@ Or with Wrangler:
 npx wrangler r2 bucket create klt-cyber-media-dev
 ```
 
+> **Current state (2026-10-08):** only two buckets exist, not three —
+> `klt-cyber-media-dev` (shared by both the dev deployment and staging; the
+> `-staging` name above was never actually provisioned separately) and
+> `klt-cyber-media-prod` (provisioned 2026-10-08, genuinely separate). Giving
+> staging its own bucket, matching the convention above, is still open.
+
 ### 2. Create a bucket-scoped API token
 
 R2 → **Manage R2 API Tokens** → **Create API Token**:
@@ -78,16 +84,25 @@ R2 → **Manage R2 API Tokens** → **Create API Token**:
 ### 3. Add a CORS policy
 
 Browser uploads/reads (the admin web app) are subject to CORS; native mobile
-uploads are not, but a policy is still required for web display. Apply
-[`infra/r2-cors.json`](../infra/r2-cors.json) after replacing
-`REPLACE_WITH_ADMIN_DOMAIN` with the deployed admin origin:
+uploads are not, but a policy is still required for web display. Apply the
+file for the matching environment — [`infra/r2-cors.json`](../infra/r2-cors.json)
+for dev/staging, [`infra/r2-cors-prod.json`](../infra/r2-cors-prod.json) for
+production, each with that environment's admin origin already filled in:
 
 ```bash
 npx wrangler r2 bucket cors set klt-cyber-media-dev --file infra/r2-cors.json
+npx wrangler r2 bucket cors set klt-cyber-media-prod --file infra/r2-cors-prod.json
 ```
 
-Or paste it in the dashboard: R2 → your bucket → **Settings** → **CORS Policy** →
+Or paste one in the dashboard: R2 → your bucket → **Settings** → **CORS Policy** →
 **Add CORS policy**.
+
+> **Schema note:** the R2 API wants `{"rules": [{"allowed": {"origins": [...],
+> "methods": [...], "headers": [...]}, "exposeHeaders": [...],
+> "maxAgeSeconds": ...}]}` — current `wrangler` (4.113.0+) rejects the older
+> bare-array, capitalized-key S3-style shape (`[{"AllowedOrigins": [...]}]`)
+> outright with "must contain a 'rules' array". Both files already use the
+> current shape; if you hand-edit either, keep it.
 
 ---
 
@@ -97,22 +112,30 @@ The component reads its config from **Convex deployment environment variables**
 (not from any `.env.local`). Set all five on each deployment:
 
 ```bash
-# Dev deployment (the one `npx convex dev` is connected to)
+# Dev deployment (the one `npx convex dev` is connected to) — also doubles as
+# staging today (see §1 note above), so this is the same deployment `--prod`
+# refers to from this repo checkout.
 npx convex env set R2_BUCKET            klt-cyber-media-dev
 npx convex env set R2_ENDPOINT          https://<account_id>.r2.cloudflarestorage.com
 npx convex env set R2_ACCESS_KEY_ID     <access-key-id>
 npx convex env set R2_SECRET_ACCESS_KEY <secret-access-key>
 npx convex env set R2_TOKEN             <token-value>
 
-# Production deployment — same keys, prod bucket/credentials
-npx convex env set --prod R2_BUCKET            klt-cyber-media-prod
-npx convex env set --prod R2_ENDPOINT          https://<account_id>.r2.cloudflarestorage.com
-npx convex env set --prod R2_ACCESS_KEY_ID     <prod-access-key-id>
-npx convex env set --prod R2_SECRET_ACCESS_KEY <prod-secret-access-key>
-npx convex env set --prod R2_TOKEN             <prod-token-value>
+# Production deployment — a SEPARATE Convex project (klt-cyber-prod), not this
+# checkout's --prod. `convex env set --prod` would silently write to staging
+# instead. Target it explicitly by deployment name:
+npx convex env set --deployment superb-dog-305 R2_BUCKET            klt-cyber-media-prod
+npx convex env set --deployment superb-dog-305 R2_ENDPOINT          https://<account_id>.r2.cloudflarestorage.com
+npx convex env set --deployment superb-dog-305 R2_ACCESS_KEY_ID     <prod-access-key-id>
+npx convex env set --deployment superb-dog-305 R2_SECRET_ACCESS_KEY <prod-secret-access-key>
+npx convex env set --deployment superb-dog-305 R2_TOKEN             <prod-token-value>
 ```
 
-Verify with `npx convex env list`. These are secrets — never commit them.
+Verify with `npx convex env list` (dev/staging) or
+`npx convex env list --deployment superb-dog-305` (production). These are
+secrets — never commit them, and prefer piping a value in via stdin (see the
+`env set --help` text) over typing it as a literal argument, so it never lands
+in shell history.
 
 > **CI/CD note:** the staging/production Convex deploys (see
 > [`DEPLOYMENT.md`](./DEPLOYMENT.md)) must have these five variables present on
