@@ -4,10 +4,11 @@
 > 2026-10-07: separate Convex projects, separate Cloudflare Workers, separate
 > EAS Update channels, and (as of 2026-10-08, credentials verified live) separate
 > R2 buckets. Production's first deploy was driven by hand, not CI — see §4.4.
-> Two things are still genuinely open, not yet done: a restorable backup policy
-> for either environment (§10), and merging the drafted production deploy
-> workflow (§4.4). Track these against `docs/scope/scope.md` row 2 / spec 0001,
-> not as finished here.
+> Daily backups with a proven restore procedure exist for both environments as
+> of 2026-10-09 (`spec/BACKUPS.md`), pending one Cloudflare API token to
+> activate. One thing left genuinely open: merging the drafted production
+> deploy workflow (§4.4). Track these against `docs/scope/scope.md` row 2 /
+> spec 0001, not as finished here.
 
 This document is the source of truth for how the three deployable surfaces of
 KLT Cyber — the **Convex backend**, the **web admin** (`apps/admin`), and the
@@ -344,10 +345,13 @@ sight once the rest of the document reads as finished.
   through the production credentials, the signed URL it returned was fetched
   back over HTTPS with matching content, then both the object and the
   temporary function were removed). See `spec/STORAGE.md`.
-- **No backup policy for either environment.** Scope row 2's F5-05 ("regular
-  restorable backups, and one before any risky change") hasn't been set up —
-  neither a schedule nor a one-off pre-change backup has been taken for
-  staging or production.
+- ~~No backup policy~~ — **done 2026-10-09, pending one secret.**
+  `.github/workflows/backup.yml` exports both environments daily (plus
+  `workflow_dispatch` for an on-demand backup before a risky change) to the
+  `klt-cyber-backups` R2 bucket, 30-day retention. The restore procedure is
+  proven, not just documented — see `spec/BACKUPS.md`. It can't actually run
+  yet: it needs a `CLOUDFLARE_API_TOKEN` repo secret that doesn't exist, so
+  every run will fail at the upload step until that's created.
 - **`deploy-prod.yml` isn't active yet.** Drafted on `main`, not merged onto
   `prod` — see §4.4. Every production deploy is manual until it is.
 - **Google OAuth isn't configured on production.** Optional — email/password
