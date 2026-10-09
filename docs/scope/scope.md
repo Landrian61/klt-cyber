@@ -13,7 +13,7 @@ _This scope transcribes the already-agreed `spec/BUILD-PLAN.md` into the living 
 |---|---|---|---|
 | 1 | Spec and repo cleanup | Week 1 | existing |
 | 2 | Staging and production environments, safe seeding, backups | Week 1 | in-progress |
-| 3 | Error screens, Sentry, update channels | Week 1 | planned |
+| 3 | Error screens, Sentry, update channels | Week 1 | in-progress |
 | 4 | Stay signed in | Week 1 | planned |
 | 5 | Remove suspension and web sign-up; move System Admin pages into Administration | Week 1 | in-progress |
 | 22 | Devotionals and past events | Week 1 | planned |
@@ -66,11 +66,20 @@ Spec: [0001](../specs/_root/0001-production-readiness-safe-seeding.md)
 - [x] Document it: `/document staging and production environments`
 SRS: F5-02, F5-03, F5-04, F5-05, NF-15, NF-16 · code: `convex/seed.ts` (`bootstrapSystemAdmin` already reads `SEED_ADMIN_EMAIL`), `convex/churchAdminSeed.ts`, `convex/contentSeed.ts`, `convex/lib/environment.ts`
 
-### 3. Error screens, Sentry, update channels · planned
+### 3. Error screens, Sentry, update channels · in-progress
 Track A. Make failure visible and recoverable instead of a blank screen or crash, and get eyes on production errors before ministers report them.
 **Done when:** F5-06: every screen shows a friendly message and retry on failure, web and mobile (NF-06). F5-07: Sentry captures errors and crashes from mobile, web and backend (NF-13). F5-08: Expo OTA updates run on separate staging and production channels (NF-14). M1-04: a poor connection shows a clear message and retry, not a blank screen.
-- [ ] Design it (spec): `/architect error screens, Sentry, update channels`
-Spec: not yet captured
+- [x] Design it (spec): `/architect error screens, Sentry, update channels`
+Spec: [0002](../specs/_root/0002-error-screens-sentry-update-channels/index.md) (umbrella: error screens, Sentry observability, update channels — the last one already shipped, documented not designed)
+- [ ] Build it: `/develop error screens, Sentry, update channels`
+  - [ ] Backend Sentry: provisioning, the action-only `reportError` helper, Convex env vars — satisfies AC-3 (0002-sentry-observability.md)
+  - [ ] Error screens shared components: `ErrorState`, the connectivity hook, the dependency free fallback, the retry cooldown — satisfies AC-1, AC-2, AC-4, AC-5 (0002-error-screens.md)
+  - [ ] Sentry SDK init on mobile and web, user context wiring — satisfies AC-1, AC-2, AC-4, AC-5, AC-6 (0002-sentry-observability.md)
+  - [ ] Wire the four reference screens (boundary for query paths, upgraded local catch for mutation paths) — satisfies AC-1, AC-3, AC-6 (0002-error-screens.md), AC-1, AC-2 (0002-sentry-observability.md)
+  - [ ] CI config (source maps, release tagging per surface) and a mobile dev-client rebuild/preview APK build to verify the new native dependencies — satisfies AC-7 (0002-sentry-observability.md)
+- [ ] Verify it: `/check verify error screens, Sentry, update channels`
+- [ ] Test it: `/test error screens, Sentry, update channels`
+- [ ] Document it: `/document error screens, Sentry, update channels`
 SRS: F5-06, F5-07, F5-08, M1-04, NF-06, NF-13, NF-14
 
 ### 4. Stay signed in · planned
