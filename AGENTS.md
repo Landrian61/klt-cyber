@@ -21,7 +21,7 @@ Working instructions for AI tools (and humans) in this repository. This file des
 - `packages/shared` (`@klt-cyber/shared`) — cross-platform TypeScript: enums, Zod validators, shared business logic. Both apps and Convex import from here; this is the single source of truth for any type/schema used in more than one place.
 - `packages/config` (`@klt-cyber/config`) — shared tsconfig base only, no runtime code.
 
-`spec/SRS.md` is the single source of truth for product behaviour (requirements, roles, features, data rules). `spec/INTERFACE_SPEC.md` is the design system. `spec/DEPLOYMENT.md` and `spec/STORAGE.md` are operational runbooks. Read `apps/*/AGENTS.md`, `convex/AGENTS.md`, and `packages/*/AGENTS.md` for surface-specific conventions.
+`spec/SRS.md` is the single source of truth for product behaviour (requirements, roles, features, data rules). `spec/INTERFACE_SPEC.md` is the design system. `spec/DEPLOYMENT.md`, `spec/STORAGE.md`, and `spec/BACKUPS.md` are operational runbooks. Read `apps/*/AGENTS.md`, `convex/AGENTS.md`, and `packages/*/AGENTS.md` for surface-specific conventions.
 
 ## Commands
 
@@ -148,6 +148,7 @@ A push to `main` deploys Convex to staging and publishes an EAS OTA update to th
 - [spec/INTERFACE_SPEC.md](spec/INTERFACE_SPEC.md): the "Kingdom Radiant" design system — tokens, typography, components
 - [spec/DEPLOYMENT.md](spec/DEPLOYMENT.md): how each surface goes from commit to running environment
 - [spec/STORAGE.md](spec/STORAGE.md): Cloudflare R2 provisioning and usage
+- [spec/BACKUPS.md](spec/BACKUPS.md): backup automation, retention, and the restore procedure
 - [apps/admin/AGENTS.md](apps/admin/AGENTS.md): web admin portal, Next.js on Cloudflare, commands and deploy notes
 - [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md): Expo app, EAS variants, OTA vs native build gotchas
 - [convex/AGENTS.md](convex/AGENTS.md): backend conventions, authz helpers, seeds and migrations

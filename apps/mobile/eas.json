@@ -40,8 +40,8 @@
       },
       "env": {
         "APP_VARIANT": "production",
-        "EXPO_PUBLIC_CONVEX_URL": "https://REPLACE_WITH_PRODUCTION.convex.cloud",
-        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://REPLACE_WITH_PRODUCTION.convex.site"
+        "EXPO_PUBLIC_CONVEX_URL": "https://superb-dog-305.eu-west-1.convex.cloud",
+        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://superb-dog-305.eu-west-1.convex.site"
       }
     }
   },

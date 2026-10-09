@@ -1,0 +1,81 @@
+name: Backups
+
+# F5-05 (spec 0001 / scope row 2): regular restorable backups for both
+# environments, plus an on-demand trigger for "one before any risky change".
+#
+#   - schedule   : runs daily, every environment, no action needed
+#   - workflow_dispatch : run by hand right before something risky
+#     (gh workflow run backup.yml, or the Actions tab's "Run workflow" button)
+#
+# Each job: `convex export` a full snapshot (schema + every table, including
+# component tables — Better Auth, R2 metadata, push notifications; this repo
+# has no Convex-native file storage to also pull in, see spec/STORAGE.md), then
+# upload it to the klt-cyber-backups R2 bucket, keyed by environment and
+# timestamp. That bucket has a 30-day expiry lifecycle rule — see
+# spec/BACKUPS.md for the full picture, including the restore procedure
+# (proven against a real production export on 2026-10-09).
+#
+# pnpm version is read from the root package.json `packageManager` field —
+# see deploy-staging.yml's comment for why not to also pass `version:`.
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  backup-staging:
+    name: Backup Convex (staging)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+
+      - name: Export staging snapshot
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: pnpm exec convex export --path staging-backup.zip
+
+      - name: Upload to R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "7c7bd5f0dfd54d6054c44097a4fc8010"
+        run: |
+          TIMESTAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
+          pnpm exec wrangler r2 object put \
+            "klt-cyber-backups/staging/${TIMESTAMP}.zip" \
+            --file staging-backup.zip --remote -y
+
+  backup-production:
+    name: Backup Convex (production)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+
+      - name: Export production snapshot
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY_PROD }}
+        run: pnpm exec convex export --path production-backup.zip
+
+      - name: Upload to R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "7c7bd5f0dfd54d6054c44097a4fc8010"
+        run: |
+          TIMESTAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
+          pnpm exec wrangler r2 object put \
+            "klt-cyber-backups/production/${TIMESTAMP}.zip" \
+            --file production-backup.zip --remote -y
