@@ -3,11 +3,11 @@
 > **Status:** Staging and production both have real, separate homes as of
 > 2026-10-07: separate Convex projects, separate Cloudflare Workers, separate
 > EAS Update channels, and (as of 2026-10-08, credentials verified live) separate
-> R2 buckets. Production's first deploy was driven by hand, not CI — see §4.4.
-> Daily backups with a proven restore procedure exist for both environments as
-> of 2026-10-09 (`spec/BACKUPS.md`), pending one Cloudflare API token to
-> activate. One thing left genuinely open: merging the drafted production
-> deploy workflow (§4.4). Track these against `docs/scope/scope.md` row 2 /
+> R2 buckets. As of 2026-10-09, production deploys automatically too —
+> `deploy-prod.yml` is live on the `prod` branch and has run for real (§4.4).
+> Daily backups with a proven restore procedure exist for both environments
+> (`spec/BACKUPS.md`), pending one Cloudflare API token to activate. Track
+> remaining items against `docs/scope/scope.md` row 2 /
 > spec 0001, not as finished here.
 
 This document is the source of truth for how the three deployable surfaces of
@@ -49,11 +49,11 @@ Cloudflare's Git integration do it.
 | Surface | How it deploys | Trigger | Mechanism | Notes |
 |---|---|---|---|---|
 | **Convex backend (staging)** | `pnpm exec convex deploy` | push to `main` | GitHub Actions job `convex-deploy` in `.github/workflows/deploy-staging.yml` | `CONVEX_DEPLOY_KEY` encodes the target deployment — no `--prod` flag needed |
-| **Convex backend (production)** | `pnpm exec convex deploy` | push to `prod` | Drafted, **not yet active**: `.github/workflows/deploy-prod.yml` exists on `main` but hasn't been merged onto `prod`, so pushes to `prod` don't trigger it yet | First production deploy (2026-10-07) was run by hand — see §4.4 |
+| **Convex backend (production)** | `pnpm exec convex deploy` | push to `prod` | GitHub Actions job `convex-deploy` in `.github/workflows/deploy-prod.yml` | **Automatic since 2026-10-09.** First deploy (2026-10-07) was by hand before this existed — see §4.4 |
 | **Web admin (staging)** | `opennextjs-cloudflare build && … deploy` | push to `main` | **Cloudflare Workers Builds** native Git integration, project `klt-cyber` (NOT in the GitHub workflow) | Root dir `apps/admin`; OpenNext adapter on Workers (see §6) |
 | **Web admin (production)** | `opennextjs-cloudflare build && … deploy` | push to `prod` | **Cloudflare Workers Builds** native Git integration, separate project `klt-cyber-prod` | Live since 2026-10-07; see §6 |
 | **Mobile JS (OTA, staging)** | `eas update --branch staging` | push to `main` | GitHub Actions job `mobile-update` | Re-bundles JS only; no app-store round trip. See §5 |
-| **Mobile JS (OTA, production)** | `eas update --branch production` | push to `prod` | Drafted in `deploy-prod.yml`, **not yet active** (same gap as Convex production above) | The `production` channel is bound to the `production` branch on EAS, but nothing auto-publishes to it until the workflow is merged onto `prod` |
+| **Mobile JS (OTA, production)** | `eas update --branch production` | push to `prod` | GitHub Actions job `mobile-update` in `deploy-prod.yml` | **Automatic since 2026-10-09.** The `production` channel is bound to the `production` branch on EAS |
 | **Mobile binary** | `eas build --profile preview` / `production` | **manual / deferred** | EAS Build | Not yet run for either variant. Profiles are configured (`apps/mobile/eas.json`) |
 
 The **web admin is deliberately not a job in the GitHub workflow**, for either
@@ -174,11 +174,26 @@ time**, the job injects them from GitHub repository **variables**
 must stay equal to the `eas.json` `preview` profile `env` (which governs binary
 builds) or a binary and its OTA updates would point at different backends.
 
-### 4.4 Production — provisioned, mostly manual for now
+### 4.4 Production
 
-Everything below happened on 2026-10-07, driven by hand rather than CI, on
-purpose: get a real production environment proven out before wiring up
-automation. The pieces:
+Provisioned by hand on 2026-10-07 on purpose — get a real environment proven
+out before wiring up automation — then automated on 2026-10-09 once that
+proved solid. Both deploy paths now work the same way as staging's (§4.1–4.3):
+push to `prod` → `deploy-prod.yml` runs `convex deploy` (via
+`CONVEX_DEPLOY_KEY_PROD`) and `eas update --branch production` (via the
+`EXPO_PUBLIC_CONVEX_URL_PRODUCTION` / `..._SITE_URL_PRODUCTION` repo
+variables), same as `deploy-staging.yml` does for `main`. First run: PR #55,
+2026-10-09, both jobs green (`convex-deploy` 37s, `mobile-update` 2m18s),
+verified live afterward (admin root 200, Convex `/version` responding, a real
+query returning data).
+
+Web admin deploys the same way staging's does — Cloudflare Workers Builds
+watching the repo directly, not a GitHub Actions job (§4.2, §6) — just a
+second, separate Cloudflare project (`klt-cyber-prod`) watching `prod` instead
+of `main`.
+
+The one-time provisioning that got production to a deployable state in the
+first place:
 
 - **Convex.** New project `klt-cyber-prod` (not a second deployment on the
   existing `klt-cyber` project). Its `prod` deployment is `superb-dog-305`
@@ -199,11 +214,12 @@ automation. The pieces:
   project). Settings mirror §6, with the Worker name intentionally diverging
   (see §1) and the build-vs-runtime variable gotcha in §3.3. Live at
   `https://klt-cyber-prod.luswataandrew190.workers.dev`.
-- **Mobile.** `apps/mobile/eas.json`'s `production` profile now points at
-  `superb-dog-305` instead of the `REPLACE_WITH_PRODUCTION` placeholders. The
-  EAS `production` channel exists and is bound to the `production` branch, but
-  nothing publishes to that branch yet (see the gap below) — no production OTA
-  has shipped, and no production binary has been built.
+- **Mobile.** `apps/mobile/eas.json`'s `production` profile points at
+  `superb-dog-305` instead of the old `REPLACE_WITH_PRODUCTION` placeholders.
+  The EAS `production` channel exists and is bound to the `production` branch;
+  `deploy-prod.yml` has published to it for real (above). No production
+  *binary* has been built yet, though — OTA only so far, same gap §5 names for
+  every environment.
 - **Seeding.** `seed:clans`, `seed:departments`, `seed:bootstrapSystemAdmin`
   (after `luswataandrew190@gmail.com` signed up through the live production
   site once, so the mutation had a `users` row to promote), `seed:facilityDrafts`,
@@ -211,15 +227,10 @@ automation. The pieces:
   idempotent, all confirmed via direct read after running. No sample-data seed
   (`churchAdminSeed`, `contentSeed`) has been run against production, nor
   should it be — both are guarded to refuse there.
-- **Not yet done:** `.github/workflows/deploy-prod.yml` exists on `main`
-  (mirrors `deploy-staging.yml`: push to `prod` → `convex deploy` with
-  `CONVEX_DEPLOY_KEY_PROD`, plus an EAS Update publish to the `production`
-  channel using `EXPO_PUBLIC_CONVEX_URL_PRODUCTION` / `..._SITE_URL_PRODUCTION`
-  repo variables) but has **not been merged onto `prod`** — a push-triggered
-  workflow only runs if it exists on the branch receiving the push. Until it's
-  carried over by a future `main` → `prod` promotion (or added to `prod`
-  directly), every production deploy is manual, the same way the first one
-  was. The two `..._PRODUCTION` repo variables it needs don't exist yet either.
+- ~~Not yet done: `deploy-prod.yml` merged onto `prod`~~ — **done 2026-10-09**,
+  PR #55. A push-triggered workflow only runs if it exists on the branch
+  receiving the push, so merging that PR (bringing `prod` to current `main`)
+  was itself the push that fired it for the first time — see above.
 
 ---
 
@@ -287,10 +298,11 @@ settings shape, different production branch and Worker name:
 | Secret / key | Lives in | Used by |
 |---|---|---|
 | `CONVEX_DEPLOY_KEY` | GitHub repo **secrets** | `convex-deploy` job, `deploy-staging.yml` (staging) |
-| `CONVEX_DEPLOY_KEY_PROD` | GitHub repo **secrets** | `convex-deploy` job, `deploy-prod.yml` (production) — workflow drafted but not yet active, see §4.4 |
+| `CONVEX_DEPLOY_KEY_PROD` | GitHub repo **secrets** | `convex-deploy` job, `deploy-prod.yml` (production) — active since 2026-10-09 |
 | `EXPO_TOKEN` | GitHub repo **secrets** | `mobile-update` job, both workflows |
 | `EXPO_PUBLIC_CONVEX_URL_STAGING` / `..._SITE_URL_STAGING` | GitHub repo **variables** (non-secret) | `mobile-update` OTA bundle, staging |
-| `EXPO_PUBLIC_CONVEX_URL_PRODUCTION` / `..._SITE_URL_PRODUCTION` | **not created yet** — needed before `deploy-prod.yml` can publish | `mobile-update` OTA bundle, production |
+| `EXPO_PUBLIC_CONVEX_URL_PRODUCTION` / `..._SITE_URL_PRODUCTION` | GitHub repo **variables** (non-secret), set 2026-10-09 | `mobile-update` OTA bundle, production |
+| `CLOUDFLARE_API_TOKEN` | **not created yet** — needed before `backup.yml` can upload (`spec/BACKUPS.md`) | `wrangler r2 object put`, both backup jobs |
 | `BETTER_AUTH_SECRET` | **Convex** deployment env, per deployment | Better Auth (backend) |
 | `SITE_URL`, `SEED_ADMIN_EMAIL`, `GOOGLE_CLIENT_ID/SECRET` | **Convex** deployment env, per deployment | `convex/auth.ts`, `convex/seed.ts` |
 | `R2_*` | **Convex** deployment env — set on staging, **not set on production** (§3.4, §10) | `@convex-dev/r2` component |
@@ -313,7 +325,7 @@ No secret values are ever committed to the repo.
 | Convex production deployment | `https://superb-dog-305.eu-west-1.convex.cloud` (site: `https://superb-dog-305.eu-west-1.convex.site`) |
 | Convex production dashboard | `https://dashboard.convex.dev/t/luswata-andrew-16694/klt-cyber-prod/superb-dog-305` |
 | GitHub Actions workflow (staging) | `.github/workflows/deploy-staging.yml` (trigger: push to `main`) |
-| GitHub Actions workflow (production) | `.github/workflows/deploy-prod.yml` (trigger: push to `prod` — drafted, not yet active, see §4.4) |
+| GitHub Actions workflow (production) | `.github/workflows/deploy-prod.yml` (trigger: push to `prod` — active since 2026-10-09, see §4.4) |
 | EAS project | `6f0edc13-211f-441d-a389-8f8996676df4` (owner `landrian12`, slug `klt-cyber`) |
 
 ---
@@ -352,10 +364,15 @@ sight once the rest of the document reads as finished.
   proven, not just documented — see `spec/BACKUPS.md`. It can't actually run
   yet: it needs a `CLOUDFLARE_API_TOKEN` repo secret that doesn't exist, so
   every run will fail at the upload step until that's created.
-- **`deploy-prod.yml` isn't active yet.** Drafted on `main`, not merged onto
-  `prod` — see §4.4. Every production deploy is manual until it is.
+- ~~`deploy-prod.yml` isn't active~~ — **done 2026-10-09**, PR #55. Both
+  production deploy paths (Convex, mobile OTA) are now automatic on push to
+  `prod`, same as staging. See §4.4.
 - **Google OAuth isn't configured on production.** Optional — email/password
   sign-in works either way (`convex/auth.ts`).
-- **No production mobile binary.** OTA-only so far, and OTA itself isn't
-  automated yet either (above) — nothing has shipped to the `production`
-  channel at all, by hand or otherwise.
+- **No production mobile binary.** A production OTA has shipped (above), but
+  no binary build has been run — `eas build --profile production` is still
+  manual / deferred, same as staging's.
+- **R2 object contents aren't backed up**, only their metadata (via the
+  Convex export) — see `spec/BACKUPS.md`'s "What's still open".
+- **`CLOUDFLARE_API_TOKEN` doesn't exist yet**, so `backup.yml` can't upload
+  anywhere despite being live — see `spec/BACKUPS.md`.
