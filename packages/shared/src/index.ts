@@ -6,3 +6,6 @@ export * from './enums/weeklyPrograms';
 export * from './schemas/auth';
 export * from './schemas/profile';
 export * from './schemas/roles';
+export * from './schemas/dateKey';
+export * from './schemas/devotionals';
+export * from './schemas/pastEvents';
