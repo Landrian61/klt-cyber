@@ -27,6 +27,9 @@ import {
 } from "@/components/shadcn/card";
 import { Skeleton } from "@/components/shadcn/skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { useIsOffline } from "@/hooks/use-is-offline";
 import { CountUp } from "@/components/motion/CountUp";
 import { Reveal } from "@/components/motion/Reveal";
 import {
@@ -117,6 +120,7 @@ function fullName(p: {
 }
 
 export function AdminDashboardClient() {
+  const isOffline = useIsOffline();
   const pending = useAuthQuery(api.memberProfiles.listPendingVerifications);
   const roster = useAuthQuery(
     api.departmentMemberships.listDepartmentMembers,
@@ -221,8 +225,19 @@ export function AdminDashboardClient() {
     })) ?? []),
   ];
 
+  // AC-2: useQuery/useAuthQuery keeps serving their last known value while
+  // offline, so once anything has loaded, offline only needs a banner — the
+  // full offline ErrorState is reserved for the no-data-yet case.
+  const hasAnyData = [pending, roster, programs, announcements, upcomingEvents, recentActivity, analytics, profileRoster, clans, departments].some(
+    (v) => v !== undefined,
+  );
+  if (isOffline && !hasAnyData) {
+    return <ErrorState cause="offline" />;
+  }
+
   return (
     <div className="space-y-6">
+      {isOffline && <OfflineBanner />}
       <header className="space-y-1">
         <Heading as="h1" size="2xl">
           Dashboard

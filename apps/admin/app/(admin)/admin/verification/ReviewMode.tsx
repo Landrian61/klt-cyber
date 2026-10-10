@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
+import * as Sentry from "@sentry/nextjs";
 import { PhoneCall } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
@@ -29,12 +30,8 @@ import { Separator } from "@/components/shadcn/separator";
 import { Skeleton } from "@/components/shadcn/skeleton";
 import { Textarea } from "@/components/shadcn/textarea";
 import { EmptyState } from "@/components/ui/EmptyState";
-import {
-  errorMessage,
-  fullName,
-  toFormState,
-  type EditableFields,
-} from "./shared";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { fullName, toFormState, type EditableFields } from "./shared";
 import { ProfileDetails } from "./ProfileDetails";
 
 // No "send back" action here by design — convex/schema.ts documents that
@@ -59,7 +56,7 @@ export function ReviewMode({
 
   const [form, setForm] = useState<EditableFields | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (profile) setForm(toFormState(profile));
@@ -80,7 +77,7 @@ export function ReviewMode({
 
   function advance() {
     setForm(null);
-    setError(null);
+    setError(false);
     if (index + 1 >= total) {
       onExit();
     } else {
@@ -98,7 +95,7 @@ export function ReviewMode({
   async function handleApprove() {
     if (!currentId || !form || !profile) return;
     setBusy(true);
-    setError(null);
+    setError(false);
     const dirty = JSON.stringify(form) !== JSON.stringify(toFormState(profile));
     try {
       await verifyProfile({
@@ -120,7 +117,10 @@ export function ReviewMode({
       });
       advance();
     } catch (err) {
-      setError(errorMessage(err));
+      // A rejected mutation in an event handler never reaches a React error
+      // boundary — reported directly from the catch that already exists here.
+      Sentry.captureException(err);
+      setError(true);
     } finally {
       setBusy(false);
     }
@@ -272,9 +272,7 @@ export function ReviewMode({
                   </Field>
                 </div>
 
-                {error && (
-                  <p className="font-body text-sm text-error">{error}</p>
-                )}
+                {error && <ErrorState cause="generic" retry={handleApprove} />}
               </CardContent>
               <CardFooter className="flex flex-col gap-3 p-0 pt-2">
                 <Button

@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
+import * as Sentry from "@sentry/nextjs";
 import { PhoneCall } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Avatar } from "@/components/shadcn/avatar";
 import { Badge } from "@/components/shadcn/badge";
 import { Button } from "@/components/shadcn/button";
@@ -39,12 +41,7 @@ import {
 import { Separator } from "@/components/shadcn/separator";
 import { Skeleton } from "@/components/shadcn/skeleton";
 import { Textarea } from "@/components/shadcn/textarea";
-import {
-  errorMessage,
-  fullName,
-  toFormState,
-  type EditableFields,
-} from "../shared";
+import { fullName, toFormState, type EditableFields } from "../shared";
 import { ProfileDetails } from "../ProfileDetails";
 
 export function ProfileReviewClient({ profileId }: { profileId: string }) {
@@ -57,7 +54,7 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
 
   const [form, setForm] = useState<EditableFields | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -97,7 +94,7 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
   async function handleVerify() {
     if (!form) return;
     setBusy(true);
-    setError(null);
+    setError(false);
     try {
       await verifyProfile({
         profileId: id,
@@ -119,7 +116,10 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
       setConfirmOpen(false);
       router.push("/admin/verification");
     } catch (err) {
-      setError(errorMessage(err));
+      // A rejected mutation in an event handler never reaches a React error
+      // boundary — reported directly from the catch that already exists here.
+      Sentry.captureException(err);
+      setError(true);
     } finally {
       setBusy(false);
     }
@@ -263,7 +263,7 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
           <Card className="gap-4 p-6">
             {error && (
               <CardContent className="p-0">
-                <p className="font-body text-sm text-error">{error}</p>
+                <ErrorState cause="generic" retry={handleVerify} />
               </CardContent>
             )}
             <CardFooter className="p-0">
