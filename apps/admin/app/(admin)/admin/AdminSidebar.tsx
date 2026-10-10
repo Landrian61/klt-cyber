@@ -202,6 +202,44 @@ const NAV_GROUPS: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        href: "/admin/devotionals",
+        label: "Devotionals",
+        icon: (
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 6.5C10.5 5.3 8.3 4.7 5 4.7v13c3.3 0 5.5.6 7 1.8 1.5-1.2 3.7-1.8 7-1.8v-13c-3.3 0-5.5.6-7 1.8Z" />
+            <path d="M12 6.5v13" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/past-events",
+        label: "Past events",
+        icon: (
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+            <path d="m10.5 9.5 4 2.5-4 2.5Z" />
+          </svg>
+        ),
+      },
     ],
   },
   {
@@ -272,7 +310,8 @@ export function AdminSidebar() {
               {group.items.map((item) => {
                 const active = item.exact
                   ? pathname === item.href
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  : pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
