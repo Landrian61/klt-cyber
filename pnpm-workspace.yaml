@@ -14,6 +14,8 @@ allowBuilds:
   # pnpm v11 returns non-zero on an un-acknowledged build script; allow it so
   # the EAS Update job's `pnpm add eas-cli` exits cleanly. No-op outside CI.
   dtrace-provider: true
+  # Downloads the platform CLI binary needed for source-map uploads (Build plan step 8).
+  '@sentry/cli': true
 overrides:
   convex: "1.42.3"
 patchedDependencies:

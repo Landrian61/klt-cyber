@@ -21,8 +21,11 @@ import { AnimatedSplash } from '@/components/animated-splash';
 // module load. ensureDefaultAndroidChannel is called explicitly below.
 import { ensureDefaultAndroidChannel } from '@/lib/notification-setup';
 import { resolveDeepLinkHref } from '@/lib/notification-links';
+import { initSentry, Sentry } from '@/lib/sentry';
+import { useMyAccount } from '@/hooks/use-my-account';
 
 SplashScreen.preventAutoHideAsync();
+initSentry();
 
 export const unstable_settings = {
   initialRouteName: '(auth)',
@@ -36,6 +39,14 @@ function RootLayoutInner() {
   // Hoisted above the auth-dependent effect below; also used by the
   // Stack.Protected guards further down.
   const isAuthenticated = !!session;
+
+  // Sentry.setUser wiring (AC-4): only the user's own `users._id`, never an
+  // email or name. Clears on sign out so a Sentry event never carries a
+  // stale identity from a previous session on the same device.
+  const { user } = useMyAccount();
+  useEffect(() => {
+    Sentry.setUser(user ? { id: user._id } : null);
+  }, [user]);
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(colors.surfaceLowest);
@@ -161,7 +172,7 @@ function RootLayoutInner() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded] = useFonts({
     // Kingdom Radiant — Bricolage Grotesque (display), Plus Jakarta Sans
     // (UI/body), Spline Sans Mono (amounts). All Google Fonts, OFL.
@@ -193,3 +204,8 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+
+// AC-1: catches React render-time crashes anywhere in the tree as Sentry's
+// own safety net, on top of (not a replacement for) Home's explicit
+// ErrorState-wired boundary below.
+export default Sentry.wrap(RootLayout);

@@ -18,6 +18,8 @@ import { FontFamily, Spacing, Radius, Duration, AmbientShadowUp } from '@/consta
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
+import { Sentry } from '@/lib/sentry';
 import { api } from '@/lib/api';
 import { useWizardDraft, LEADERSHIP_LEVELS, type WizardDraft } from './_layout';
 import type { DobValue } from '@/components/ui/dob-field';
@@ -259,7 +261,7 @@ export default function ReviewStep() {
   const departments = useQuery(api.departments.listDepartments);
 
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(false);
 
   // Required fields are enforced step-by-step, but guard here too in case the
   // screen is reached out of order.
@@ -277,15 +279,18 @@ export default function ReviewStep() {
 
   const handleSubmit = async () => {
     if (!args) return;
-    setError('');
+    setError(false);
     setSubmitting(true);
     try {
       await submitProfile(args);
       // The pending screen reads getMyProfileStatus, now pending_verification.
       router.replace('/profile-completion/pending');
-    } catch {
+    } catch (err) {
+      // A rejected mutation in an event handler never reaches a React error
+      // boundary — reported directly from the catch that already exists here.
+      Sentry.captureException(err);
       setSubmitting(false);
-      setError('We could not submit your profile. Please try again.');
+      setError(true);
     }
   };
 
@@ -406,7 +411,7 @@ export default function ReviewStep() {
           )}
         </Section>
 
-        {error ? <Text style={[styles.error, { color: Colors.error }]}>{error}</Text> : null}
+        {error ? <ErrorState cause="generic" retry={handleSubmit} /> : null}
       </Animated.ScrollView>
 
       <View
@@ -500,13 +505,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     textAlign: 'right',
-  },
-  error: {
-    fontFamily: FontFamily.body,
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginTop: Spacing[2],
   },
   footer: {
     paddingHorizontal: Spacing[5],

@@ -1,7 +1,7 @@
 import {
   ScrollView, View, Text, Pressable, Image, StyleSheet,
 } from 'react-native';
-import { useMemo } from 'react';
+import { Component, useMemo, useState, type ReactNode } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
@@ -12,10 +12,14 @@ import { FontFamily, Spacing, Radius, Duration, ShadowE2 } from '@/constants/the
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { Cover } from '@/components/ui/cover';
+import { ErrorState } from '@/components/ui/error-state';
+import { OfflineBanner } from '@/components/ui/offline-banner';
 import { ProfileCompletionBanner } from '@/components/profile-completion-banner';
 import { NotificationPermissionBanner } from '@/components/notification-permission-banner';
 import { useMyAccount } from '@/hooks/use-my-account';
+import { useIsOffline } from '@/hooks/use-is-offline';
 import { getGreetingName } from '@/lib/user-display';
+import { Sentry } from '@/lib/sentry';
 import { api, type Doc } from '@/lib/api';
 import {
   formatEventDate, formatClockTime, formatTime, dayName,
@@ -192,11 +196,49 @@ function EventCard({
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
+// Dependency-free final fallback (AC-4): if `ErrorState` itself (or Sentry's
+// own fallback machinery) throws while rendering, this still renders —
+// plain React Native primitives only, nothing that could itself fail.
+class FinalFallbackBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text>Something went wrong. Please restart the app.</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function HomeScreen() {
+  const [attempt, setAttempt] = useState(0);
+
+  return (
+    <FinalFallbackBoundary>
+      <Sentry.ErrorBoundary
+        key={attempt}
+        fallback={() => <ErrorState cause="generic" retry={() => setAttempt((a) => a + 1)} />}
+      >
+        <HomeScreenContent />
+      </Sentry.ErrorBoundary>
+    </FinalFallbackBoundary>
+  );
+}
+
+function HomeScreenContent() {
   const Colors = useThemeColors();
   const router = useRouter();
   const { user } = useMyAccount();
   const greetingName = getGreetingName(user);
+  const isOffline = useIsOffline();
 
   const themes = useQuery(api.themes.getCurrentThemes);
   const featured = useQuery(api.events.listFeaturedEvents);
@@ -213,8 +255,22 @@ export default function HomeScreen() {
 
   const upcomingEvents = useQuery(api.events.listUpcomingEvents, { limit: 8 });
 
+  // AC-2: Convex's useQuery keeps serving its last known value while
+  // offline, so once anything has loaded, offline only needs a banner — the
+  // full offline ErrorState is reserved for the no-data-yet case.
+  const hasAnyData = [themes, featured, calendar, upcomingEvents].some((v) => v !== undefined);
+  if (isOffline && !hasAnyData) {
+    return <ErrorState cause="offline" />;
+  }
+
   return (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+      {isOffline && (
+        <View style={styles.offlineBannerWrap}>
+          <OfflineBanner />
+        </View>
+      )}
+
       {/* Greeting */}
       <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.greeting}>
         <Text style={[styles.name, { color: Colors.onSurface }]}>
@@ -286,6 +342,10 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
+  offlineBannerWrap: {
+    paddingHorizontal: Spacing[5],
+    paddingTop: Spacing[3],
+  },
   greeting: {
     paddingTop: Spacing[5],
     paddingLeft: Spacing[8],

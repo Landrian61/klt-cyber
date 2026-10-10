@@ -84,6 +84,16 @@ export default (): ExpoConfig => {
       "@react-native-community/datetimepicker",
       "expo-secure-store",
       "expo-notifications",
+      [
+        "@sentry/react-native/expo",
+        {
+          // EU data residency org — sentry-cli needs the region host, not the
+          // generic sentry.io one, for uploads to route correctly.
+          url: "https://de.sentry.io/",
+          organization: "klt-cyber",
+          project: "klt-cyber-mobile",
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
