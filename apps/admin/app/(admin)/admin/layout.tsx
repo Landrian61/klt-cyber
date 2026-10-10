@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "@/lib/api";
 import { SidebarInset, SidebarProvider } from "@/components/shadcn/sidebar";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminTopBar } from "./AdminTopBar";
 
@@ -17,7 +18,22 @@ export default async function AdminLayout({
 }: {
   children: ReactNode;
 }) {
-  const account = await fetchAuthQuery(api.profile.getMyAccount);
+  // fetchAuthQuery is a real network round trip (AC-2): if Convex is
+  // unreachable (offline), that must not crash the route, but it also must
+  // not redirect to sign-in (the caller may well be authenticated, just
+  // offline) or render the shell (the role check never actually ran). Render
+  // the same offline state the rest of this feature uses instead, granting
+  // nothing.
+  let account;
+  try {
+    account = await fetchAuthQuery(api.profile.getMyAccount);
+  } catch {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-surface-low">
+        <ErrorState cause="offline" />
+      </div>
+    );
+  }
   if (!account) redirect("/sign-in");
 
   const { user, activeRoles, hasAdministrationAccess } = account;

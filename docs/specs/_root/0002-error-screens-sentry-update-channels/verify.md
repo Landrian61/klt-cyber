@@ -25,11 +25,28 @@ _Steps derived from the three child specs' acceptance criteria. `/check verify` 
 
 ## Commands
 
-- [ ] `pnpm exec tsc --noEmit -p apps/mobile/tsconfig.json` → passes → general correctness
-- [ ] `pnpm exec tsc --noEmit -p apps/admin/tsconfig.json` → passes → general correctness
-- [ ] `pnpm exec tsc --noEmit -p convex/tsconfig.json` → passes → general correctness
-- [ ] `pnpm --filter mobile lint` → passes → general correctness
-- [ ] `pnpm --filter admin build` → completes, including the Sentry-wrapped `next.config.ts` → general correctness
+- [x] `pnpm exec tsc --noEmit -p apps/mobile/tsconfig.json` → passes → general correctness (verified 2026-10-10, exit 0)
+- [x] `pnpm exec tsc --noEmit -p apps/admin/tsconfig.json` → passes → general correctness (verified 2026-10-10, exit 0, ignoring a pre-existing unrelated stale `.next/dev/types` cache error for a not-yet-built `/media-admin` route)
+- [x] `pnpm exec tsc --noEmit -p convex/tsconfig.json` → passes → general correctness (verified 2026-10-10, exit 0)
+- [x] `pnpm --filter mobile lint` → passes → general correctness (verified 2026-10-10, exit 0)
+- [x] `pnpm --filter admin build` → completes, including the Sentry-wrapped `next.config.ts` → general correctness (verified 2026-10-10 from a clean `.next` cache; Turbopack build + typecheck + static generation all green, 24 routes listed)
+
+**Also run (real evidence, not originally itemized here):**
+- `pnpm run test:convex` → 29/29 tests passing (verified 2026-10-10)
+- `convex/lib/sentry.ts`'s `reportError`, exercised directly via a scratch script (no Convex runtime needed — the function only touches `fetch`/`process.env`): unset DSN resolves cleanly with no throw (1ms); malformed DSN resolves cleanly with no throw (0ms); a well-formed-but-unreachable DSN resolves cleanly with no throw after a real failed network attempt (186ms) — **AC-5 (backend) directly proven**, not inferred from code reading. A fourth call with the real `klt-cyber-backend` DSN got **HTTP 200** back from `https://o4512225003896832.ingest.de.sentry.io/api/4512231283163217/envelope/` — the envelope genuinely reached and was accepted by Sentry's real ingest endpoint (**AC-3 backend delivery mechanism proven live**; whether it renders correctly in the Sentry UI wasn't checked — no dashboard read access from this session).
+- `pnpm admin` (real dev server, not just a build): booted clean in 2.5s, `GET /sign-in` → **200**, `GET /admin` → **307** (middleware correctly redirects unauthenticated access) — proves the app boots and serves real requests with the Sentry/error-screens wiring compiled in; dev server console had no errors/warnings beyond a pre-existing deprecation notice.
+
+**Real defects found live, fixed in code (2026-10-10):**
+
+1. The developer ran the real admin dev server offline (signed in) and hit Next's raw crash page ("This page couldn't load") instead of our `ErrorState`, with a logged `TypeError: fetch failed` / `ENOTFOUND <deployment>.convex.site`. Root cause: `app/layout.tsx`'s `RootLayout` called `getToken()` (a real network round trip, cookie → Convex JWT) directly, unwrapped, in the root server layout that wraps every route — so when that fetch failed, it crashed before React ever reached our `Sentry.ErrorBoundary`/offline handling, which only exist further down the tree. Fixed by wrapping the call in try/catch, falling back to `undefined` (the same first-paint state an unauthenticated visitor already takes).
+2. Retesting, the developer still hit the same crash on `/admin`. Root cause: `app/(admin)/admin/layout.tsx` (and its twin `app/(admin)/system-admin/layout.tsx`) do their own unwrapped `fetchAuthQuery(api.profile.getMyAccount)` server-side on every render — this is the per-module role-authority check (AGENTS.md: "Route-group layouts ... verify the caller holds the specific role type"), so it can't simply fall back to "no account" (that would incorrectly bounce an already-authenticated, merely offline user to `/sign-in`) or render the shell past a check that never ran. Fixed by catching the network failure specifically and rendering `<ErrorState cause="offline" />` with no sidebar/shell — nothing privileged renders, no redirect, no fabricated auth state.
+3. Separately, once the crash was gone, the dashboard was observed stuck on skeleton placeholders indefinitely while offline rather than showing the offline banner or full `ErrorState`. Root cause: `useIsOffline` (web) relied only on `navigator.onLine`, which reflects whether the OS reports a network interface up, not whether the backend is actually reachable (e.g. Wi-Fi connected to a router with no uplink still reports `true`) — exactly the gap AC-2 is meant to cover. Fixed by combining it with Convex's own `useConvexConnectionState().isWebSocketConnected` (the authoritative "can we reach the backend" signal), debounced 2.5s so a normal fast cold-connect doesn't flash the offline state on every page load.
+
+4. `areas-of-service/page.tsx` had the same unguarded pattern three times over (its own account fetch, a departments-membership fetch, and a conditional clans fetch). Fixed the same way: each wrapped individually in its own try/catch returning the same offline fallback, taking care the redirect() calls that exist between them stay outside any try (redirect works by throwing a special digest-tagged error Next's router catches — a blanket try/catch around the whole function would have swallowed those too, silently breaking every redirect in this page).
+
+`departments/[departmentId]/page.tsx` was deliberately left alone: it already has a try/catch (redirects to `/areas-of-service` on any error), so it was never the crashing pattern. Its single catch doesn't distinguish "offline" from "genuinely not authorized" (Convex masks server-thrown error messages in production, so message-matching to tell them apart would be fragile), but now that `areas-of-service/page.tsx` handles its own offline case correctly, an offline user redirected here lands somewhere that shows the right state anyway — just via one extra hop.
+
+All four fixes confirmed via `pnpm exec tsc --noEmit -p apps/admin/tsconfig.json` and `pnpm --filter admin build` (both exit 0, 24 routes), and a live `pnpm admin` boot check (`/sign-in` → 200, `/admin` → 307, unchanged from before). **Not re-verified live**: re-triggering the original offline-while-signed-in scenario end-to-end, to confirm the dashboard now shows the offline banner/`ErrorState` rather than just "no longer crashing" or "no longer stuck," needs the same login + real-connectivity-toggle access this session doesn't have — still the developer's to confirm.
 
 ## Acceptance-criteria coverage
 

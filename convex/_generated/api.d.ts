@@ -30,6 +30,7 @@ import type * as lib_environment from "../lib/environment.js";
 import type * as lib_media from "../lib/media.js";
 import type * as lib_recurrence from "../lib/recurrence.js";
 import type * as lib_reminders from "../lib/reminders.js";
+import type * as lib_sentry from "../lib/sentry.js";
 import type * as memberProfiles from "../memberProfiles.js";
 import type * as notifications from "../notifications.js";
 import type * as plannedActivities from "../plannedActivities.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "lib/media": typeof lib_media;
   "lib/recurrence": typeof lib_recurrence;
   "lib/reminders": typeof lib_reminders;
+  "lib/sentry": typeof lib_sentry;
   memberProfiles: typeof memberProfiles;
   notifications: typeof notifications;
   plannedActivities: typeof plannedActivities;

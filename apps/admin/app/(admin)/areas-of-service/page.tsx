@@ -1,11 +1,22 @@
 import { redirect } from "next/navigation";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { api, type Id } from "@/lib/api";
+import { ErrorState } from "@/components/ui/ErrorState";
 import {
   AreasOfServiceClient,
   type DepartmentTile,
   type ClanTile,
 } from "./AreasOfServiceClient";
+
+// AC-2: a network failure on any of the fetchAuthQuery calls below (offline)
+// must not crash the render or redirect as if unauthorized/unauthenticated —
+// show the same offline state the rest of this feature uses instead. Module
+// scope: static markup, no per-request data.
+const OFFLINE_FALLBACK = (
+  <div className="flex min-h-dvh items-center justify-center bg-background">
+    <ErrorState cause="offline" />
+  </div>
+);
 
 // The only Area of Service with a dedicated portal today — every other
 // department gets the generic read-only overview page until its own portal
@@ -24,7 +35,12 @@ function departmentHref(departmentName: string, departmentId: Id<"departments">)
 // is reached from inside a department (System Admin Sidebar/TopBar "Areas of
 // Service" link goes the other way) or by direct navigation to /system-admin.
 export default async function AreasOfServicePage() {
-  const account = await fetchAuthQuery(api.profile.getMyAccount);
+  let account;
+  try {
+    account = await fetchAuthQuery(api.profile.getMyAccount);
+  } catch {
+    return OFFLINE_FALLBACK;
+  }
   if (!account) redirect("/sign-in");
 
   const { user, activeRoles } = account;
@@ -44,8 +60,13 @@ export default async function AreasOfServicePage() {
   // Null if the session lapsed between the account fetch and this one — treat
   // it as "no departments", which falls through to the /unauthorized redirect
   // below rather than crashing the render.
-  const myDepartments =
-    (await fetchAuthQuery(api.departmentMemberships.listMyDepartments)) ?? [];
+  let myDepartments;
+  try {
+    myDepartments =
+      (await fetchAuthQuery(api.departmentMemberships.listMyDepartments)) ?? [];
+  } catch {
+    return OFFLINE_FALLBACK;
+  }
   const departments: DepartmentTile[] = myDepartments.map(({ department }) => ({
     id: department._id,
     name: department.name,
@@ -62,8 +83,12 @@ export default async function AreasOfServicePage() {
         .map((role) => role.clanId as Id<"clans">)
     ),
   ];
-  const clans =
-    clanIds.length > 0 ? await fetchAuthQuery(api.clans.listClans) : [];
+  let clans;
+  try {
+    clans = clanIds.length > 0 ? await fetchAuthQuery(api.clans.listClans) : [];
+  } catch {
+    return OFFLINE_FALLBACK;
+  }
   const clanNameById = new Map(clans.map((clan) => [clan._id, clan.name]));
 
   const clanTiles: ClanTile[] = activeRoles
