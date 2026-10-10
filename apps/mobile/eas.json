@@ -27,7 +27,9 @@
       "env": {
         "APP_VARIANT": "preview",
         "EXPO_PUBLIC_CONVEX_URL": "https://polite-lemming-570.convex.cloud",
-        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://polite-lemming-570.convex.site"
+        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://polite-lemming-570.convex.site",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://a1b6355e14f4bff5a0b5efbec27cbcf3@o4512225003896832.ingest.de.sentry.io/4512225028538448",
+        "EXPO_PUBLIC_SENTRY_ENVIRONMENT": "staging"
       }
     },
     "production": {
@@ -41,7 +43,9 @@
       "env": {
         "APP_VARIANT": "production",
         "EXPO_PUBLIC_CONVEX_URL": "https://superb-dog-305.eu-west-1.convex.cloud",
-        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://superb-dog-305.eu-west-1.convex.site"
+        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://superb-dog-305.eu-west-1.convex.site",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://a1b6355e14f4bff5a0b5efbec27cbcf3@o4512225003896832.ingest.de.sentry.io/4512225028538448",
+        "EXPO_PUBLIC_SENTRY_ENVIRONMENT": "production"
       }
     }
   },

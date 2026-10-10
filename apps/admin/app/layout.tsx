@@ -41,7 +41,18 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const token = await getToken();
+  // getToken() does a real network round trip (cookie -> Convex JWT exchange).
+  // If that's unreachable (offline, DNS failure, Convex down), it must not
+  // crash the whole app before React even mounts our error/offline UI — fall
+  // back to no pre-fetched token, which is the same first-paint path an
+  // unauthenticated visitor already takes; the client resolves auth from
+  // there once connectivity returns.
+  let token: string | undefined;
+  try {
+    token = await getToken();
+  } catch {
+    token = undefined;
+  }
 
   return (
     <html

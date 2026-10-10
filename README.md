@@ -106,6 +106,11 @@ Each app reads its own git-ignored `.env.local`, pointing at the deployment from
 EXPO_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
 EXPO_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
 APP_VARIANT=development   # matches the dev client build (com.kltcyber.church.dev)
+# Sentry (spec 0002-sentry-observability.md) — leave EXPO_PUBLIC_SENTRY_DSN
+# unset locally; an unset DSN disables reporting (enabled: !!DSN), which is
+# what you want for a dev client.
+EXPO_PUBLIC_SENTRY_DSN=
+EXPO_PUBLIC_SENTRY_ENVIRONMENT=development
 ```
 
 **`apps/admin/.env.local`**
@@ -113,9 +118,32 @@ APP_VARIANT=development   # matches the dev client build (com.kltcyber.church.de
 NEXT_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
 NEXT_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
+# Sentry (spec 0002-sentry-observability.md) — leave NEXT_PUBLIC_SENTRY_DSN
+# unset locally; an unset DSN disables reporting (enabled: !!DSN).
+NEXT_PUBLIC_SENTRY_DSN=
+NEXT_PUBLIC_SENTRY_ENVIRONMENT=development
 ```
 
 See each app's README for app-specific details: [mobile](apps/mobile/README.md) · [admin](apps/admin/README.md).
+
+### Sentry (error and crash reporting)
+
+Mobile, admin web, and the Convex backend (actions only — see
+`docs/specs/_root/0002-error-screens-sentry-update-channels/0002-sentry-observability.md`)
+report errors to Sentry once provisioned. Until a Sentry org and its three
+projects (`klt-cyber-mobile`, `klt-cyber-admin`, `klt-cyber-backend`) exist
+and a DSN is filled in per surface, every SDK stays disabled
+(`enabled: !!DSN`) — there is nothing to configure to keep working without
+Sentry, only to turn it on:
+
+```bash
+pnpm exec convex env set SENTRY_DSN "https://<key>@<org>.ingest.sentry.io/<project>"
+pnpm exec convex env set SENTRY_ENVIRONMENT "development"
+```
+
+Set `EXPO_PUBLIC_SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` in each app's
+`.env.local` the same way, and see `apps/mobile/eas.json` / Cloudflare's
+Build variables for the staging/production equivalents.
 
 ### 6. Seed initial data (optional)
 

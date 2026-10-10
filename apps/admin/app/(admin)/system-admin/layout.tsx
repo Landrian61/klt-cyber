@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "@/lib/api";
 import { SidebarInset, SidebarProvider } from "@/components/shadcn/sidebar";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { SystemAdminSidebar } from "./SystemAdminSidebar";
 import { SystemAdminTopBar } from "./SystemAdminTopBar";
 
@@ -16,7 +17,19 @@ export default async function SystemAdminLayout({
 }: {
   children: ReactNode;
 }) {
-  const account = await fetchAuthQuery(api.profile.getMyAccount);
+  // See the twin comment in app/(admin)/admin/layout.tsx (AC-2): a network
+  // failure here must render the offline state, not redirect or render the
+  // shell past an authority check that never ran.
+  let account;
+  try {
+    account = await fetchAuthQuery(api.profile.getMyAccount);
+  } catch {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-surface-low">
+        <ErrorState cause="offline" />
+      </div>
+    );
+  }
   if (!account) redirect("/sign-in");
 
   const { user, activeRoles } = account;
