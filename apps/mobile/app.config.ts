@@ -55,9 +55,16 @@ export default (): ExpoConfig => {
     scheme,
     userInterfaceStyle: "light",
     newArchEnabled: true,
-    runtimeVersion: {
-      policy: "fingerprint",
-    },
+    // TEMPORARY for the development profile only: `fingerprint` policy
+    // (still used for preview/production, see AGENTS.md) fails EAS builds
+    // since GOOGLE_SERVICES_JSON became an EAS-managed env var on 2026-09-24
+    // — the CLI's local fingerprint precomputation (no access to that
+    // dashboard var) and the remote build worker's (resolves it to an
+    // absolute eas-environment-secrets path) permanently disagree. A static
+    // string sidesteps it for local dev-client use, where OTA compatibility
+    // matching doesn't apply anyway (Metro serves JS live). Revisit properly
+    // (exclude the file from fingerprint tracking) as separate, unrelated work.
+    runtimeVersion: IS_DEV ? "development" : { policy: "fingerprint" },
     updates: {
       url: "https://u.expo.dev/6f0edc13-211f-441d-a389-8f8996676df4",
     },
