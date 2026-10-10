@@ -118,6 +118,12 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           EXPO_PUBLIC_CONVEX_URL: ${{ vars.EXPO_PUBLIC_CONVEX_URL_PRODUCTION }}
           EXPO_PUBLIC_CONVEX_SITE_URL: ${{ vars.EXPO_PUBLIC_CONVEX_SITE_URL_PRODUCTION }}
+          # Not a secret — Sentry DSNs are meant to be public, embedded in the
+          # client bundle like the Convex URLs above. Same DSN as staging: one
+          # klt-cyber-mobile Sentry project, only the environment tag differs.
+          EXPO_PUBLIC_SENTRY_DSN: https://a1b6355e14f4bff5a0b5efbec27cbcf3@o4512225003896832.ingest.de.sentry.io/4512225028538448
+          EXPO_PUBLIC_SENTRY_ENVIRONMENT: production
+          EXPO_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
         run: |
           # Subject line only, length-capped. `eas update --message` is a short
           # changelog label shown in the Expo dashboard — a full commit body
@@ -127,4 +133,25 @@ jobs:
           SUBJECT="${SUBJECT:0:180}"
           # Merge commits and amends can leave this empty; fall back to the SHA.
           [ -n "$SUBJECT" ] || SUBJECT="${GITHUB_SHA:0:7}"
-          eas update --branch production --message "$SUBJECT" --non-interactive
+          # Exported separately (rather than letting `eas update` bundle
+          # in-place) so the same build output can be handed to the source
+          # map uploader below — same debug IDs either way (spec 0002-sentry-observability.md AC-7).
+          npx expo export --platform all --output-dir dist
+          eas update --branch production --message "$SUBJECT" --non-interactive --skip-bundler-cache
+
+      # AC-7: resolves a Sentry stack trace on a production OTA update back
+      # to real source. Skips quietly (never fails the deploy) until the
+      # provisioning step (0002-sentry-observability.md Build plan step 1)
+      # has actually produced a token.
+      - name: Upload source maps to Sentry
+        working-directory: apps/mobile
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: klt-cyber
+          SENTRY_PROJECT: klt-cyber-mobile
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "SENTRY_AUTH_TOKEN not set yet — skipping source map upload."
+            exit 0
+          fi
+          npx sentry-expo-upload-sourcemaps dist
