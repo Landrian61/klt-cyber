@@ -1,7 +1,7 @@
 # 0002. Error screens, Sentry, update channels
 
 **Date**: 2026-10-09
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

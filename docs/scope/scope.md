@@ -72,11 +72,11 @@ Track A. Make failure visible and recoverable instead of a blank screen or crash
 - [x] Design it (spec): `/architect error screens, Sentry, update channels`
 Spec: [0002](../specs/_root/0002-error-screens-sentry-update-channels/index.md) (umbrella: error screens, Sentry observability, update channels — the last one already shipped, documented not designed)
 - [ ] Build it: `/develop error screens, Sentry, update channels`
-  - [ ] Backend Sentry: provisioning, the action-only `reportError` helper, Convex env vars — satisfies AC-3 (0002-sentry-observability.md)
-  - [ ] Error screens shared components: `ErrorState`, the connectivity hook, the dependency free fallback, the retry cooldown — satisfies AC-1, AC-2, AC-4, AC-5 (0002-error-screens.md)
-  - [ ] Sentry SDK init on mobile and web, user context wiring — satisfies AC-1, AC-2, AC-4, AC-5, AC-6 (0002-sentry-observability.md)
-  - [ ] Wire the four reference screens (boundary for query paths, upgraded local catch for mutation paths) — satisfies AC-1, AC-3, AC-6 (0002-error-screens.md), AC-1, AC-2 (0002-sentry-observability.md)
-  - [ ] CI config (source maps, release tagging per surface) and a mobile dev-client rebuild/preview APK build to verify the new native dependencies — satisfies AC-7 (0002-sentry-observability.md)
+  - [x] Backend Sentry: provisioning, the action-only `reportError` helper, Convex env vars — satisfies AC-3 (0002-sentry-observability.md). Sentry org + 3 projects provisioned, `SENTRY_DSN`/`SENTRY_ENVIRONMENT` set on the dev deployment; staging/production deployments still need the same `convex env set` once those deployments are live.
+  - [x] Error screens shared components: `ErrorState`, the connectivity hook, the dependency free fallback, the retry cooldown — satisfies AC-1, AC-2, AC-4, AC-5 (0002-error-screens.md)
+  - [x] Sentry SDK init on mobile and web, user context wiring — satisfies AC-1, AC-2, AC-4, AC-5, AC-6 (0002-sentry-observability.md)
+  - [x] Wire the four reference screens (boundary for query paths, upgraded local catch for mutation paths) — satisfies AC-1, AC-3, AC-6 (0002-error-screens.md), AC-1, AC-2 (0002-sentry-observability.md)
+  - [ ] CI config (source maps, release tagging per surface) and a mobile dev-client rebuild/preview APK build to verify the new native dependencies — satisfies AC-7 (0002-sentry-observability.md). All config now in place: `SENTRY_AUTH_TOKEN` as a GitHub Actions secret and an EAS (preview + production) environment variable, Cloudflare Build variables/secrets on both `klt-cyber` and `klt-cyber-prod`, mobile DSNs/org/project wired into `eas.json`/`app.config.ts`/both deploy workflows. Only the dev-client rebuild + "Build (preview APK)" run itself remains — deliberately held off (costs EAS build time), not blocked.
 - [ ] Verify it: `/check verify error screens, Sentry, update channels`
 - [ ] Test it: `/test error screens, Sentry, update channels`
 - [ ] Document it: `/document error screens, Sentry, update channels`
