@@ -4,7 +4,9 @@ import {
   type GenericCtx,
 } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
+import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth/minimal";
+import { APP_URL_SCHEMES } from "@klt-cyber/shared";
 import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
@@ -58,7 +60,7 @@ const googleConfigured =
 export const createAuth = (ctx: GenericCtx<DataModel>) =>
   betterAuth({
     baseURL: process.env.CONVEX_SITE_URL,
-    trustedOrigins: [siteUrl],
+    trustedOrigins: [siteUrl, ...APP_URL_SCHEMES],
     database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,
@@ -72,5 +74,11 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
           },
         }
       : undefined,
-    plugins: [crossDomain({ siteUrl }), convex({ authConfig })],
+    // 30 days, refreshed daily on use; shared by the mobile app and the web
+    // admin portal since both run through this one config. Spec 0003.
+    session: {
+      expiresIn: 60 * 60 * 24 * 30,
+      updateAge: 60 * 60 * 24,
+    },
+    plugins: [expo(), crossDomain({ siteUrl }), convex({ authConfig })],
   });

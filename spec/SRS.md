@@ -286,7 +286,7 @@ Members are told plainly, when claiming a department or choosing a clan, that th
 | F1-06 | As a user, I delete my account from inside the app. | Roles revoked, rosters left, personal data **anonymized** (not erased). The audit log keeps an anonymized record. A public web page for deletion requests is also published. Confirmation email sent. | New |
 | F1-07 | As anyone viewing a person, I see the same name and photo everywhere. | One source of truth: profile changes update the account copy. | Change |
 | F1-08 | As a user, I sign out, and my device stops receiving my notifications. | | Built |
-| F1-09 | As a signed-in user, reopening the app takes me straight to Home. | Session persists until sign-out, account deletion or long-period expiry. Today the app asks for sign-in on every launch; the cause must be investigated, not assumed. **Launch blocker.** | New |
+| F1-09 | As a signed-in user, reopening the app takes me straight to Home. | Session persists until sign-out, account deletion or long-period expiry, the same rule the web portal follows (NF-10). Today the app asks for sign-in on every launch; the cause must be investigated, not assumed. **Launch blocker.** | New |
 | F1-10 | As a new user, I receive a welcome email after signing up. | Via Resend. | New |
 | F1-11 | As any user, my "last active" time is recorded when I use the app or portal. | Feeds active-user counts (F3-17). | New |
 
@@ -1290,7 +1290,7 @@ Channels: **P** push, **I** in-app centre, **B** web bell, **E** email, **S** SM
 | NF-07 | Poor connections | Lists load progressively; uploads (recordings, photos) resume after interruption. |
 | NF-08 | Phone browsers | Every web portal page is usable on a phone-sized screen (S1-04), with priority on clan, Hospitality, Media and department pages. |
 | NF-09 | Background audio | Radio continues with the screen locked or the app in the background, with lock-screen controls. |
-| NF-10 | Sessions | The mobile app keeps users signed in until sign-out, deletion or long expiry (F1-09). |
+| NF-10 | Sessions | Both the mobile app and the web portal keep users signed in until sign-out, deletion or long expiry, 30 days of inactivity (F1-09). |
 | NF-11 | Time zone | All schedules, reminders, deadlines and "open now" use East Africa Time (Kampala). |
 | NF-12 | Language | English only. |
 | NF-13 | Observability | Errors and crashes reported to Sentry from mobile, web and backend. |

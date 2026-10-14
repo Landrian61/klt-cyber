@@ -14,7 +14,7 @@ _This scope transcribes the already-agreed `spec/BUILD-PLAN.md` into the living 
 | 1 | Spec and repo cleanup | Week 1 | existing |
 | 2 | Staging and production environments, safe seeding, backups | Week 1 | in-progress |
 | 3 | Error screens, Sentry, update channels | Week 1 | in-progress |
-| 4 | Stay signed in | Week 1 | planned |
+| 4 | Stay signed in | Week 1 | in-progress |
 | 5 | Remove suspension and web sign-up; move System Admin pages into Administration | Week 1 | in-progress |
 | 22 | Devotionals and past events | Week 1 | planned |
 | 6 | Department-scoped permissions, portal access rules, permission tests | Week 2 | in-progress |
@@ -82,12 +82,20 @@ Spec: [0002](../specs/_root/0002-error-screens-sentry-update-channels/index.md) 
 - [ ] Document it: `/document error screens, Sentry, update channels`
 SRS: F5-06, F5-07, F5-08, M1-04, NF-06, NF-13, NF-14
 
-### 4. Stay signed in · planned
+### 4. Stay signed in · in-progress
 Track A. Stop asking ministers to sign in on every launch — a launch blocker.
-**Done when:** F1-09: reopening the app goes straight to Home; session persists until sign-out, deletion, or long-period expiry (NF-10). The cause of today's forced re-sign-in is investigated, not assumed.
-- [ ] Design it (spec): `/architect stay signed in`
-Spec: not yet captured
-SRS: F1-09, NF-10
+**Done when:** F1-09: reopening the app goes straight to Home; session persists until sign-out, deletion, or long-period expiry (NF-10, now also covering the web portal). The cause of today's forced re-sign-in is investigated, not assumed.
+- [x] Design it (spec): `/architect stay signed in`
+Spec: [0003](../specs/_root/0003-stay-signed-in/index.md)
+- [ ] Build it: `/develop stay signed in`
+  - [ ] Diagnose the real cold launch cause on the preview APK (force stop and relaunch, check the keychain and the `/get-session` response), satisfies AC-1
+  - [x] Fix the confirmed sign out bug: register the `expo()` server plugin, widen `trustedOrigins` via a shared `packages/shared` constant, satisfies AC-3, and AC-1 if the diagnosis points there
+  - [x] Set the 30 day rolling session policy shared by mobile and the web portal, and correct the stale plugin comment, satisfies AC-2, AC-6
+  - [ ] Roll out to dev, staging and production, then verify by hand on both surfaces, satisfies AC-1 (if resolved), AC-2, AC-3, AC-4, AC-5, AC-6
+- [ ] Verify it: `/check verify stay signed in`
+- [ ] Test it: `/test stay signed in`
+- [ ] Document it: `/document stay signed in`
+SRS: F1-09, NF-10 · code: `convex/auth.ts`, `packages/shared/src/constants/appSchemes.ts`, `apps/mobile/app.config.ts`, `apps/mobile/lib/auth.ts`
 
 ### 5. Remove suspension and web sign-up; move System Admin pages into Administration · in-progress · GA
 Track A. Retire two features nobody should have (suspension, web sign-up) and fold the System Admin's separate area into Administration, since it never needed its own portal.

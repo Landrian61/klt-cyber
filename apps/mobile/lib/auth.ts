@@ -12,8 +12,8 @@ import * as SecureStore from 'expo-secure-store';
   same-origin proxy. The `expoClient` plugin handles that cross-origin flow
   natively: it persists the session cookie in expo-secure-store and replays it
   on each request, and tags requests with an `expo-origin` header that the
-  backend's crossDomain plugin recognises. Session tokens therefore live ONLY
-  in the secure keychain — never AsyncStorage or memory.
+  backend's `expo()` server plugin recognises. Session tokens therefore live
+  ONLY in the secure keychain — never AsyncStorage or memory.
 
   OAuth redirects use the app `scheme` declared in app.config.ts ("kltcyber",
   or "kltcyber-dev" / "kltcyber-preview" for the non-production variants).

@@ -25,6 +25,7 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
+    "@better-auth/expo": "1.6.11",
     "@convex-dev/better-auth": "^0.12.2",
     "@convex-dev/expo-push-notifications": "^0.3.1",
     "@convex-dev/r2": "^0.10.2",
