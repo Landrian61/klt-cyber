@@ -57,7 +57,10 @@ export default function SignInScreen() {
   const handleGoogle = async () => {
     setError('');
     setGoogleLoading(true);
-    const { error: googleError } = await authClient.signIn.social({ provider: 'google' });
+    const { error: googleError } = await authClient.signIn.social({
+      provider: 'google',
+      requestSignUp: true,
+    });
     if (googleError) {
       setGoogleLoading(false);
       setError(googleError.message ?? 'Google sign-in is unavailable right now.');

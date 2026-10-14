@@ -13,7 +13,6 @@ const badgeVariants = cva(
         visitor: "bg-royal-light text-royal",
         member: "bg-primary-light text-primary",
         role: "bg-royal-light text-royal",
-        suspended: "bg-error-light text-error",
         rejected: "bg-error-light text-error",
         pending: "bg-warning-light text-warning",
         verified: "bg-success-light text-success",

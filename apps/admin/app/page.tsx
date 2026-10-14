@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandBackdrop } from "@/components/brand/BrandBackdrop";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { GoldCta, GhostCta } from "@/components/brand/BrandCta";
+import { GoldCta } from "@/components/brand/BrandCta";
 import { Stagger } from "@/components/motion/Stagger";
 import { TextReveal } from "@/components/motion/TextReveal";
 
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 // Public landing — the front door to the portal. Full-viewport Kingdom Radiant
 // canvas (the same heaven-blue + gold atmosphere as the mobile welcome screen),
 // with the shared Church_Theme photograph beneath. Nothing here is gated; the
-// CTAs hand off to /sign-in and /sign-up.
+// CTA hands off to /sign-in — there is no web sign up (spec 0004).
 export default function LandingPage() {
   return (
     <main className="h-dvh w-full overflow-hidden">
@@ -62,7 +62,6 @@ export default function LandingPage() {
 
               <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
                 <GoldCta href="/sign-in">Enter the Portal</GoldCta>
-                <GhostCta href="/sign-up">Create an account</GhostCta>
               </div>
 
               <p className="mt-12 max-w-md font-display text-sm italic leading-relaxed text-white/55">

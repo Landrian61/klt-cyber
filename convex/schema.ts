@@ -40,7 +40,10 @@ export default defineSchema({
     // Base consumer-lifecycle role only. Administrative authority (system_admin,
     // clan_elder, ...) lives in `roleAssignments` — see DATA_MODEL.md Increment 2.
     role: v.union(v.literal("visitor"), v.literal("member")),
-    status: v.union(v.literal("active"), v.literal("suspended")),
+    // Widened to optional ahead of removal (spec 0004): every writer has
+    // stopped setting it and convex/userStatusMigration.ts backfills it away.
+    // Narrow this back out once every environment's migration is clean.
+    status: v.optional(v.union(v.literal("active"), v.literal("suspended"))),
     profileCompleted: v.boolean(),
   })
     .index("by_authId", ["authId"])

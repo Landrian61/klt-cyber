@@ -39,6 +39,7 @@ import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
 import type * as themes from "../themes.js";
 import type * as uploads from "../uploads.js";
+import type * as userStatusMigration from "../userStatusMigration.js";
 import type * as users from "../users.js";
 import type * as weeklyPrograms from "../weeklyPrograms.js";
 import type * as weeklyProgramsMigration from "../weeklyProgramsMigration.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   themes: typeof themes;
   uploads: typeof uploads;
+  userStatusMigration: typeof userStatusMigration;
   users: typeof users;
   weeklyPrograms: typeof weeklyPrograms;
   weeklyProgramsMigration: typeof weeklyProgramsMigration;

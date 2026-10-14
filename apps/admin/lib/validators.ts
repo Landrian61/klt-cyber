@@ -5,9 +5,9 @@
 
   `@klt-cyber/shared` is a flat `export *` barrel (packages/shared/src/index.ts),
   so importing one schema pulls zod's whole runtime — ~64 KB gzip — into the
-  importing route's entry graph. On /sign-in and /sign-up that is the first
-  thing any user ever downloads, on the coldest possible cache, to validate an
-  email and a password.
+  importing route's entry graph. On /sign-in that is the first thing any user
+  ever downloads, on the coldest possible cache, to validate an email and a
+  password.
 
   Importing inside the submit handler moves it off first paint, but would then
   stall the click on a slow connection. So: `warm()` on first field interaction

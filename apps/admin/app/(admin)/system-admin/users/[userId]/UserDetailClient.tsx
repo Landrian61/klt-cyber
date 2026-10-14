@@ -13,7 +13,6 @@ import { displayName, formatDate, formatRelativeTime } from "@/lib/format";
 import { describeActivity } from "@/lib/activity";
 import { CardHeading, capitalize, type UserDetail } from "./shared";
 import { RolesCard } from "./RolesCard";
-import { AccountActionsCard } from "./AccountActionsCard";
 
 // The richest screen of the module: bio + roles + admin actions, all fed by
 // one reactive query — every mutation on the right rail refreshes the whole
@@ -63,7 +62,6 @@ export function UserDetailClient({ userId }: { userId: string }) {
         {/* ── Right column: the action panel ──────────────────────────── */}
         <div className="space-y-6">
           <RolesCard detail={detail} userId={userId as Id<"users">} />
-          <AccountActionsCard detail={detail} userId={userId as Id<"users">} />
         </div>
       </div>
     </div>
@@ -104,9 +102,6 @@ function HeaderCard({ detail }: { detail: UserDetail }) {
         </p>
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Badge variant={user.role}>{capitalize(user.role)}</Badge>
-          {user.status === "suspended" && (
-            <Badge variant="suspended">Suspended</Badge>
-          )}
         </div>
         <p className="font-body text-xs text-outline">
           {profile !== null && (
@@ -334,13 +329,6 @@ function DetailSkeleton() {
               <Pulse className="h-4 w-full" />
               <Pulse className="h-4 w-3/4" />
               <Pulse className="h-9 w-full" />
-            </div>
-          </Card>
-          <Card className="p-6">
-            <Pulse className="h-5 w-32" />
-            <div className="mt-4 space-y-3">
-              <Pulse className="h-8 w-40" />
-              <Pulse className="h-3 w-full" />
             </div>
           </Card>
         </div>

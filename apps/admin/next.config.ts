@@ -10,6 +10,17 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname, "../.."),
   },
   transpilePackages: ["@klt-cyber/shared"],
+  // There is no web sign up (spec 0004) — a bookmarked or linked /sign-up
+  // lands on sign in instead of a 404.
+  async redirects() {
+    return [
+      {
+        source: "/sign-up",
+        destination: "/sign-in",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 // Uploads source maps during `next build` so a Sentry stack trace resolves

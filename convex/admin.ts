@@ -1,70 +1,8 @@
-import { mutation, query } from "./_generated/server";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import {
-  getSystemAdminOrNull,
-  logActivity,
-  requireSystemAdmin,
-} from "./lib/authz";
-
-// ── Core logic (auth-free; the acting admin is passed in) ────────────────────
-
-export async function suspendUserCore(
-  ctx: MutationCtx,
-  caller: Doc<"users">,
-  userId: Id<"users">,
-  note?: string
-) {
-  const target = await ctx.db.get(userId);
-  if (!target) throw new Error("Target user not found");
-  await ctx.db.patch(userId, { status: "suspended" });
-  await logActivity(ctx, {
-    actorUserId: caller._id,
-    action: "user.suspended",
-    targetType: "users",
-    targetId: userId,
-    ...(note ? { metadata: { note } } : {}),
-  });
-  return { ok: true as const };
-}
-
-export async function unsuspendUserCore(
-  ctx: MutationCtx,
-  caller: Doc<"users">,
-  userId: Id<"users">
-) {
-  const target = await ctx.db.get(userId);
-  if (!target) throw new Error("Target user not found");
-  await ctx.db.patch(userId, { status: "active" });
-  await logActivity(ctx, {
-    actorUserId: caller._id,
-    action: "user.unsuspended",
-    targetType: "users",
-    targetId: userId,
-  });
-  return { ok: true as const };
-}
-
-// ── Registered functions (auth wrappers) ─────────────────────────────────────
-
-/** Suspend a user (reversible). system_admin only. Optional audit note. */
-export const suspendUser = mutation({
-  args: { userId: v.id("users"), note: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const caller = await requireSystemAdmin(ctx);
-    return await suspendUserCore(ctx, caller, args.userId, args.note);
-  },
-});
-
-/** Reactivate a suspended user. system_admin only. */
-export const unsuspendUser = mutation({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const caller = await requireSystemAdmin(ctx);
-    return await unsuspendUserCore(ctx, caller, args.userId);
-  },
-});
+import { getSystemAdminOrNull } from "./lib/authz";
 
 // ── Dashboard read queries (system_admin only) ───────────────────────────────
 // Pure reads powering the /system-admin dashboard. All direct-count / in-memory
@@ -82,7 +20,6 @@ function publicUser(user: Doc<"users">) {
     lastName: user.lastName,
     profilePictureUrl: user.profilePictureUrl,
     role: user.role,
-    status: user.status,
   };
 }
 
@@ -171,9 +108,6 @@ export const listUsers = query({
       v.object({
         role: v.optional(v.union(v.literal("visitor"), v.literal("member"))),
         hasAnyRole: v.optional(v.boolean()),
-        status: v.optional(
-          v.union(v.literal("active"), v.literal("suspended"))
-        ),
         profileCompleted: v.optional(v.boolean()),
       })
     ),
@@ -207,9 +141,6 @@ export const listUsers = query({
       rolesByUser.set(assignment.userId, held);
     }
 
-    if (args.filter?.status !== undefined) {
-      users = users.filter((user) => user.status === args.filter!.status);
-    }
     if (args.filter?.profileCompleted !== undefined) {
       users = users.filter(
         (user) => user.profileCompleted === args.filter!.profileCompleted
@@ -393,8 +324,6 @@ export const getDashboardStats = query({
       pendingVerifications: profiles.filter(
         (profile) => profile.profileStatus === "pending_verification"
       ).length,
-      suspendedUsers: users.filter((user) => user.status === "suspended")
-        .length,
     };
   },
 });

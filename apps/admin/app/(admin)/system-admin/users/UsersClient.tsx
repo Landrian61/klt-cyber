@@ -47,7 +47,6 @@ export function UsersClient() {
   const q = searchParams.get("q") ?? "";
   const role = searchParams.get("role") ?? "";
   const roles = searchParams.get("roles") ?? "";
-  const status = searchParams.get("status") ?? "";
   const profile = searchParams.get("profile") ?? "";
   const sortParam = searchParams.get("sort");
   const sort =
@@ -92,8 +91,6 @@ export function UsersClient() {
       role: role === "visitor" || role === "member" ? role : undefined,
       hasAnyRole:
         roles === "with" ? true : roles === "without" ? false : undefined,
-      status:
-        status === "active" || status === "suspended" ? status : undefined,
       profileCompleted:
         profile === "complete"
           ? true
@@ -106,7 +103,7 @@ export function UsersClient() {
     pageSize: PAGE_SIZE,
   });
 
-  const hasActiveFilters = Boolean(q || role || roles || status || profile);
+  const hasActiveFilters = Boolean(q || role || roles || profile);
 
   const columns: Column<UserRow>[] = [
     {
@@ -136,16 +133,13 @@ export function UsersClient() {
       ),
     },
     {
-      key: "status",
-      header: "Status",
+      key: "roles",
+      header: "Roles",
       render: (row) => (
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant={row.user.role}>
             {row.user.role === "member" ? "Member" : "Visitor"}
           </Badge>
-          {row.user.status === "suspended" && (
-            <Badge variant="suspended">Suspended</Badge>
-          )}
           {row.activeRoles.map((assignment) => (
             <Badge key={assignment._id} variant="role">
               {roleLabel(assignment.roleType, assignment.clanName)}
@@ -223,16 +217,6 @@ export function UsersClient() {
           ]}
           value={role}
           onChange={(value) => setParams({ role: value })}
-        />
-        <SegmentedFilter
-          ariaLabel="Account status"
-          options={[
-            { value: "", label: "All" },
-            { value: "active", label: "Active" },
-            { value: "suspended", label: "Suspended" },
-          ]}
-          value={status}
-          onChange={(value) => setParams({ status: value })}
         />
         <FilterChip
           selected={roles === "with"}

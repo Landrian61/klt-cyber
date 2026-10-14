@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { loadValidators, warmValidators } from "@/lib/validators";
 import { authClient } from "@/lib/auth";
 import { Card } from "@/components/shadcn/card";
@@ -13,6 +13,15 @@ import { Stagger } from "@/components/motion/Stagger";
 import { TextReveal } from "@/components/motion/TextReveal";
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+function SignInForm() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
@@ -22,6 +31,18 @@ export default function SignInPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // A brand-new Google account from the web is rejected server-side
+  // (disableImplicitSignUp): Better Auth's OAuth callback redirects back here
+  // with `?error=signup_disabled` (see node_modules/better-auth/dist/oauth2/
+  // link-account.mjs), surfaced as a normal form error.
+  useEffect(() => {
+    if (searchParams.get("error") === "signup_disabled") {
+      setFormError(
+        "No account found. Create one in the KLT Cyber mobile app first."
+      );
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,6 +88,7 @@ export default function SignInPage() {
     const { error } = await authClient.signIn.social({
       provider: "google",
       callbackURL: "/areas-of-service",
+      errorCallbackURL: "/sign-in",
     });
     if (error) {
       setGoogleLoading(false);
@@ -147,16 +169,6 @@ export default function SignInPage() {
         <GoogleButton onClick={handleGoogle} disabled={googleLoading}>
           {googleLoading ? "Connecting…" : "Continue with Google"}
         </GoogleButton>
-
-        <p className="mt-7 text-center font-body text-sm text-muted-foreground">
-          New here?{" "}
-          <Link
-            href="/sign-up"
-            className="font-medium text-primary underline underline-offset-2"
-          >
-            Create an account
-          </Link>
-        </p>
       </Stagger>
     </Card>
   );
