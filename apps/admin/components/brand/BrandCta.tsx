@@ -36,28 +36,3 @@ export function GoldCta({
     </Link>
   );
 }
-
-/**
- * Glass ghost CTA — translucent white on the heaven canvas, matching the mobile
- * welcome's secondary button.
- */
-export function GhostCta({
-  className,
-  children,
-  ...props
-}: LinkProps & { children: ReactNode }) {
-  return (
-    <Link
-      className={cn(
-        "inline-flex h-[54px] items-center justify-center rounded-full px-8",
-        "bg-white/10 font-body text-base font-semibold text-white backdrop-blur-sm",
-        "ring-1 ring-white/25 transition-colors duration-200",
-        "hover:bg-white/[0.18] active:scale-[0.98]",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </Link>
-  );
-}

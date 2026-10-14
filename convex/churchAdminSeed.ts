@@ -57,7 +57,6 @@ async function ensureSeedUser(
     firstName: input.firstName,
     lastName: input.lastName,
     role: "visitor",
-    status: "active",
     profileCompleted: false,
   });
 }

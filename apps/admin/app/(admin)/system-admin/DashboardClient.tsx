@@ -147,7 +147,6 @@ export function DashboardClient() {
               <div className="h-24 animate-pulse rounded-lg bg-surface-low" />
             </>
           ) : stats.pendingVerifications === 0 &&
-            stats.suspendedUsers === 0 &&
             membersWithoutRoles === 0 ? (
             <Card className="p-6">
               <EmptyState
@@ -166,16 +165,6 @@ export function DashboardClient() {
                   caption="Member profiles awaiting review"
                   cardClass="bg-warning-light"
                   countClass="text-warning"
-                />
-              )}
-              {stats.suspendedUsers > 0 && (
-                <AttentionCard
-                  href="/system-admin/users?status=suspended"
-                  count={stats.suspendedUsers}
-                  label="Suspended users"
-                  caption="Access currently revoked"
-                  cardClass="bg-crimson-light"
-                  countClass="text-crimson"
                 />
               )}
               {membersWithoutRoles > 0 && (

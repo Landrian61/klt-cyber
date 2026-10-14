@@ -100,9 +100,17 @@ SRS: F1-09, NF-10 · code: `convex/auth.ts`, `packages/shared/src/constants/appS
 ### 5. Remove suspension and web sign-up; move System Admin pages into Administration · in-progress · GA
 Track A. Retire two features nobody should have (suspension, web sign-up) and fold the System Admin's separate area into Administration, since it never needed its own portal.
 **Done when:** F1-05: suspend/reactivate controls, the status field and the badge are removed entirely. F1-02: web sign-up is removed (portal access rules in SRS §3.2). F3-02: no separate System Admin portal — `/system-admin` is removed, its pages move under Administration. F3-03: Administration shows the extra System Admin pages (accounts, roles, audit log, analytics, cost register). A8-01/A8-02: account and role management move with it, moved not rebuilt. A8-03: audit log browsing already works, just needs to move.
-- [ ] Design remaining work (spec): `/architect remove suspension and web sign-up`
-Spec: not yet captured
-SRS: F1-05, F1-02, F3-02, F3-03, A8-01, A8-02, A8-03 · code: `apps/admin/app/(admin)/system-admin/` (activity, content, users — exists, needs relocation)
+- [x] Design it (spec): `/architect remove suspension and web sign-up`
+Spec: [0004](../specs/_root/0004-remove-suspension-web-signup/index.md)
+- [ ] Build it: `/develop remove suspension and web sign-up`
+  - [ ] Remove suspension end to end: a two part schema migration (widen then narrow), drop the backend mutations/filters and the UI, delete the dead shared types, keep historical audit log entries, satisfies F1-05 — PR A code done and its migration run against the real dev deployment (`migrateUserStatus`: 27 docs migrated, `verifyUserStatusMigration`: `staleCount: 0`, confirmed live during `/check verify`); staging and production still need the same run before PR B (narrowing `convex/schema.ts`, deleting `userStatusMigration.ts`) can merge
+  - [x] Close the web sign up gap: `disableImplicitSignUp` on Google plus the two mobile `requestSignUp` call sites, remove the web sign up page and its links, satisfies F1-02 — rebuilt per spec: the first pass gated email/password sign up on the request's `Origin` header, which `/check verify` found Convex strips before any function runs (confirmed with a live test); now gated on an explicit `X-Client-Platform: mobile` header (shared via `packages/shared/src/constants/auth.ts`) that mobile's sign up call sets, same pattern as the Google path. Typecheck/tests/lint all green; live re-verification of AC-6 (and the still-blocked AC-3/AC-4 device checks) is `/check verify`'s to confirm next
+  - [ ] Move Accounts and Audit log from `/system-admin` into Administration behind a System Admin only guard, fold the one surviving dashboard card in (fixing an existing non admin crash along the way), redirect the old URLs, leave Content/Themes in place, satisfies F3-02, F3-03, A8-01, A8-02, A8-03
+- [ ] Verify it: `/check verify remove suspension and web sign-up`
+- [ ] Test it: `/test remove suspension and web sign-up`
+- [ ] Review it (fresh model): `/check review remove suspension and web sign-up`
+- [ ] Document it: `/document remove suspension and web sign-up`
+SRS: F1-05, F1-02, F3-02, F3-03, A8-01, A8-02, A8-03 · code: `apps/admin/app/(admin)/system-admin/` (activity, content, users — exists, needs relocation), `apps/admin/app/(admin)/admin/` (destination), `convex/auth.ts`, `convex/admin.ts`, `convex/schema.ts`, `packages/shared/src/enums/user.ts`
 
 ### 22. Devotionals and past events · planned
 Track B. Give members a daily devotional and a browsable archive of past church events, both run entirely by Media.

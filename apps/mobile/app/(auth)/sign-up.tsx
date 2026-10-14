@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { signUpInputSchema } from '@klt-cyber/shared';
+import { CLIENT_PLATFORM_HEADER, MOBILE_CLIENT_PLATFORM, signUpInputSchema } from '@klt-cyber/shared';
 
 import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
@@ -54,6 +54,14 @@ export default function SignUpScreen() {
       email: parsed.data.email,
       password: parsed.data.password,
       name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+      // Explicit signal that this is the mobile app (spec 0004): the web
+      // admin portal has no sign up page, and the backend rejects this
+      // endpoint without this header.
+      fetchOptions: {
+        headers: {
+          [CLIENT_PLATFORM_HEADER]: MOBILE_CLIENT_PLATFORM,
+        },
+      },
     });
     setLoading(false);
 
@@ -68,7 +76,10 @@ export default function SignUpScreen() {
   const handleGoogle = async () => {
     setError('');
     setGoogleLoading(true);
-    const { error: googleError } = await authClient.signIn.social({ provider: 'google' });
+    const { error: googleError } = await authClient.signIn.social({
+      provider: 'google',
+      requestSignUp: true,
+    });
     if (googleError) {
       setGoogleLoading(false);
       setError(googleError.message ?? 'Google sign-in is unavailable right now.');

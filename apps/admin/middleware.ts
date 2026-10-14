@@ -43,7 +43,9 @@ export default async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
 
   // Public landing page: the front door, open to everyone (signed in or out).
-  // Its CTAs hand off to /sign-in and /sign-up, which do their own routing.
+  // Its CTA hands off to /sign-in, which does its own routing. (/sign-up no
+  // longer exists — a web admin portal user signs in with the account they
+  // already created on mobile — next.config.ts redirects it to /sign-in.)
   if (pathname === "/") {
     return NextResponse.next();
   }
@@ -54,7 +56,7 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname === "/sign-in" || pathname === "/sign-up") {
+  if (pathname === "/sign-in") {
     if (sessionCookie) {
       return NextResponse.redirect(new URL("/areas-of-service", request.url));
     }

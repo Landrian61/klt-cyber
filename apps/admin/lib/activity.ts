@@ -12,7 +12,6 @@ export interface ActivityUser {
   lastName?: string | null;
   profilePictureUrl?: string | null;
   role: "visitor" | "member";
-  status: "active" | "suspended";
 }
 
 export interface ActivityEntry {

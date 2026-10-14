@@ -10,7 +10,6 @@ async function seedAdminUser(t: ReturnType<typeof testConvex>) {
       firstName: "Admin",
       lastName: "Seed",
       role: "visitor",
-      status: "active",
       profileCompleted: false,
     });
   });
