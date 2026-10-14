@@ -136,7 +136,15 @@ jobs:
           # Exported separately (rather than letting `eas update` bundle
           # in-place) so the same build output can be handed to the source
           # map uploader below — same debug IDs either way (spec 0002-sentry-observability.md AC-7).
-          npx expo export --platform all --output-dir dist
+          #
+          # Two explicit --platform flags (CLI has no comma-list syntax, and a
+          # single re-run per platform into the same --output-dir clobbers the
+          # previous platform's bundle rather than merging). ios/android only,
+          # not `all`: this app has no web deployment target (apps/admin is
+          # the web surface), and including `web` hits an unrelated
+          # Metro/source-map-support crash in Expo Router's SSR render step
+          # ("version" is a required argument) during export.
+          npx expo export --platform ios --platform android --output-dir dist
           eas update --branch production --message "$SUBJECT" --non-interactive --skip-bundler-cache
 
       # AC-7: resolves a Sentry stack trace on a production OTA update back
