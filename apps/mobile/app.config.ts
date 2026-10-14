@@ -1,4 +1,13 @@
 import type { ExpoConfig } from "expo/config";
+// Deep import, not the package's `@klt-cyber/shared` barrel: this file is
+// evaluated by the Expo CLI directly under plain Node (sucrase + a bare
+// `require`, no Metro bundler), which cannot resolve the barrel's chain of
+// extensionless TypeScript imports. A leaf .json file is the one artifact
+// Node has always been able to `require` natively, so it's the single
+// source of truth for these three scheme strings; convex/auth.ts imports
+// the same value through the normal barrel instead (its Convex bundler
+// resolves TypeScript fine).
+import appSchemes from "@klt-cyber/shared/src/constants/appSchemes.json";
 
 // Dynamic config (over static app.json) so android.googleServicesFile can
 // resolve to an EAS-hosted file environment variable in cloud builds, where
@@ -24,7 +33,11 @@ const name = IS_DEV
   : IS_PREVIEW
     ? "KLT Cyber (Preview)"
     : "KLT Cyber Church";
-const scheme = IS_DEV ? "kltcyber-dev" : IS_PREVIEW ? "kltcyber-preview" : "kltcyber";
+const scheme = IS_DEV
+  ? appSchemes.development
+  : IS_PREVIEW
+    ? appSchemes.preview
+    : appSchemes.production;
 
 // Declared separately (not inline in the ExpoConfig-typed literal below) so
 // android.navigationBarColor — valid at runtime, absent from

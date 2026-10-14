@@ -1,3 +1,4 @@
+export * from './constants/appSchemes';
 export * from './enums/user';
 export * from './enums/roles';
 export * from './enums/departments';
