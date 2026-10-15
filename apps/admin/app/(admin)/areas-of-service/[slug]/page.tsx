@@ -4,18 +4,11 @@ import { ArrowLeft, Hammer } from "lucide-react";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "@/lib/api";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { slugify } from "@/lib/slugify";
 
 const PORTAL_DEFAULTS: Record<string, string> = {
   media: "/areas-of-service/media/devotionals",
 };
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/['']/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 export default async function DepartmentEntryPage({
   params,

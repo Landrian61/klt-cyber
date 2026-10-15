@@ -15,20 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/shadcn/dropdown-menu";
-
-// Instant Area-of-Service switcher for the portal top bars. Jumps straight to
-// another department's workspace instead of bouncing back through
-// /areas-of-service. Sourced from listMyDepartments, so it shows exactly what
-// the caller may enter: System Admin sees all 13, everyone else sees the
-// departments they're rostered in or hold hod/department_admin for.
-//
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/['']/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+import { slugify } from "@/lib/slugify";
 
 function hrefFor(name: string) {
   return `/areas-of-service/${slugify(name)}`;

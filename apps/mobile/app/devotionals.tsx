@@ -1,10 +1,10 @@
 import {
   View, Text, Pressable, StyleSheet, FlatList, ActivityIndicator,
 } from 'react-native';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
-import { dateKeyFromMs } from '@klt-cyber/shared';
+import { useTodayKey } from '@/hooks/use-today-key';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -82,7 +82,7 @@ export default function DevotionalsScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const todayKey = useMemo(() => dateKeyFromMs(Date.now()), []);
+  const todayKey = useTodayKey();
   const devotionals = useQuery(api.devotionals.listRecent, { todayKey });
   const isLoading = devotionals === undefined;
 

@@ -22,7 +22,7 @@ import {
   formatDate,
   fromDateInput,
   toDateInput,
-} from "../../../admin/_lib/adminContent";
+} from "@/lib/content-helpers";
 
 type Devotional = Doc<"devotionals">;
 

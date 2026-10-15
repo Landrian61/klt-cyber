@@ -5,7 +5,7 @@ import { Component, useMemo, useState, type ReactNode } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
-import { dateKeyFromMs } from '@klt-cyber/shared';
+import { useTodayKey } from '@/hooks/use-today-key';
 import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -202,7 +202,7 @@ const BODY_PREVIEW_LENGTH = 140;
 function DevotionalCard() {
   const Colors = useThemeColors();
   const router = useRouter();
-  const todayKey = useMemo(() => dateKeyFromMs(Date.now()), []);
+  const todayKey = useTodayKey();
   const devotional = useQuery(api.devotionals.getToday, { dateKey: todayKey });
 
   if (devotional === undefined || devotional === null) return null;
