@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import {
   canManageContent,
   getAdministrationAuthorityOrNull,
+  getCurrentUser,
   logActivity,
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
@@ -21,6 +22,7 @@ import { notificationCommon, scheduleReminderEntries } from "./lib/reminders";
 export const listUpcomingEvents = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
+    if (!(await getCurrentUser(ctx))) return null;
     const now = Date.now();
     const events = await ctx.db
       .query("events")
@@ -38,6 +40,7 @@ export const listUpcomingEvents = query({
 export const listFeaturedEvents = query({
   args: {},
   handler: async (ctx) => {
+    if (!(await getCurrentUser(ctx))) return null;
     const now = Date.now();
     const featured = await ctx.db
       .query("events")

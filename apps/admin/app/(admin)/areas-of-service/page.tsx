@@ -5,14 +5,11 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import {
   AreasOfServiceClient,
   type DepartmentTile,
+  type PausedTile,
   type ClanTile,
 } from "./AreasOfServiceClient";
 import { slugify } from "@/lib/slugify";
 
-// AC-2: a network failure on any of the fetchAuthQuery calls below (offline)
-// must not crash the render or redirect as if unauthorized/unauthenticated —
-// show the same offline state the rest of this feature uses instead. Module
-// scope: static markup, no per-request data.
 const OFFLINE_FALLBACK = (
   <div className="flex min-h-dvh items-center justify-center bg-background">
     <ErrorState cause="offline" />
@@ -23,11 +20,6 @@ function departmentHref(departmentName: string) {
   return `/areas-of-service/${slugify(departmentName)}`;
 }
 
-// Post-login landing for every minister with ≥1 Area of Service or clan_elder
-// assignment. System Admin sees every seeded
-// department, full access, no separate System Admin tile here — that portal
-// is reached from inside a department (System Admin Sidebar/TopBar "Areas of
-// Service" link goes the other way) or by direct navigation to /system-admin.
 export default async function AreasOfServicePage() {
   let account;
   try {
@@ -39,37 +31,33 @@ export default async function AreasOfServicePage() {
 
   const { user, activeRoles } = account;
 
-  // The web portal authorization invariant: a portal
-  // session is valid only when the caller holds >=1 active roleAssignments
-  // record. Stated here in its canonical form rather than being inferred from
-  // "no tiles to show" further down — this route previously leaned on
-  // middleware for it, and middleware no longer performs the check.
-  //
-  // Checked before the queries below so a caller who fails it costs one Convex
-  // round trip rather than three.
-  if (activeRoles.length === 0) {
-    redirect("/unauthorized");
-  }
-
-  // Null if the session lapsed between the account fetch and this one — treat
-  // it as "no departments", which falls through to the /unauthorized redirect
-  // below rather than crashing the render.
-  let myDepartments;
+  let hubData;
   try {
-    myDepartments =
-      (await fetchAuthQuery(api.departmentMemberships.listMyDepartments)) ?? [];
+    hubData = await fetchAuthQuery(
+      api.departmentMemberships.listMyDepartmentsForHub
+    );
   } catch {
     return OFFLINE_FALLBACK;
   }
-  const departments: DepartmentTile[] = myDepartments.map(({ department }) => ({
+
+  if (!hubData) {
+    redirect("/unauthorized");
+  }
+
+  const departments: DepartmentTile[] = hubData.active.map(
+    ({ department }) => ({
+      id: department._id,
+      name: department.name,
+      description: department.description ?? null,
+      href: departmentHref(department.name),
+    })
+  );
+
+  const pausedTiles: PausedTile[] = hubData.paused.map(({ department }) => ({
     id: department._id,
     name: department.name,
-    description: department.description ?? null,
-    href: departmentHref(department.name),
   }));
 
-  // clan_elder is a separate, still-valid concept from Areas of Service —
-  // kept as its own section rather than folded into the department grid.
   const clanIds = [
     ...new Set(
       activeRoles
@@ -93,22 +81,24 @@ export default async function AreasOfServicePage() {
       href: `/elder/${role.clanId}`,
     }));
 
-  // Secondary guard, not the invariant: a role-holder should always have at
-  // least one tile (system_admin sees all 13; hod/department_admin are added
-  // to their department's roster by assignRoleCore; clan_elder gets a clan
-  // tile), so reaching here means something is inconsistent. Kept so that
-  // case lands on /unauthorized rather than an empty screen.
-  if (departments.length === 0 && clanTiles.length === 0) {
+  if (
+    departments.length === 0 &&
+    pausedTiles.length === 0 &&
+    clanTiles.length === 0
+  ) {
     redirect("/unauthorized");
   }
 
   const displayName = user.firstName ?? user.email;
-  const isSystemAdmin = activeRoles.some((role) => role.roleType === "system_admin");
+  const isSystemAdmin = activeRoles.some(
+    (role) => role.roleType === "system_admin"
+  );
 
   return (
     <AreasOfServiceClient
       displayName={displayName}
       departments={departments}
+      pausedDepartments={pausedTiles}
       clans={clanTiles}
       isSystemAdmin={isSystemAdmin}
     />

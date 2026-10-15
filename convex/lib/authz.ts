@@ -1,5 +1,6 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { ROSTER_PORTAL_DEPARTMENTS } from "@klt-cyber/shared";
 import { authComponent } from "../auth";
 
 // Shared authorization & audit helpers for the domain functions. Kept out of the
@@ -385,6 +386,50 @@ export async function getMediaAuthorityOrNull(
   const user = await getCurrentUser(ctx);
   if (!user) return null;
   return await assertMediaAuthority(ctx, user);
+}
+
+// ── Portal access (spec 0006) ─────────────────────────────────────────────
+// The portal gate: a user can enter the web admin portal when they hold at
+// least one active roleAssignment, OR when they are on the active roster of
+// Media, Hospitality, or Library & Information with a verified member
+// profile. The verified profile check prevents unverified visitors who
+// self inserted roster memberships during submitProfile from gaining portal
+// access.
+
+export async function hasPortalAccess(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  const roles = await ctx.db
+    .query("roleAssignments")
+    .withIndex("by_userId_status", (q) =>
+      q.eq("userId", userId).eq("status", "active")
+    )
+    .first();
+  if (roles) return true;
+
+  const profile = await ctx.db
+    .query("memberProfiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+  if (!profile || profile.profileStatus !== "verified") return false;
+
+  const memberships = await ctx.db
+    .query("departmentMemberships")
+    .withIndex("by_userId_status", (q) =>
+      q.eq("userId", userId).eq("status", "active")
+    )
+    .collect();
+  for (const m of memberships) {
+    const dept = await ctx.db.get(m.departmentId);
+    if (
+      dept &&
+      (ROSTER_PORTAL_DEPARTMENTS as readonly string[]).includes(dept.name)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Append an audit entry. The single write-point for `activityLogs`. */

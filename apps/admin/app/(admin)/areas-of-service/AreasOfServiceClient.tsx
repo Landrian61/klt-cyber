@@ -23,6 +23,11 @@ export interface DepartmentTile {
   href: string;
 }
 
+export interface PausedTile {
+  id: string;
+  name: string;
+}
+
 export interface ClanTile {
   id: string;
   clanName: string;
@@ -53,14 +58,19 @@ function InitialBadge({ letter }: { letter: string }) {
 // design as the old role picker, restructured for up to 13 tiles instead of
 // 1-3. Deliberately no System Administrator tile here; that portal is
 // reached via the small badge in the header instead.
+const PAUSED_CARD =
+  "h-full gap-3 rounded-2xl border-0 bg-white/[0.04] p-4 shadow-none ring-1 ring-white/10 cursor-default";
+
 export function AreasOfServiceClient({
   displayName,
   departments,
+  pausedDepartments,
   clans,
   isSystemAdmin,
 }: {
   displayName: string;
   departments: DepartmentTile[];
+  pausedDepartments: PausedTile[];
   clans: ClanTile[];
   isSystemAdmin: boolean;
 }) {
@@ -154,6 +164,37 @@ export function AreasOfServiceClient({
                   </Link>
                 ))}
               </Stagger>
+            )}
+
+            {pausedDepartments.length > 0 && (
+              <div className="mt-10">
+                <Stagger delay={0}>
+                  <p className="font-body text-[11px] font-semibold uppercase tracking-[0.3em] text-white/40">
+                    Coming soon
+                  </p>
+                </Stagger>
+                <Stagger
+                  delay={100}
+                  gap={50}
+                  className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                >
+                  {pausedDepartments.map((dept) => (
+                    <Card key={dept.id} className={PAUSED_CARD}>
+                      <CardHeader className="flex-row items-center gap-3 space-y-0">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] font-display text-sm font-bold text-white/30"
+                        >
+                          {dept.name.charAt(0).toUpperCase()}
+                        </span>
+                        <CardTitle className="truncate font-body text-sm font-medium text-white/35">
+                          {dept.name}
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </Stagger>
+              </div>
             )}
 
             {clans.length > 0 && (

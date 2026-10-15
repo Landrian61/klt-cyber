@@ -138,8 +138,18 @@ SRS: D1-01, D1-02, D1-03, D1-04, P1-01, P1-02, P1-03, M2-03, M4-05
 ### 6. Department-scoped permissions, portal access rules, permission tests · in-progress · GA
 Track A. Make every permission in the SRS real on the server, since every later department feature depends on it holding.
 **Done when:** F3-01: the Areas of Service hub shows exactly the departments a person can open. F3-04: an HOD sees their own roster only, full profiles, regardless of sharing. F3-05: a delegate only sees buttons the backend will actually let them use. F3-08: church content requires sign-in on every query. F3-09: an HOD appointment always names a department — no unscoped HOD. F3-19: Media, Hospitality and Library roster members open their department portal without holding a role. F5-09/NF-01: automated tests cover the permission rules.
-- [ ] Design remaining work (spec): `/architect department-scoped permissions`
-Spec: not yet captured
+- [x] Design remaining work (spec): `/architect department-scoped permissions`
+Spec: [0006](../specs/_root/0006-department-scoped-permissions/index.md)
+- [x] Build it: `/develop department-scoped permissions`
+  - [x] Content sign in gating and portal access helper (AC-1, AC-4)
+  - [x] Roster scoped reads and department access widening (AC-2, AC-7)
+  - [x] Hub page with paused tiles, HOD validation, delegate UI trimming (AC-3, AC-5, AC-6)
+  - [x] Backend permission tests (AC-8)
+Code: `convex/lib/authz.ts` (hasPortalAccess), `convex/events.ts`, `convex/themes.ts`, `convex/announcements.ts`, `convex/weeklyPrograms.ts`, `convex/facilities.ts`, `convex/departmentMemberships.ts` (getRosterReadAuthorityOrNull, listMyDepartmentsForHub, getDepartmentAccess), `convex/roles.ts` (HOD validation), `packages/shared/src/enums/departments.ts` (ROSTER_PORTAL_DEPARTMENTS, PAUSED_DEPARTMENTS), `apps/admin/app/(admin)/areas-of-service/` (hub + paused tiles), `apps/admin/app/(admin)/admin/roster/RosterClient.tsx` (delegate trimming), `convex/permissions.test.ts` (17 tests)
+- [ ] Verify it: `/check verify department-scoped permissions`
+- [ ] Test it: `/test department-scoped permissions`
+- [ ] Review it (fresh model): `/check review department-scoped permissions`
+- [ ] Document it: `/document department-scoped permissions`
 SRS: F3-01, F3-04, F3-05, F3-08, F3-09, F3-19, S1-03, F5-09, NF-01, NF-17
 
 ### 7. Password reset and the five emails (Resend) · planned

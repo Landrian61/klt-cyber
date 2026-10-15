@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { canManageChurchAdmin, logActivity } from "./lib/authz";
+import { canManageChurchAdmin, getCurrentUser, logActivity } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
 
 // Tower of Faith facilities directory.
@@ -22,6 +22,7 @@ const facilityFields = {
 export const listActiveFacilities = query({
   args: {},
   handler: async (ctx) => {
+    if (!(await getCurrentUser(ctx))) return null;
     const rows = await ctx.db
       .query("facilities")
       .withIndex("by_active", (q) => q.eq("active", true))

@@ -5,6 +5,7 @@ import type { RecurrenceType, WeekOfMonth } from "@klt-cyber/shared";
 import {
   canManageContent,
   getAdministrationAuthorityOrNull,
+  getCurrentUser,
   logActivity,
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
@@ -140,6 +141,7 @@ function validateRecurrenceFields(args: {
 export const listActivePrograms = query({
   args: {},
   handler: async (ctx) => {
+    if (!(await getCurrentUser(ctx))) return null;
     const programs = await ctx.db
       .query("weeklyPrograms")
       .withIndex("by_active", (q) => q.eq("active", true))
