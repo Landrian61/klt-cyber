@@ -25,7 +25,7 @@ import {
   errorMessage,
   fromDateInput,
   toDateInput,
-} from "../../../admin/_lib/adminContent";
+} from "@/lib/content-helpers";
 
 type PastEvent = Doc<"pastEvents">;
 

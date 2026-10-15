@@ -53,8 +53,12 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          source: "/areas-of-service/administration/:path*",
-          destination: "/admin/:path*",
+          source: "/areas-of-service/administration",
+          destination: "/admin",
+        },
+        {
+          source: "/areas-of-service/administration/:path+",
+          destination: "/admin/:path+",
         },
       ],
       afterFiles: [],

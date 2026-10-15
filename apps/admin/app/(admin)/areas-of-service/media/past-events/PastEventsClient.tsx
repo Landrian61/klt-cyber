@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/shadcn/select";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, fromDateInput } from "../../../admin/_lib/adminContent";
+import { formatDate, fromDateInput } from "@/lib/content-helpers";
 import { PastEventDialog } from "./PastEventDialog";
 
 type PastEvent = Doc<"pastEvents">;

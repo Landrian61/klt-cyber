@@ -7,6 +7,7 @@ import {
   type DepartmentTile,
   type ClanTile,
 } from "./AreasOfServiceClient";
+import { slugify } from "@/lib/slugify";
 
 // AC-2: a network failure on any of the fetchAuthQuery calls below (offline)
 // must not crash the render or redirect as if unauthorized/unauthenticated —
@@ -17,14 +18,6 @@ const OFFLINE_FALLBACK = (
     <ErrorState cause="offline" />
   </div>
 );
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/['']/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function departmentHref(departmentName: string) {
   return `/areas-of-service/${slugify(departmentName)}`;

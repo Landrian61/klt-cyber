@@ -84,7 +84,6 @@ function PastEventsSection() {
   if (pastEvents === undefined || pastEvents === null || pastEvents.length === 0) return null;
 
   const preview = pastEvents.slice(0, PAST_EVENTS_PREVIEW);
-  const hasMore = pastEvents.length > PAST_EVENTS_PREVIEW;
 
   return (
     <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.pastSection}>
@@ -128,11 +127,6 @@ function PastEventsSection() {
           );
         })}
       </View>
-      {hasMore && (
-        <View style={styles.pastSeeAll}>
-          <Button label="See all past events" variant="textLink" onPress={() => {}} />
-        </View>
-      )}
     </Animated.View>
   );
 }
@@ -325,9 +319,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-  },
-  pastSeeAll: {
-    alignItems: 'center',
-    marginTop: Spacing[3],
   },
 });
