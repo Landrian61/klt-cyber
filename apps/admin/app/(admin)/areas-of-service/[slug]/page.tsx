@@ -6,9 +6,7 @@ import { api } from "@/lib/api";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { slugify } from "@/lib/slugify";
 
-const PORTAL_DEFAULTS: Record<string, string> = {
-  media: "/areas-of-service/media/devotionals",
-};
+const PORTAL_DEFAULTS: Record<string, string> = {};
 
 export default async function DepartmentEntryPage({
   params,

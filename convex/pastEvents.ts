@@ -25,7 +25,7 @@ export const listPastEventsPublic = query({
   handler: async (ctx, { limit }) => {
     const user = await getCurrentUser(ctx);
     if (!user) return null;
-    const cap = Math.min(limit ?? 20, 100);
+    const cap = Math.max(1, Math.min(limit ?? 20, 100));
     return await ctx.db
       .query("pastEvents")
       .withIndex("by_date")
