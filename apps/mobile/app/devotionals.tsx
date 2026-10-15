@@ -13,13 +13,9 @@ import * as Haptics from 'expo-haptics';
 import { FontFamily, Spacing, Radius, AmbientShadow } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { api, type Doc } from '@/lib/api';
+import { formatDateKey } from '@/lib/format-date-key';
 
 type Devotional = Doc<'devotionals'>;
-
-function formatDevotionalDate(dateKey: string): string {
-  const d = new Date(`${dateKey}T00:00:00`);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 function DevotionalRow({
   item,
@@ -66,7 +62,7 @@ function DevotionalRow({
           {item.scriptureReference}
         </Text>
         <Text style={[styles.rowDate, { color: Colors.outline }]}>
-          {formatDevotionalDate(item.date)}
+          {formatDateKey(item.date)}
         </Text>
         {expanded && (
           <Text style={[styles.rowBody, { color: Colors.onSurfaceVariant }]}>

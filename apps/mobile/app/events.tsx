@@ -17,6 +17,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Cover } from '@/components/ui/cover';
 import { api, type Doc } from '@/lib/api';
 import { formatEventDate, formatClockTime } from '@/lib/content-format';
+import { formatDateKey } from '@/lib/format-date-key';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -71,18 +72,11 @@ function EventRow({
 
 const PAST_EVENTS_PREVIEW = 6;
 
-function formatPastEventDate(dateKey: string): string {
-  const d = new Date(`${dateKey}T00:00:00`);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
 function PastEventsSection() {
   const Colors = useThemeColors();
-  const pastEvents = useQuery(api.pastEvents.listPastEventsPublic, { limit: PAST_EVENTS_PREVIEW + 1 });
+  const pastEvents = useQuery(api.pastEvents.listPastEventsPublic, { limit: PAST_EVENTS_PREVIEW });
 
   if (pastEvents === undefined || pastEvents === null || pastEvents.length === 0) return null;
-
-  const preview = pastEvents.slice(0, PAST_EVENTS_PREVIEW);
 
   return (
     <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.pastSection}>
@@ -90,7 +84,7 @@ function PastEventsSection() {
         <Text style={[styles.pastTitle, { color: Colors.onSurface }]}>Past events</Text>
       </View>
       <View style={styles.pastGrid}>
-        {preview.map((event) => {
+        {pastEvents.map((event) => {
           const videoId = event.youtubeVideoId;
           return (
             <Pressable
@@ -119,7 +113,7 @@ function PastEventsSection() {
                   {event.title}
                 </Text>
                 <Text style={[styles.pastCardDate, { color: Colors.outline }]}>
-                  {formatPastEventDate(event.date)}
+                  {formatDateKey(event.date)}
                 </Text>
               </View>
             </Pressable>
