@@ -115,7 +115,7 @@ export function DepartmentMembersClient({
   if (roster === null) {
     return (
       <div className="space-y-6">
-        <BackLink onClick={() => router.push("/admin/departments")} />
+        <BackLink onClick={() => router.push("/areas-of-service/administration/departments")} />
         <EmptyState
           title="Department not found"
           message="This department doesn't exist or may have been removed."
@@ -187,7 +187,7 @@ export function DepartmentMembersClient({
 
   return (
     <div className="space-y-6">
-      <BackLink onClick={() => router.push("/admin/departments")} />
+      <BackLink onClick={() => router.push("/areas-of-service/administration/departments")} />
 
       <header className="space-y-1">
         {department ? (

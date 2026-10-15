@@ -7,6 +7,9 @@ import {
   dateKeyFromMs,
   dateKeyRange,
 } from "@klt-cyber/shared";
+import type { Doc } from "@/lib/api";
+import { useAuthQuery } from "@/lib/useAuthQuery";
+import { api } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
 import { Button } from "@/components/shadcn/button";
 import { Badge } from "@/components/shadcn/badge";
@@ -20,13 +23,10 @@ import {
   SelectValue,
 } from "@/components/shadcn/select";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, fromDateInput } from "../_lib/adminContent";
-import {
-  MockDataNotice,
-  useDevotionalList,
-  type Devotional,
-} from "../_lib/mediaContentData";
+import { formatDate, fromDateInput } from "@/lib/content-helpers";
 import { DevotionalDialog } from "./DevotionalDialog";
+
+type Devotional = Doc<"devotionals">;
 
 const UPCOMING_DAYS = 14;
 
@@ -65,7 +65,7 @@ function statusOf(
 }
 
 export function DevotionalsClient() {
-  const devotionals = useDevotionalList();
+  const devotionals = useAuthQuery(api.devotionals.listDevotionals, {});
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Devotional | null>(null);
@@ -134,8 +134,6 @@ export function DevotionalsClient() {
           Add devotional
         </Button>
       </header>
-
-      <MockDataNotice />
 
       {tomorrowMissing && (
         <div

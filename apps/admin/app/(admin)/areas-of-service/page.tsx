@@ -7,6 +7,7 @@ import {
   type DepartmentTile,
   type ClanTile,
 } from "./AreasOfServiceClient";
+import { slugify } from "@/lib/slugify";
 
 // AC-2: a network failure on any of the fetchAuthQuery calls below (offline)
 // must not crash the render or redirect as if unauthorized/unauthenticated —
@@ -18,15 +19,8 @@ const OFFLINE_FALLBACK = (
   </div>
 );
 
-// The only Area of Service with a dedicated portal today — every other
-// department gets the generic read-only overview page until its own portal
-// ships ("Out of scope — Part 2").
-const ADMINISTRATION_DEPARTMENT_NAME = "Administration";
-
-function departmentHref(departmentName: string, departmentId: Id<"departments">) {
-  return departmentName === ADMINISTRATION_DEPARTMENT_NAME
-    ? "/admin"
-    : `/departments/${departmentId}`;
+function departmentHref(departmentName: string) {
+  return `/areas-of-service/${slugify(departmentName)}`;
 }
 
 // Post-login landing for every minister with ≥1 Area of Service or clan_elder
@@ -71,7 +65,7 @@ export default async function AreasOfServicePage() {
     id: department._id,
     name: department.name,
     description: department.description ?? null,
-    href: departmentHref(department.name, department._id),
+    href: departmentHref(department.name),
   }));
 
   // clan_elder is a separate, still-valid concept from Areas of Service —

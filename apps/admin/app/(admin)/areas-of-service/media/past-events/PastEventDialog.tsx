@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { ImageOff } from "lucide-react";
+import { useMutation } from "convex/react";
 import {
   parseYouTubeVideoId,
   pastEventInputSchema,
   youtubeThumbnailUrl,
 } from "@klt-cyber/shared";
+import type { Doc } from "@/lib/api";
+import { api } from "@/lib/api";
 import {
   Dialog,
   DialogFooter,
@@ -22,8 +25,9 @@ import {
   errorMessage,
   fromDateInput,
   toDateInput,
-} from "../_lib/adminContent";
-import { usePastEventActions, type PastEvent } from "../_lib/mediaContentData";
+} from "@/lib/content-helpers";
+
+type PastEvent = Doc<"pastEvents">;
 
 interface FormState {
   title: string;
@@ -50,7 +54,9 @@ export function PastEventDialog({
   onOpenChange: (open: boolean) => void;
   pastEvent: PastEvent | null;
 }) {
-  const { create, update, remove } = usePastEventActions();
+  const createPastEvent = useMutation(api.pastEvents.createPastEvent);
+  const updatePastEvent = useMutation(api.pastEvents.updatePastEvent);
+  const deletePastEvent = useMutation(api.pastEvents.deletePastEvent);
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
@@ -68,7 +74,6 @@ export function PastEventDialog({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // Live preview: re-derived on every keystroke from the pasted link.
   const videoId = parseYouTubeVideoId(form.youtubeUrl);
 
   function buildPayload() {
@@ -100,9 +105,12 @@ export function PastEventDialog({
     setBusy(true);
     try {
       if (pastEvent) {
-        await update(pastEvent._id, payload);
+        await updatePastEvent({
+          pastEventId: pastEvent._id,
+          ...payload,
+        });
       } else {
-        await create(payload);
+        await createPastEvent(payload);
       }
       onOpenChange(false);
     } catch (mutationError) {
@@ -117,7 +125,9 @@ export function PastEventDialog({
     setError(null);
     setBusy(true);
     try {
-      await remove(pastEvent._id);
+      await deletePastEvent({
+        pastEventId: pastEvent._id,
+      });
       onOpenChange(false);
     } catch (mutationError) {
       setError(errorMessage(mutationError));

@@ -15,19 +15,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/shadcn/dropdown-menu";
+import { slugify } from "@/lib/slugify";
 
-// Instant Area-of-Service switcher for the portal top bars. Jumps straight to
-// another department's workspace instead of bouncing back through
-// /areas-of-service. Sourced from listMyDepartments, so it shows exactly what
-// the caller may enter: System Admin sees all 13, everyone else sees the
-// departments they're rostered in or hold hod/department_admin for.
-//
-// Administration is the one department with a dedicated portal today; the rest
-// route to their placeholder page ("Out of scope — Part 2").
-const ADMINISTRATION = "Administration";
-
-function hrefFor(name: string, id: string) {
-  return name === ADMINISTRATION ? "/admin" : `/departments/${id}`;
+function hrefFor(name: string) {
+  return `/areas-of-service/${slugify(name)}`;
 }
 
 export function DepartmentSwitcher({
@@ -88,7 +79,7 @@ export function DepartmentSwitcher({
             return (
               <DropdownMenuItem
                 key={department._id}
-                onSelect={() => router.push(hrefFor(department.name, department._id))}
+                onSelect={() => router.push(hrefFor(department.name))}
                 className="gap-2"
               >
                 <Check

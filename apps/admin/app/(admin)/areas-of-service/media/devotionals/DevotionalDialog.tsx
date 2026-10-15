@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMutation } from "convex/react";
 import { devotionalInputSchema } from "@klt-cyber/shared";
+import type { Doc } from "@/lib/api";
+import { api } from "@/lib/api";
 import {
   Dialog,
   DialogFooter,
@@ -19,11 +22,9 @@ import {
   formatDate,
   fromDateInput,
   toDateInput,
-} from "../_lib/adminContent";
-import {
-  useDevotionalActions,
-  type Devotional,
-} from "../_lib/mediaContentData";
+} from "@/lib/content-helpers";
+
+type Devotional = Doc<"devotionals">;
 
 interface FormState {
   title: string;
@@ -63,14 +64,15 @@ export function DevotionalDialog({
   defaultDate?: string;
   existing: Devotional[];
 }) {
-  const { create, update, remove } = useDevotionalActions();
+  const createDevotional = useMutation(api.devotionals.createDevotional);
+  const updateDevotional = useMutation(api.devotionals.updateDevotional);
+  const deleteDevotional = useMutation(api.devotionals.deleteDevotional);
 
   const [form, setForm] = useState<FormState>(() => emptyForm());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  // The Dialog stays mounted between opens — re-seed each time it opens.
   useEffect(() => {
     if (!open) return;
     setError(null);
@@ -104,7 +106,7 @@ export function DevotionalDialog({
     );
     if (clash) {
       throw new Error(
-        `A devotional already exists for ${formatDate(fromDateInput(clash.date))}: “${clash.title}”.`,
+        `A devotional already exists for ${formatDate(fromDateInput(clash.date))}: "${clash.title}".`,
       );
     }
     return parsed.data;
@@ -122,9 +124,12 @@ export function DevotionalDialog({
     setBusy(true);
     try {
       if (devotional) {
-        await update(devotional._id, payload);
+        await updateDevotional({
+          devotionalId: devotional._id,
+          ...payload,
+        });
       } else {
-        await create(payload);
+        await createDevotional(payload);
       }
       onOpenChange(false);
     } catch (mutationError) {
@@ -139,7 +144,9 @@ export function DevotionalDialog({
     setError(null);
     setBusy(true);
     try {
-      await remove(devotional._id);
+      await deleteDevotional({
+        devotionalId: devotional._id,
+      });
       onOpenChange(false);
     } catch (mutationError) {
       setError(errorMessage(mutationError));

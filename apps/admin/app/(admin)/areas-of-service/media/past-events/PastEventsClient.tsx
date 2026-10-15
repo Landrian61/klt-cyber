@@ -8,6 +8,9 @@ import {
   youtubeThumbnailUrl,
   youtubeWatchUrl,
 } from "@klt-cyber/shared";
+import type { Doc } from "@/lib/api";
+import { useAuthQuery } from "@/lib/useAuthQuery";
+import { api } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
 import { Button } from "@/components/shadcn/button";
 import { Input } from "@/components/shadcn/input";
@@ -20,13 +23,10 @@ import {
   SelectValue,
 } from "@/components/shadcn/select";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, fromDateInput } from "../_lib/adminContent";
-import {
-  MockDataNotice,
-  usePastEventList,
-  type PastEvent,
-} from "../_lib/mediaContentData";
+import { formatDate, fromDateInput } from "@/lib/content-helpers";
 import { PastEventDialog } from "./PastEventDialog";
+
+type PastEvent = Doc<"pastEvents">;
 
 function StatCard({
   label,
@@ -53,7 +53,7 @@ function StatCard({
 }
 
 export function PastEventsClient() {
-  const pastEvents = usePastEventList();
+  const pastEvents = useAuthQuery(api.pastEvents.listPastEvents, {});
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PastEvent | null>(null);
@@ -118,8 +118,6 @@ export function PastEventsClient() {
           Add past event
         </Button>
       </header>
-
-      <MockDataNotice />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {!loaded ? (
@@ -221,7 +219,6 @@ export function PastEventsClient() {
                       aria-label={`Watch ${event.title} on YouTube`}
                       className="group relative block"
                     >
-                      {/* External YouTube thumbnail — plain <img>, no next/image remote config. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={youtubeThumbnailUrl(videoId)}

@@ -2,43 +2,15 @@
 
 import type { ReactNode } from "react";
 import { ImageOff } from "lucide-react";
-import { Field as ShadcnField } from "@/components/shadcn/field";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { Switch } from "@/components/shadcn/switch";
 import { Badge, type BadgeVariant } from "@/components/shadcn/badge";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/content-helpers";
 
-// Shared helpers for Administration's Programs & Content / Planning screens
-// (Weekly Program, Events, Announcements, Year Planner).
-// Deliberately parallel to apps/admin/app/(admin)/system-admin/content/shared.tsx
-// rather than importing it: that module backs the system-wide content-override
-// surface under a different route group, and the two are free to diverge.
-// Keeping the date/error helpers here identical on purpose — same underlying
-// Convex fields, same conventions — so behavior doesn't drift by accident.
-
-/** A thrown mutation's human line — strips Convex's server-error wrapper. */
-export function errorMessage(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error);
-  const uncaught = raw.match(/Uncaught (?:Convex)?Error:\s*(.+)/);
-  const line = (uncaught?.[1] ?? raw).split("\n")[0]?.trim() ?? "";
-  const cleaned = line.replace(/\s+at\s+\S[\s\S]*$/, "").trim();
-  return cleaned || "Something went wrong. Please try again.";
-}
+export { errorMessage, toDateInput, fromDateInput, formatDate, Field } from "@/lib/content-helpers";
 
 const pad = (n: number) => String(n).padStart(2, "0");
-
-/** unix ms → "YYYY-MM-DD" (local) for <input type="date">. */
-export function toDateInput(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-/** "YYYY-MM-DD" → unix ms. `endOfDay` snaps to 23:59:59 for period ends. */
-export function fromDateInput(value: string, endOfDay = false): number {
-  if (!value) return Number.NaN;
-  const suffix = endOfDay ? "T23:59:59" : "T00:00:00";
-  return new Date(`${value}${suffix}`).getTime();
-}
 
 /** unix ms → "YYYY-MM-DDTHH:mm" (local) for <input type="datetime-local">. */
 export function toDateTimeInput(ms: number): string {
@@ -50,15 +22,6 @@ export function toDateTimeInput(ms: number): string {
 export function fromDateTimeInput(value: string): number {
   if (!value) return Number.NaN;
   return new Date(value).getTime();
-}
-
-/** "12 Jul 2026" */
-export function formatDate(ms: number): string {
-  return new Date(ms).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 /** "12 Jul 2026, 20:00" */
@@ -197,27 +160,6 @@ export const MONTH_LABELS = [
   "November",
   "December",
 ];
-
-/** A labelled form field wrapper — delegates to the shadcn Field primitive. */
-export function Field({
-  label,
-  htmlFor,
-  hint,
-  className,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  hint?: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <ShadcnField label={label} htmlFor={htmlFor ?? ""} hint={hint} className={className}>
-      {children}
-    </ShadcnField>
-  );
-}
 
 /** Minimal checkbox + label row for boolean flags (active, featured) — the
  * shadcn Checkbox (Radix), not a raw <input type="checkbox">. */

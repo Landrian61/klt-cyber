@@ -326,6 +326,67 @@ export async function getAdministrationAuthorityUserIds(
   return [...new Set(ids)];
 }
 
+// ── Media-department authority (spec 0005) ──────────────────────────────────
+// Mirrors the Administration pattern above: system_admin, or the Media
+// department's active hod/department_admin. Used by devotionals and past
+// events mutations and queries.
+
+/** The `_id` of the fixed "Media" department, or null if unseeded. */
+export async function getMediaDepartmentId(
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"departments"> | null> {
+  const dept = await ctx.db
+    .query("departments")
+    .withIndex("by_name", (q) => q.eq("name", "Media"))
+    .first();
+  return dept?._id ?? null;
+}
+
+async function assertMediaAuthority(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<"users">
+): Promise<Doc<"users">> {
+  if (await isActiveSystemAdmin(ctx, user._id)) return user;
+  const mediaDeptId = await getMediaDepartmentId(ctx);
+  if (
+    mediaDeptId &&
+    (await hasActiveDepartmentRole(ctx, user._id, mediaDeptId, [
+      "hod",
+      "department_admin",
+    ]))
+  ) {
+    return user;
+  }
+  throw new Error("Not authorized to manage Media-department resources");
+}
+
+/**
+ * System Admin, or the Media department's active hod/department_admin.
+ * Throws when unauthenticated or unauthorized. For mutations and one-shot
+ * server reads; reactive queries should prefer {@link getMediaAuthorityOrNull}.
+ */
+export async function requireMediaAuthority(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users">> {
+  const user = await getCurrentUser(ctx);
+  if (!user) throw new Error("Not authenticated");
+  return await assertMediaAuthority(ctx, user);
+}
+
+/**
+ * Like {@link requireMediaAuthority}, but resolves null when unauthenticated
+ * instead of throwing — same reactive-null contract as
+ * {@link getAdministrationAuthorityOrNull}. An authenticated caller without
+ * the authority still throws.
+ */
+export async function getMediaAuthorityOrNull(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users"> | null> {
+  const user = await getCurrentUser(ctx);
+  if (!user) return null;
+  return await assertMediaAuthority(ctx, user);
+}
+
 /** Append an audit entry. The single write-point for `activityLogs`. */
 export async function logActivity(
   ctx: MutationCtx,

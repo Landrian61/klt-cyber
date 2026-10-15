@@ -16,7 +16,7 @@ _This scope transcribes the already-agreed `spec/BUILD-PLAN.md` into the living 
 | 3 | Error screens, Sentry, update channels | Week 1 | in-progress |
 | 4 | Stay signed in | Week 1 | in-progress |
 | 5 | Remove suspension and web sign-up; move System Admin pages into Administration | Week 1 | in-progress |
-| 22 | Devotionals and past events | Week 1 | planned |
+| 22 | Devotionals and past events | Week 1 | in-progress |
 | 6 | Department-scoped permissions, portal access rules, permission tests | Week 2 | in-progress |
 | 7 | Password reset and the five emails (Resend) | Week 2 | planned |
 | 8 | Account deletion | Week 2 | planned |
@@ -112,11 +112,25 @@ Spec: [0004](../specs/_root/0004-remove-suspension-web-signup/index.md)
 - [ ] Document it: `/document remove suspension and web sign-up`
 SRS: F1-05, F1-02, F3-02, F3-03, A8-01, A8-02, A8-03 · code: `apps/admin/app/(admin)/system-admin/` (activity, content, users — exists, needs relocation), `apps/admin/app/(admin)/admin/` (destination), `convex/auth.ts`, `convex/admin.ts`, `convex/schema.ts`, `packages/shared/src/enums/user.ts`
 
-### 22. Devotionals and past events · planned
+### 22. Devotionals and past events · in-progress
 Track B. Give members a daily devotional and a browsable archive of past church events, both run entirely by Media.
 **Done when:** D1-01/D1-04: Media writes and edits a devotional (title, scripture, text, date), one per date, and can schedule ahead. D1-03: a user reads today's devotional on Home (M2-03) and browses recent ones. P1-01/P1-03: Media adds a past event with title, date and YouTube link, with an automatic thumbnail. P1-02: a user browses past events as thumbnails and opens them in YouTube (M4-05).
-- [ ] Design it (spec): `/architect devotionals and past events`
-Spec: not yet captured
+- [x] Design it (spec): `/architect devotionals and past events`
+Spec: [0005](../specs/_root/0005-devotionals-past-events/index.md)
+- [ ] Build it: `/develop devotionals and past events`
+  - [x] Schema + authz foundation: `devotionals` and `pastEvents` tables, `getMediaDepartmentId`, `requireMediaAuthority`, `getMediaAuthorityOrNull` in `convex/lib/authz.ts`, satisfies AC-9 (backend), AC-11 (foundation)
+  - [x] Media portal shell: `/media/` route group, layout with Media authority check, `MediaSidebar` (Devotionals, Past events only), satisfies AC-9
+  - [x] Devotionals backend: `convex/devotionals.ts` with `listDevotionals`, `getToday`, `listRecent`, `createDevotional`, `updateDevotional`, `deleteDevotional`, satisfies AC-1, AC-5, AC-11
+  - [x] Devotionals admin UI (rewire): move from `/admin/` to `/media/`, replace mock hooks with real Convex hooks, satisfies AC-2, AC-5
+  - [x] Mobile Home devotional card: `getToday` subscription with client dateKey, body preview (~140 chars), hidden when null, "See all" link, satisfies AC-3
+  - [x] Mobile devotionals browse screen: `app/devotionals.tsx`, `listRecent` with todayKey filter, satisfies AC-4
+  - [x] Past events backend: `convex/pastEvents.ts` with `listPastEvents`, `listPastEventsPublic`, `createPastEvent`, `updatePastEvent`, `deletePastEvent`, satisfies AC-6, AC-8, AC-11
+  - [x] Past events admin UI (rewire): move from `/admin/` to `/media/`, replace mock hooks with real Convex hooks, satisfies AC-8
+  - [x] Mobile past events section: 6 item preview on Events & Programs, YouTube deep links, "See all" if more exist, satisfies AC-7
+  - [x] Cleanup and redirects: 308 redirects from `/admin/devotionals` and `/admin/past-events`, remove mock layer, remove links from AdminSidebar, satisfies AC-10
+- [ ] Verify it: `/check verify devotionals and past events`
+- [ ] Test it: `/test devotionals and past events`
+- [ ] Document it: `/document devotionals and past events`
 SRS: D1-01, D1-02, D1-03, D1-04, P1-01, P1-02, P1-03, M2-03, M4-05
 
 ## Week 2
