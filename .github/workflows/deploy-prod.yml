@@ -145,7 +145,7 @@ jobs:
           # Metro/source-map-support crash in Expo Router's SSR render step
           # ("version" is a required argument) during export.
           npx expo export --platform ios --platform android --output-dir dist
-          eas update --branch production --message "$SUBJECT" --non-interactive --skip-bundler-cache
+          eas update --branch production --message "$SUBJECT" --non-interactive --skip-bundler
 
       # AC-7: resolves a Sentry stack trace on a production OTA update back
       # to real source. Skips quietly (never fails the deploy) until the
