@@ -16,8 +16,13 @@ const OFFLINE_FALLBACK = (
   </div>
 );
 
+const SLUG_OVERRIDES: Record<string, string> = {
+  Administration: "admin",
+};
+
 function departmentHref(departmentName: string) {
-  return `/areas-of-service/${slugify(departmentName)}`;
+  const slug = SLUG_OVERRIDES[departmentName] ?? slugify(departmentName);
+  return `/areas-of-service/${slug}`;
 }
 
 export default async function AreasOfServicePage() {

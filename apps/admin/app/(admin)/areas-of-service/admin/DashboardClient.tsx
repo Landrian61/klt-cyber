@@ -257,28 +257,28 @@ export function AdminDashboardClient() {
         <TabsContent value="pulse" className="space-y-6">
           <Reveal className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <StatTile
-              href="/areas-of-service/administration/verification"
+              href="/areas-of-service/admin/verification"
               icon={ClipboardCheck}
               tone="gold"
               label="Pending verifications"
               value={pending?.length}
             />
             <StatTile
-              href="/areas-of-service/administration/roster"
+              href="/areas-of-service/admin/roster"
               icon={Users}
               tone="royal"
               label="Roster size"
               value={roster?.members.length}
             />
             <StatTile
-              href="/areas-of-service/administration/weekly-program"
+              href="/areas-of-service/admin/weekly-program"
               icon={Calendar}
               tone="success"
               label="Programs this week"
               value={programs?.length}
             />
             <StatTile
-              href="/areas-of-service/administration/announcements"
+              href="/areas-of-service/admin/announcements"
               icon={Megaphone}
               tone="crimson"
               label="Active announcements"
@@ -389,7 +389,7 @@ export function AdminDashboardClient() {
                   </CardTitle>
                   {pending && pending.length > 5 && (
                     <Link
-                      href="/areas-of-service/administration/verification"
+                      href="/areas-of-service/admin/verification"
                       className="font-body text-sm font-medium text-primary underline underline-offset-2"
                     >
                       View all {pending.length}
@@ -435,7 +435,7 @@ export function AdminDashboardClient() {
                               </div>
                             </div>
                             <Link
-                              href={`/admin/verification/${profile._id}`}
+                              href={`/areas-of-service/admin/verification/${profile._id}`}
                               className={cn(
                                 buttonVariants({
                                   variant: "secondary",

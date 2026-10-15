@@ -148,7 +148,7 @@ export function VerificationClient() {
           rows={filtered}
           rowKey={(profile) => profile._id}
           onRowClick={(profile) =>
-            router.push(`/admin/verification/${profile._id}`)
+            router.push(`/areas-of-service/admin/verification/${profile._id}`)
           }
           empty={
             <EmptyState

@@ -23,7 +23,7 @@ import { DepartmentSwitcher } from "@/components/admin/DepartmentSwitcher";
 // Area-of-Service switcher on the left: moving to another department no longer
 // means bouncing back through /areas-of-service.
 
-const BASE = "/areas-of-service/administration";
+const BASE = "/areas-of-service/admin";
 
 const MODULE_TITLES: [prefix: string, title: string][] = [
   [`${BASE}/verification`, "Verification"],
@@ -133,7 +133,7 @@ export function AdminTopBar({
             <DropdownMenuSeparator />
 
             <DropdownMenuItem asChild>
-              <Link href="/areas-of-service/administration/settings">
+              <Link href="/areas-of-service/admin/settings">
                 <Settings aria-hidden="true" />
                 Settings
               </Link>

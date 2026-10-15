@@ -2,9 +2,9 @@
 _Steps derived from spec 0006 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
 ## Commands
-- [ ] `pnpm --filter @klt-cyber/shared test` → all tests pass (shared validators unbroken) → AC-8
-- [ ] `pnpm exec vitest run --config convex/vitest.config.ts` → all 46 tests pass (17 new permission tests) → AC-1, AC-2, AC-4, AC-5, AC-6, AC-8
-- [ ] `pnpm lint` → clean, no regressions → AC-8
+- [x] `pnpm --filter @klt-cyber/shared test` → all tests pass (shared validators unbroken) → AC-8
+- [x] `pnpm exec vitest run --config convex/vitest.config.ts` → all 46 tests pass (17 new permission tests) → AC-1, AC-2, AC-4, AC-5, AC-6, AC-8
+- [x] `pnpm lint` → clean, no regressions → AC-8
 
 ## UI / manual
 - [ ] Sign out of mobile app → Home content (events, themes, announcements, programs, facilities) disappears (returns null, shows empty state or sign in prompt) → AC-1

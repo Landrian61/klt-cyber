@@ -7,7 +7,7 @@ import type { Id } from "@/lib/api";
 import { Field } from "@/components/shadcn/field";
 import { Input } from "@/components/shadcn/input";
 import { ActionButton } from "@/components/ui/ActionButton";
-import { errorMessage } from "@/app/(admin)/admin/verification/shared";
+import { errorMessage } from "@/app/(admin)/areas-of-service/admin/verification/shared";
 
 /*
   Edit a roster member's position title.

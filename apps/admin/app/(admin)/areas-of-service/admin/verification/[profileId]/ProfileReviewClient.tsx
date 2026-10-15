@@ -68,7 +68,7 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
   if (profile === null) {
     return (
       <div className="space-y-6">
-        <BackLink onClick={() => router.push("/areas-of-service/administration/verification")} />
+        <BackLink onClick={() => router.push("/areas-of-service/admin/verification")} />
         <EmptyState
           title="Profile unavailable"
           message="This profile no longer exists or has already been reviewed."
@@ -114,7 +114,7 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
           : undefined,
       });
       setConfirmOpen(false);
-      router.push("/areas-of-service/administration/verification");
+      router.push("/areas-of-service/admin/verification");
     } catch (err) {
       // A rejected mutation in an event handler never reaches a React error
       // boundary — reported directly from the catch that already exists here.
@@ -127,7 +127,7 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6">
-      <BackLink onClick={() => router.push("/areas-of-service/administration/verification")} />
+      <BackLink onClick={() => router.push("/areas-of-service/admin/verification")} />
 
       <header className="flex flex-wrap items-center gap-3">
         <Avatar name={fullName(profile)} src={profile.photoUrl} size="lg" />
