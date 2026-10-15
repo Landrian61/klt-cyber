@@ -25,7 +25,7 @@ export const listPastEventsPublic = query({
   handler: async (ctx, { limit }) => {
     const user = await getCurrentUser(ctx);
     if (!user) return null;
-    const cap = Math.max(1, Math.min(limit ?? 20, 100));
+    const cap = Math.max(1, Math.floor(Math.min(limit ?? 20, 100)));
     return await ctx.db
       .query("pastEvents")
       .withIndex("by_date")
@@ -48,11 +48,7 @@ export const createPastEvent = mutation({
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
     }
     const { title, date, youtubeUrl } = parsed.data;
-
-    const videoId = parseYouTubeVideoId(youtubeUrl);
-    if (!videoId) {
-      throw new Error("Enter a link to a single YouTube video");
-    }
+    const videoId = parseYouTubeVideoId(youtubeUrl)!;
 
     const now = Date.now();
     const pastEventId = await ctx.db.insert("pastEvents", {
@@ -96,10 +92,7 @@ export const updatePastEvent = mutation({
     const existing = await ctx.db.get(args.pastEventId);
     if (!existing) throw new Error("Past event not found");
 
-    const videoId = parseYouTubeVideoId(youtubeUrl);
-    if (!videoId) {
-      throw new Error("Enter a link to a single YouTube video");
-    }
+    const videoId = parseYouTubeVideoId(youtubeUrl)!;
 
     await ctx.db.patch(args.pastEventId, {
       title,

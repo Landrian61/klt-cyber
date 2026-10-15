@@ -8,7 +8,7 @@ import {
   pastEventInputSchema,
   youtubeThumbnailUrl,
 } from "@klt-cyber/shared";
-import type { Doc, Id } from "@/lib/api";
+import type { Doc } from "@/lib/api";
 import { api } from "@/lib/api";
 import {
   Dialog,
@@ -106,7 +106,7 @@ export function PastEventDialog({
     try {
       if (pastEvent) {
         await updatePastEvent({
-          pastEventId: pastEvent._id as Id<"pastEvents">,
+          pastEventId: pastEvent._id,
           ...payload,
         });
       } else {
@@ -126,7 +126,7 @@ export function PastEventDialog({
     setBusy(true);
     try {
       await deletePastEvent({
-        pastEventId: pastEvent._id as Id<"pastEvents">,
+        pastEventId: pastEvent._id,
       });
       onOpenChange(false);
     } catch (mutationError) {

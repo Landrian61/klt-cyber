@@ -43,7 +43,7 @@ export const listRecent = query({
   handler: async (ctx, { todayKey, limit }) => {
     const user = await getCurrentUser(ctx);
     if (!user) return null;
-    const cap = Math.max(1, Math.min(limit ?? DEFAULT_RECENT_LIMIT, MAX_RECENT_LIMIT));
+    const cap = Math.max(1, Math.floor(Math.min(limit ?? DEFAULT_RECENT_LIMIT, MAX_RECENT_LIMIT)));
     return await ctx.db
       .query("devotionals")
       .withIndex("by_date", (q) => q.lte("date", todayKey))

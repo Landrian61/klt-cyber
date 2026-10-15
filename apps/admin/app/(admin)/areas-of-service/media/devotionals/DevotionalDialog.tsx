@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { devotionalInputSchema } from "@klt-cyber/shared";
-import type { Doc, Id } from "@/lib/api";
+import type { Doc } from "@/lib/api";
 import { api } from "@/lib/api";
 import {
   Dialog,
@@ -125,7 +125,7 @@ export function DevotionalDialog({
     try {
       if (devotional) {
         await updateDevotional({
-          devotionalId: devotional._id as Id<"devotionals">,
+          devotionalId: devotional._id,
           ...payload,
         });
       } else {
@@ -145,7 +145,7 @@ export function DevotionalDialog({
     setBusy(true);
     try {
       await deleteDevotional({
-        devotionalId: devotional._id as Id<"devotionals">,
+        devotionalId: devotional._id,
       });
       onOpenChange(false);
     } catch (mutationError) {
