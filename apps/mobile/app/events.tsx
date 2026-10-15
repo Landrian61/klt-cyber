@@ -1,18 +1,21 @@
 import {
-  View, Text, Pressable, StyleSheet, FlatList, ActivityIndicator,
+  View, Text, Pressable, StyleSheet, FlatList, ActivityIndicator, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
+import { youtubeThumbnailUrl, youtubeWatchUrl } from '@klt-cyber/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import Animated, {
   FadeInUp, useSharedValue, useAnimatedStyle, withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { FontFamily, Spacing, Radius, AmbientShadow, Duration } from '@/constants/theme';
+import { FontFamily, Spacing, Radius, AmbientShadow, Duration, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Cover } from '@/components/ui/cover';
+import { Button } from '@/components/ui/button';
 import { api, type Doc } from '@/lib/api';
 import { formatEventDate, formatClockTime } from '@/lib/content-format';
 
@@ -67,6 +70,73 @@ function EventRow({
   );
 }
 
+const PAST_EVENTS_PREVIEW = 6;
+
+function formatPastEventDate(dateKey: string): string {
+  const d = new Date(`${dateKey}T00:00:00`);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function PastEventsSection() {
+  const Colors = useThemeColors();
+  const pastEvents = useQuery(api.pastEvents.listPastEventsPublic, { limit: PAST_EVENTS_PREVIEW + 1 });
+
+  if (pastEvents === undefined || pastEvents === null || pastEvents.length === 0) return null;
+
+  const preview = pastEvents.slice(0, PAST_EVENTS_PREVIEW);
+  const hasMore = pastEvents.length > PAST_EVENTS_PREVIEW;
+
+  return (
+    <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.pastSection}>
+      <View style={styles.pastHeader}>
+        <Text style={[styles.pastTitle, { color: Colors.onSurface }]}>Past events</Text>
+      </View>
+      <View style={styles.pastGrid}>
+        {preview.map((event) => {
+          const videoId = event.youtubeVideoId;
+          return (
+            <Pressable
+              key={event._id}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (videoId) Linking.openURL(youtubeWatchUrl(videoId));
+              }}
+              style={[styles.pastCard, { backgroundColor: Colors.surfaceLowest }, ShadowE2]}
+              accessibilityRole="button"
+              accessibilityLabel={`Watch ${event.title} on YouTube`}
+            >
+              {videoId ? (
+                <Image
+                  source={{ uri: youtubeThumbnailUrl(videoId) }}
+                  style={styles.pastThumb}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.pastThumb, { backgroundColor: Colors.surfaceLow }]}>
+                  <Ionicons name="play-circle-outline" size={28} color={Colors.outline} />
+                </View>
+              )}
+              <View style={styles.pastCardContent}>
+                <Text style={[styles.pastCardTitle, { color: Colors.onSurface }]} numberOfLines={2}>
+                  {event.title}
+                </Text>
+                <Text style={[styles.pastCardDate, { color: Colors.outline }]}>
+                  {formatPastEventDate(event.date)}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+      {hasMore && (
+        <View style={styles.pastSeeAll}>
+          <Button label="See all past events" variant="textLink" onPress={() => {}} />
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
 export default function EventsScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
@@ -114,6 +184,7 @@ export default function EventsScreen() {
               <Text style={[styles.emptySubtitle, { color: Colors.outline }]}>Check back soon — new events show up here once they&apos;re published.</Text>
             </View>
           }
+          ListFooterComponent={<PastEventsSection />}
         />
       )}
     </View>
@@ -211,5 +282,52 @@ const styles = StyleSheet.create({
     marginTop: Spacing[1],
     textAlign: 'center',
     paddingHorizontal: Spacing[8],
+  },
+  // Past events section
+  pastSection: {
+    marginTop: Spacing[6],
+  },
+  pastHeader: {
+    marginBottom: Spacing[3],
+  },
+  pastTitle: {
+    fontFamily: FontFamily.displaySemi,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  pastGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing[3],
+  },
+  pastCard: {
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: '46%',
+  },
+  pastThumb: {
+    aspectRatio: 16 / 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pastCardContent: {
+    padding: Spacing[3],
+    gap: 2,
+  },
+  pastCardTitle: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  pastCardDate: {
+    fontFamily: FontFamily.body,
+    fontSize: 11,
+    lineHeight: 15.4,
+  },
+  pastSeeAll: {
+    alignItems: 'center',
+    marginTop: Spacing[3],
   },
 });

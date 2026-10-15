@@ -257,28 +257,28 @@ export function AdminDashboardClient() {
         <TabsContent value="pulse" className="space-y-6">
           <Reveal className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <StatTile
-              href="/admin/verification"
+              href="/areas-of-service/administration/verification"
               icon={ClipboardCheck}
               tone="gold"
               label="Pending verifications"
               value={pending?.length}
             />
             <StatTile
-              href="/admin/roster"
+              href="/areas-of-service/administration/roster"
               icon={Users}
               tone="royal"
               label="Roster size"
               value={roster?.members.length}
             />
             <StatTile
-              href="/admin/weekly-program"
+              href="/areas-of-service/administration/weekly-program"
               icon={Calendar}
               tone="success"
               label="Programs this week"
               value={programs?.length}
             />
             <StatTile
-              href="/admin/announcements"
+              href="/areas-of-service/administration/announcements"
               icon={Megaphone}
               tone="crimson"
               label="Active announcements"
@@ -389,7 +389,7 @@ export function AdminDashboardClient() {
                   </CardTitle>
                   {pending && pending.length > 5 && (
                     <Link
-                      href="/admin/verification"
+                      href="/areas-of-service/administration/verification"
                       className="font-body text-sm font-medium text-primary underline underline-offset-2"
                     >
                       View all {pending.length}

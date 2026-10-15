@@ -23,16 +23,18 @@ import { DepartmentSwitcher } from "@/components/admin/DepartmentSwitcher";
 // Area-of-Service switcher on the left: moving to another department no longer
 // means bouncing back through /areas-of-service.
 
+const BASE = "/areas-of-service/administration";
+
 const MODULE_TITLES: [prefix: string, title: string][] = [
-  ["/admin/verification", "Verification"],
-  ["/admin/members", "Members"],
-  ["/admin/departments", "Roster"],
-  ["/admin/weekly-program", "Weekly program"],
-  ["/admin/events", "Events"],
-  ["/admin/announcements", "Announcements"],
-  ["/admin/year-planner", "Year planner"],
-  ["/admin/settings", "Settings"],
-  ["/admin", "Dashboard"],
+  [`${BASE}/verification`, "Verification"],
+  [`${BASE}/members`, "Members"],
+  [`${BASE}/departments`, "Roster"],
+  [`${BASE}/weekly-program`, "Weekly program"],
+  [`${BASE}/events`, "Events"],
+  [`${BASE}/announcements`, "Announcements"],
+  [`${BASE}/year-planner`, "Year planner"],
+  [`${BASE}/settings`, "Settings"],
+  [BASE, "Dashboard"],
 ];
 
 function moduleTitle(pathname: string): string {
@@ -131,7 +133,7 @@ export function AdminTopBar({
             <DropdownMenuSeparator />
 
             <DropdownMenuItem asChild>
-              <Link href="/admin/settings">
+              <Link href="/areas-of-service/administration/settings">
                 <Settings aria-hidden="true" />
                 Settings
               </Link>

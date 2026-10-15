@@ -45,7 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     items: [
       {
-        href: "/admin",
+        href: "/areas-of-service/administration",
         label: "Dashboard",
         exact: true,
         icon: (
@@ -72,7 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Membership",
     items: [
       {
-        href: "/admin/verification",
+        href: "/areas-of-service/administration/verification",
         label: "Verification queue",
         icon: (
           <svg
@@ -91,7 +91,7 @@ const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        href: "/admin/members",
+        href: "/areas-of-service/administration/members",
         label: "Members directory",
         icon: (
           <svg
@@ -115,7 +115,7 @@ const NAV_GROUPS: NavGroup[] = [
         // No dedicated Administration-scoped Roster screen yet — this reuses
         // the existing department-picker → department-members flow. Repoint
         // at a purpose-built /admin/roster once that page exists.
-        href: "/admin/roster",
+        href: "/areas-of-service/administration/roster",
         label: "Roster",
         icon: (
           <svg
@@ -141,7 +141,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Programs & content",
     items: [
       {
-        href: "/admin/weekly-program",
+        href: "/areas-of-service/administration/weekly-program",
         label: "Weekly program",
         icon: (
           <svg
@@ -163,7 +163,7 @@ const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        href: "/admin/events",
+        href: "/areas-of-service/administration/events",
         label: "Events",
         icon: (
           <svg
@@ -184,7 +184,7 @@ const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        href: "/admin/announcements",
+        href: "/areas-of-service/administration/announcements",
         label: "Announcements",
         icon: (
           <svg
@@ -202,51 +202,13 @@ const NAV_GROUPS: NavGroup[] = [
           </svg>
         ),
       },
-      {
-        href: "/admin/devotionals",
-        label: "Devotionals",
-        icon: (
-          <svg
-            className={iconClass}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M12 6.5C10.5 5.3 8.3 4.7 5 4.7v13c3.3 0 5.5.6 7 1.8 1.5-1.2 3.7-1.8 7-1.8v-13c-3.3 0-5.5.6-7 1.8Z" />
-            <path d="M12 6.5v13" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/past-events",
-        label: "Past events",
-        icon: (
-          <svg
-            className={iconClass}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
-            <path d="m10.5 9.5 4 2.5-4 2.5Z" />
-          </svg>
-        ),
-      },
     ],
   },
   {
     label: "Planning",
     items: [
       {
-        href: "/admin/year-planner",
+        href: "/areas-of-service/administration/year-planner",
         label: "Year planner",
         icon: (
           <svg
@@ -281,7 +243,7 @@ export function AdminSidebar() {
     <Sidebar collapsible="icon" className={SIDEBAR_GRADIENT}>
       <SidebarHeader className="p-3">
         <Link
-          href="/admin"
+          href="/areas-of-service/administration"
           className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
         >
           <Image

@@ -10,8 +10,6 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname, "../.."),
   },
   transpilePackages: ["@klt-cyber/shared"],
-  // There is no web sign up (spec 0004) — a bookmarked or linked /sign-up
-  // lands on sign in instead of a 404.
   async redirects() {
     return [
       {
@@ -19,7 +17,49 @@ const nextConfig: NextConfig = {
         destination: "/sign-in",
         permanent: false,
       },
+      {
+        source: "/admin/devotionals",
+        destination: "/areas-of-service/media/devotionals",
+        permanent: true,
+      },
+      {
+        source: "/admin/past-events",
+        destination: "/areas-of-service/media/past-events",
+        permanent: true,
+      },
+      {
+        source: "/admin/:path+",
+        destination: "/areas-of-service/administration/:path+",
+        permanent: true,
+      },
+      {
+        source: "/admin",
+        destination: "/areas-of-service/administration",
+        permanent: true,
+      },
+      {
+        source: "/media/:path+",
+        destination: "/areas-of-service/media/:path+",
+        permanent: true,
+      },
+      {
+        source: "/departments/:id",
+        destination: "/areas-of-service",
+        permanent: false,
+      },
     ];
+  },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/areas-of-service/administration/:path*",
+          destination: "/admin/:path*",
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
   },
 };
 
