@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { devotionalInputSchema } from "@klt-cyber/shared";
 import {
   getCurrentUser,
   getMediaAuthorityOrNull,
@@ -61,9 +62,15 @@ export const createDevotional = mutation({
   handler: async (ctx, args) => {
     const actor = await requireMediaAuthority(ctx);
 
+    const parsed = devotionalInputSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+    }
+    const { title, scriptureReference, body, date } = parsed.data;
+
     const existing = await ctx.db
       .query("devotionals")
-      .withIndex("by_date", (q) => q.eq("date", args.date))
+      .withIndex("by_date", (q) => q.eq("date", date))
       .first();
     if (existing) {
       throw new Error("A devotional already exists for this date");
@@ -71,10 +78,10 @@ export const createDevotional = mutation({
 
     const now = Date.now();
     const devotionalId = await ctx.db.insert("devotionals", {
-      title: args.title,
-      scriptureReference: args.scriptureReference,
-      body: args.body,
-      date: args.date,
+      title,
+      scriptureReference,
+      body,
+      date,
       createdBy: actor._id,
       createdAt: now,
       updatedAt: now,
@@ -85,7 +92,7 @@ export const createDevotional = mutation({
       action: "devotional.create",
       targetType: "devotionals",
       targetId: devotionalId,
-      metadata: { title: args.title, date: args.date },
+      metadata: { title, date },
     });
 
     return devotionalId;
@@ -103,13 +110,19 @@ export const updateDevotional = mutation({
   handler: async (ctx, args) => {
     const actor = await requireMediaAuthority(ctx);
 
+    const parsed = devotionalInputSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+    }
+    const { title, scriptureReference, body, date } = parsed.data;
+
     const existing = await ctx.db.get(args.devotionalId);
     if (!existing) throw new Error("Devotional not found");
 
-    if (args.date !== existing.date) {
+    if (date !== existing.date) {
       const clash = await ctx.db
         .query("devotionals")
-        .withIndex("by_date", (q) => q.eq("date", args.date))
+        .withIndex("by_date", (q) => q.eq("date", date))
         .first();
       if (clash && clash._id !== args.devotionalId) {
         throw new Error("A devotional already exists for this date");
@@ -117,10 +130,10 @@ export const updateDevotional = mutation({
     }
 
     await ctx.db.patch(args.devotionalId, {
-      title: args.title,
-      scriptureReference: args.scriptureReference,
-      body: args.body,
-      date: args.date,
+      title,
+      scriptureReference,
+      body,
+      date,
       updatedAt: Date.now(),
     });
 
@@ -129,7 +142,7 @@ export const updateDevotional = mutation({
       action: "devotional.update",
       targetType: "devotionals",
       targetId: args.devotionalId,
-      metadata: { title: args.title, date: args.date },
+      metadata: { title, date },
     });
   },
 });

@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { parseYouTubeVideoId } from "@klt-cyber/shared";
+import { parseYouTubeVideoId, pastEventInputSchema } from "@klt-cyber/shared";
 import {
   getCurrentUser,
   getMediaAuthorityOrNull,
@@ -43,16 +43,22 @@ export const createPastEvent = mutation({
   handler: async (ctx, args) => {
     const actor = await requireMediaAuthority(ctx);
 
-    const videoId = parseYouTubeVideoId(args.youtubeUrl);
+    const parsed = pastEventInputSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+    }
+    const { title, date, youtubeUrl } = parsed.data;
+
+    const videoId = parseYouTubeVideoId(youtubeUrl);
     if (!videoId) {
       throw new Error("Enter a link to a single YouTube video");
     }
 
     const now = Date.now();
     const pastEventId = await ctx.db.insert("pastEvents", {
-      title: args.title,
-      date: args.date,
-      youtubeUrl: args.youtubeUrl,
+      title,
+      date,
+      youtubeUrl,
       youtubeVideoId: videoId,
       createdBy: actor._id,
       createdAt: now,
@@ -64,7 +70,7 @@ export const createPastEvent = mutation({
       action: "pastEvent.create",
       targetType: "pastEvents",
       targetId: pastEventId,
-      metadata: { title: args.title, date: args.date },
+      metadata: { title, date },
     });
 
     return pastEventId;
@@ -81,18 +87,24 @@ export const updatePastEvent = mutation({
   handler: async (ctx, args) => {
     const actor = await requireMediaAuthority(ctx);
 
+    const parsed = pastEventInputSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+    }
+    const { title, date, youtubeUrl } = parsed.data;
+
     const existing = await ctx.db.get(args.pastEventId);
     if (!existing) throw new Error("Past event not found");
 
-    const videoId = parseYouTubeVideoId(args.youtubeUrl);
+    const videoId = parseYouTubeVideoId(youtubeUrl);
     if (!videoId) {
       throw new Error("Enter a link to a single YouTube video");
     }
 
     await ctx.db.patch(args.pastEventId, {
-      title: args.title,
-      date: args.date,
-      youtubeUrl: args.youtubeUrl,
+      title,
+      date,
+      youtubeUrl,
       youtubeVideoId: videoId,
       updatedAt: Date.now(),
     });
@@ -102,7 +114,7 @@ export const updatePastEvent = mutation({
       action: "pastEvent.update",
       targetType: "pastEvents",
       targetId: args.pastEventId,
-      metadata: { title: args.title, date: args.date },
+      metadata: { title, date },
     });
   },
 });
