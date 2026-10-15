@@ -595,12 +595,14 @@ export function RosterClient() {
             {selected && (
               <div className="flex flex-col gap-4 px-4">
                 {/* key: remount on a different member so the input reseeds. */}
-                <MembershipTitleEditor
-                  key={selected.membership._id}
-                  membershipId={selected.membership._id}
-                  currentTitle={selected.membership.positionTitle}
-                  onSaved={() => setSelected(null)}
-                />
+                {(isSystemAdmin || isAdministrationHod) && (
+                  <MembershipTitleEditor
+                    key={selected.membership._id}
+                    membershipId={selected.membership._id}
+                    currentTitle={selected.membership.positionTitle}
+                    onSaved={() => setSelected(null)}
+                  />
+                )}
 
                 {selectedProfile === undefined ? (
                   <div className="flex flex-col gap-3" aria-busy="true">
@@ -617,29 +619,24 @@ export function RosterClient() {
               </div>
             )}
 
-            <SheetFooter className="flex-col gap-2">
-              {/*
-              Backend enforces who can actually complete these (removeMember
-              is HOD-only server-side); buttons render for anyone with roster
-              access and surface the real authorization error if attempted
-              without permission, rather than guessing at role state
-              client-side against an unconfirmed access-check return shape.
-            */}
-              <ActionButton
-                variant="gold"
-                onClick={handleAppointDelegate}
-                disabled={busy}
-              >
-                Appoint as delegate
-              </ActionButton>
-              <ActionButton
-                variant="danger"
-                onClick={handleRemove}
-                disabled={busy}
-              >
-                Remove from roster
-              </ActionButton>
-            </SheetFooter>
+            {(isSystemAdmin || isAdministrationHod) && (
+              <SheetFooter className="flex-col gap-2">
+                <ActionButton
+                  variant="gold"
+                  onClick={handleAppointDelegate}
+                  disabled={busy}
+                >
+                  Appoint as delegate
+                </ActionButton>
+                <ActionButton
+                  variant="danger"
+                  onClick={handleRemove}
+                  disabled={busy}
+                >
+                  Remove from roster
+                </ActionButton>
+              </SheetFooter>
+            )}
           </SheetContent>
         </Sheet>
       </div>

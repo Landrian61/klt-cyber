@@ -87,6 +87,11 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
   }
 
   if (args.roleType === "hod") {
+    if (!args.departmentId) {
+      throw new Error(
+        "An HOD appointment must name a department (departmentId is required)"
+      );
+    }
     const callerIsAdminHod = await hasActiveDepartmentRole(
       ctx,
       actor._id,

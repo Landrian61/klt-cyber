@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import {
   canManageContent,
   getAdministrationAuthorityOrNull,
+  getCurrentUser,
   logActivity,
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
@@ -80,6 +81,7 @@ const PRIORITY_RANK: Record<string, number> = { high: 3, normal: 2, low: 1 };
 export const listActiveAnnouncements = query({
   args: {},
   handler: async (ctx) => {
+    if (!(await getCurrentUser(ctx))) return null;
     const now = Date.now();
     const published = await ctx.db
       .query("announcements")

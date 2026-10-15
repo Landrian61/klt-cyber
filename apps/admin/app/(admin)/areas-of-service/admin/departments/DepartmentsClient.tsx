@@ -50,7 +50,7 @@ export function DepartmentsClient() {
         columns={columns}
         rows={departments}
         rowKey={(dept) => dept._id}
-        onRowClick={(dept) => router.push(`/admin/departments/${dept._id}`)}
+        onRowClick={(dept) => router.push(`/areas-of-service/admin/departments/${dept._id}`)}
         skeletonRows={3}
         empty={
           <EmptyState

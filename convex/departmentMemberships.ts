@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { MAX_ACTIVE_DEPARTMENTS } from "@klt-cyber/shared";
+import { MAX_ACTIVE_DEPARTMENTS, PAUSED_DEPARTMENTS } from "@klt-cyber/shared";
 import {
   requireUser,
   getCurrentUser,
@@ -10,8 +10,10 @@ import {
   requireDepartmentHod,
   getAdministrationAuthorityOrNull,
   isActiveSystemAdmin,
+  hasActiveDepartmentRole,
   getActiveRoles,
   getAdministrationDepartmentId,
+  hasPortalAccess,
   logActivity,
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
@@ -196,6 +198,39 @@ export const removeDepartmentMember = mutation({
 });
 
 /**
+ * Reactive roster read gate: System Admin, Administration authority, or the
+ * given department's own HOD/delegate. Returns null when unauthenticated
+ * (reactive teardown), throws when authenticated but unauthorized.
+ */
+async function getRosterReadAuthorityOrNull(
+  ctx: QueryCtx,
+  departmentId: Id<"departments">
+) {
+  const user = await getCurrentUser(ctx);
+  if (!user) return null;
+  if (await isActiveSystemAdmin(ctx, user._id)) return user;
+  const adminDeptId = await getAdministrationDepartmentId(ctx);
+  if (
+    adminDeptId &&
+    (await hasActiveDepartmentRole(ctx, user._id, adminDeptId, [
+      "hod",
+      "department_admin",
+    ]))
+  ) {
+    return user;
+  }
+  if (
+    await hasActiveDepartmentRole(ctx, user._id, departmentId, [
+      "hod",
+      "department_admin",
+    ])
+  ) {
+    return user;
+  }
+  throw new Error("Not authorized to view this department's roster");
+}
+
+/**
  * Which department a roster read is about: the explicit `departmentId` when
  * one is given, otherwise the fixed "Administration" department resolved
  * server-side.
@@ -221,15 +256,15 @@ async function resolveRosterDepartment(
  * don't need a separate lookup for its name. Omit `departmentId` to get the
  * Administration department's roster.
  *
- * Gated: Administration authority (see the note above `listDepartmentHods`).
+ * Gated: System Admin, Administration authority, or this department's own
+ * HOD/delegate.
  */
 export const listDepartmentMembers = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, { departmentId }) => {
-    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
-
     const department = await resolveRosterDepartment(ctx, departmentId);
     if (!department) return null;
+    if (!(await getRosterReadAuthorityOrNull(ctx, department._id))) return null;
 
     const members = await ctx.db
       .query("departmentMemberships")
@@ -258,17 +293,17 @@ export const listDepartmentMembers = query({
  * `"pending_verification"`, not just `"verified"` — self-added members
  * appear on the roster before Church Admin verifies their profile.
  *
- * Gated: Administration authority. This is the most sensitive read in the
- * file — it joins each roster row to the member's profile (name, phone,
- * signed photo URL) and their user row.
+ * Gated: System Admin, Administration authority, or this department's own
+ * HOD/delegate. This is the most sensitive read in the file — it joins each
+ * roster row to the member's profile (name, phone, signed photo URL) and
+ * their user row.
  */
 export const listDepartmentMembersWithProfiles = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, { departmentId }) => {
-    if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
-
     const department = await resolveRosterDepartment(ctx, departmentId);
     if (!department) return null;
+    if (!(await getRosterReadAuthorityOrNull(ctx, department._id))) return null;
 
     const memberships = await ctx.db
       .query("departmentMemberships")
@@ -446,27 +481,12 @@ export const getDepartmentAccess = query({
   args: { departmentId: v.id("departments") },
   handler: async (ctx, { departmentId }) => {
     const actor = await requireUser(ctx);
-    const activeRoles = await getActiveRoles(ctx, actor._id);
 
-    // The web portal authorization invariant: a portal
-    // session is valid only when the caller holds >=1 active roleAssignments
-    // record. Enforced HERE, not just in routing.
-    //
-    // This used to be carried entirely by middleware, which is why the check
-    // below could pass on roster membership alone. It cannot: roster
-    // membership is not authority (see the note at the top of this file), and
-    // `submitProfile` self-inserts roster rows for ordinary members who hold
-    // no role at all. Such a member belongs in the mobile app; without this
-    // check, moving the role gate out of middleware would let them into the
-    // portal.
-    if (activeRoles.length === 0) {
+    if (!(await hasPortalAccess(ctx, actor._id))) {
       throw new Error("Not authorized to view this department");
     }
 
-    const isSystemAdmin = activeRoles.some(
-      (role) => role.roleType === "system_admin"
-    );
-
+    const isSystemAdmin = await isActiveSystemAdmin(ctx, actor._id);
     if (!isSystemAdmin) {
       const isMember = await ctx.db
         .query("departmentMemberships")
@@ -475,12 +495,11 @@ export const getDepartmentAccess = query({
         )
         .filter((q) => q.eq(q.field("departmentId"), departmentId))
         .first();
-      // Derived from the roles we already loaded rather than a second indexed
-      // read, which is what hasActiveDepartmentRole would have cost.
-      const hasAuthority = activeRoles.some(
-        (role) =>
-          (role.roleType === "hod" || role.roleType === "department_admin") &&
-          role.departmentId === departmentId
+      const hasAuthority = await hasActiveDepartmentRole(
+        ctx,
+        actor._id,
+        departmentId,
+        ["hod", "department_admin"]
       );
       if (!isMember && !hasAuthority) {
         throw new Error("Not authorized to view this department");
@@ -491,5 +510,80 @@ export const getDepartmentAccess = query({
     if (!department) throw new Error("Department not found");
 
     return { department };
+  },
+});
+
+/**
+ * Hub query: all departments split into active (the caller can enter) and
+ * paused ("Coming soon"). System Admin sees every active department as
+ * enterable. Others see only departments they serve in or hold authority for.
+ * Null when unauthenticated (reactive teardown).
+ */
+export const listMyDepartmentsForHub = query({
+  args: {},
+  handler: async (ctx) => {
+    const actor = await getCurrentUser(ctx);
+    if (!actor) return null;
+
+    if (!(await hasPortalAccess(ctx, actor._id))) return null;
+
+    const allDepartments = await ctx.db
+      .query("departments")
+      .withIndex("by_order")
+      .collect();
+
+    const pausedNames: readonly string[] = PAUSED_DEPARTMENTS;
+    const paused = allDepartments.filter((d) => pausedNames.includes(d.name));
+    const active = allDepartments.filter((d) => !pausedNames.includes(d.name));
+
+    const sysAdmin = await isActiveSystemAdmin(ctx, actor._id);
+    if (sysAdmin) {
+      return {
+        active: active.map((d) => ({
+          department: d,
+          roles: [] as string[],
+          isSystemAdmin: true as const,
+        })),
+        paused: paused.map((d) => ({ department: d })),
+      };
+    }
+
+    const [memberships, roles] = await Promise.all([
+      ctx.db
+        .query("departmentMemberships")
+        .withIndex("by_userId_status", (q) =>
+          q.eq("userId", actor._id).eq("status", "active")
+        )
+        .collect(),
+      getActiveRoles(ctx, actor._id),
+    ]);
+
+    const rolesByDept = new Map<Id<"departments">, Set<string>>();
+    for (const m of memberships) {
+      const s = rolesByDept.get(m.departmentId) ?? new Set<string>();
+      s.add("member");
+      rolesByDept.set(m.departmentId, s);
+    }
+    for (const r of roles) {
+      if (
+        (r.roleType === "hod" || r.roleType === "department_admin") &&
+        r.departmentId
+      ) {
+        const s = rolesByDept.get(r.departmentId) ?? new Set<string>();
+        s.add(r.roleType);
+        rolesByDept.set(r.departmentId, s);
+      }
+    }
+
+    return {
+      active: active
+        .filter((d) => rolesByDept.has(d._id))
+        .map((d) => ({
+          department: d,
+          roles: Array.from(rolesByDept.get(d._id) ?? []),
+          isSystemAdmin: false as const,
+        })),
+      paused: paused.map((d) => ({ department: d })),
+    };
   },
 });

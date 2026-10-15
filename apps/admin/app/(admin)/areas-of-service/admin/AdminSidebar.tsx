@@ -45,7 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     items: [
       {
-        href: "/areas-of-service/administration",
+        href: "/areas-of-service/admin",
         label: "Dashboard",
         exact: true,
         icon: (
@@ -72,7 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Membership",
     items: [
       {
-        href: "/areas-of-service/administration/verification",
+        href: "/areas-of-service/admin/verification",
         label: "Verification queue",
         icon: (
           <svg
@@ -91,7 +91,7 @@ const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        href: "/areas-of-service/administration/members",
+        href: "/areas-of-service/admin/members",
         label: "Members directory",
         icon: (
           <svg
@@ -115,7 +115,7 @@ const NAV_GROUPS: NavGroup[] = [
         // No dedicated Administration-scoped Roster screen yet — this reuses
         // the existing department-picker → department-members flow. Repoint
         // at a purpose-built /admin/roster once that page exists.
-        href: "/areas-of-service/administration/roster",
+        href: "/areas-of-service/admin/roster",
         label: "Roster",
         icon: (
           <svg
@@ -141,7 +141,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Programs & content",
     items: [
       {
-        href: "/areas-of-service/administration/weekly-program",
+        href: "/areas-of-service/admin/weekly-program",
         label: "Weekly program",
         icon: (
           <svg
@@ -163,7 +163,7 @@ const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        href: "/areas-of-service/administration/events",
+        href: "/areas-of-service/admin/events",
         label: "Events",
         icon: (
           <svg
@@ -184,7 +184,7 @@ const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        href: "/areas-of-service/administration/announcements",
+        href: "/areas-of-service/admin/announcements",
         label: "Announcements",
         icon: (
           <svg
@@ -208,7 +208,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Planning",
     items: [
       {
-        href: "/areas-of-service/administration/year-planner",
+        href: "/areas-of-service/admin/year-planner",
         label: "Year planner",
         icon: (
           <svg
@@ -243,7 +243,7 @@ export function AdminSidebar() {
     <Sidebar collapsible="icon" className={SIDEBAR_GRADIENT}>
       <SidebarHeader className="p-3">
         <Link
-          href="/areas-of-service/administration"
+          href="/areas-of-service/admin"
           className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
         >
           <Image

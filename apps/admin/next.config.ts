@@ -28,23 +28,33 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: "/areas-of-service/administration/devotionals",
+        source: "/areas-of-service/admin/devotionals",
         destination: "/areas-of-service/media/devotionals",
         permanent: true,
       },
       {
-        source: "/areas-of-service/administration/past-events",
+        source: "/areas-of-service/admin/past-events",
         destination: "/areas-of-service/media/past-events",
         permanent: true,
       },
       {
         source: "/admin/:path+",
-        destination: "/areas-of-service/administration/:path+",
+        destination: "/areas-of-service/admin/:path+",
         permanent: true,
       },
       {
         source: "/admin",
-        destination: "/areas-of-service/administration",
+        destination: "/areas-of-service/admin",
+        permanent: true,
+      },
+      {
+        source: "/areas-of-service/administration/:path+",
+        destination: "/areas-of-service/admin/:path+",
+        permanent: true,
+      },
+      {
+        source: "/areas-of-service/administration",
+        destination: "/areas-of-service/admin",
         permanent: true,
       },
       {
@@ -61,16 +71,7 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return {
-      beforeFiles: [
-        {
-          source: "/areas-of-service/administration",
-          destination: "/admin",
-        },
-        {
-          source: "/areas-of-service/administration/:path+",
-          destination: "/admin/:path+",
-        },
-      ],
+      beforeFiles: [],
       afterFiles: [],
       fallback: [],
     };

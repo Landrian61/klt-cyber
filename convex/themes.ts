@@ -5,6 +5,7 @@ import type { QueryCtx } from "./_generated/server";
 import {
   canManageContent,
   getAdministrationAuthorityOrNull,
+  getCurrentUser,
   logActivity,
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
@@ -38,6 +39,7 @@ async function currentForScope(
 export const getCurrentThemes = query({
   args: {},
   handler: async (ctx) => {
+    if (!(await getCurrentUser(ctx))) return null;
     const now = Date.now();
     const [annual, monthly] = await Promise.all([
       currentForScope(ctx, "annual", now),
