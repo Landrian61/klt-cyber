@@ -441,6 +441,31 @@ export default defineSchema({
     .index("by_userId_notificationId", ["userId", "notificationId"])
     .index("by_userId", ["userId"]),
 
+  // ── Devotionals & Past Events (spec 0005) ───────────────────────────────────
+  // Both are Media-department content: one devotional per date (enforced in the
+  // mutation), past events are a YouTube archive. Separate tables, no
+  // relationship between them.
+
+  devotionals: defineTable({
+    title: v.string(),
+    scriptureReference: v.string(),
+    body: v.string(),
+    date: v.string(), // "YYYY-MM-DD" East Africa Time date key
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_date", ["date"]),
+
+  pastEvents: defineTable({
+    title: v.string(),
+    date: v.string(), // "YYYY-MM-DD"
+    youtubeUrl: v.string(),
+    youtubeVideoId: v.string(), // 11-char video ID, extracted on write
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_date", ["date"]),
+
   // ── Increment 8 — Per-user notification delete ──────────────────────────────
   // Same shape/index pattern as `notificationReads` above, and for the same
   // reason: `notifications` is one shared row per event, not per recipient

@@ -5,6 +5,7 @@ import { Component, useMemo, useState, type ReactNode } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
+import { dateKeyFromMs } from '@klt-cyber/shared';
 import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -194,6 +195,52 @@ function EventCard({
   );
 }
 
+// ── Section: Today's devotional ──────────────────────────────────────────────
+
+const BODY_PREVIEW_LENGTH = 140;
+
+function DevotionalCard() {
+  const Colors = useThemeColors();
+  const router = useRouter();
+  const todayKey = useMemo(() => dateKeyFromMs(Date.now()), []);
+  const devotional = useQuery(api.devotionals.getToday, { dateKey: todayKey });
+
+  if (devotional === undefined || devotional === null) return null;
+
+  const bodyPreview =
+    devotional.body.length > BODY_PREVIEW_LENGTH
+      ? `${devotional.body.slice(0, BODY_PREVIEW_LENGTH).trimEnd()}…`
+      : devotional.body;
+
+  return (
+    <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.section}>
+      <View style={styles.devotionalHeader}>
+        <Text style={[styles.sectionTitle, { color: Colors.onSurface }]}>Today&apos;s devotional</Text>
+        <Button label="See all" variant="textLink" onPress={() => router.push('/devotionals')} />
+      </View>
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push('/devotionals');
+        }}
+        style={[styles.devotionalCard, { backgroundColor: Colors.surfaceLowest }, ShadowE2]}
+        accessibilityRole="button"
+        accessibilityLabel={`Today's devotional: ${devotional.title}`}
+      >
+        <Text style={[styles.devotionalTitle, { color: Colors.onSurface }]} numberOfLines={2}>
+          {devotional.title}
+        </Text>
+        <Text style={[styles.devotionalScripture, { color: Colors.primary }]}>
+          {devotional.scriptureReference}
+        </Text>
+        <Text style={[styles.devotionalBody, { color: Colors.onSurfaceVariant }]} numberOfLines={4}>
+          {bodyPreview}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 // Dependency-free final fallback (AC-4): if `ErrorState` itself (or Sentry's
@@ -290,6 +337,9 @@ function HomeScreenContent() {
       {/* Dismissible invitation to turn on push notifications — shown only in
           the "never-asked" permission state, outside the dismiss cooldown. */}
       <NotificationPermissionBanner />
+
+      {/* Today's devotional — hidden while loading or when none exists */}
+      <DevotionalCard />
 
       {/* Section 2 — This week's programs (Convex: calendar.getCalendarRange) */}
       {weekPrograms.length > 0 && (
@@ -440,4 +490,32 @@ const styles = StyleSheet.create({
   eventDateText: { fontFamily: FontFamily.bodySemiBold, fontSize: 10, lineHeight: 14 },
   eventCardName: { fontFamily: FontFamily.bodySemiBold, fontSize: 15, lineHeight: 20, color: '#FFFFFF' },
   eventCardMeta: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 16, color: 'rgba(255,255,255,0.80)', marginTop: 2 },
+  // Devotional card
+  devotionalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing[3],
+  },
+  devotionalCard: {
+    borderRadius: Radius.lg,
+    padding: Spacing[4],
+  },
+  devotionalTitle: {
+    fontFamily: FontFamily.displaySemi,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  devotionalScripture: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: Spacing[1],
+  },
+  devotionalBody: {
+    fontFamily: FontFamily.body,
+    fontSize: 14,
+    lineHeight: 22.4,
+    marginTop: Spacing[2],
+  },
 });

@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import {
   getActiveRoles,
   getAdministrationDepartmentId,
+  getMediaDepartmentId,
   getCurrentUser,
   requireUser,
 } from "./lib/authz";
@@ -37,11 +38,22 @@ export async function getMyAccountCore(
           (r.roleType === "hod" || r.roleType === "department_admin")
       ));
 
+  const mediaDeptId = isSystemAdmin ? null : await getMediaDepartmentId(ctx);
+  const hasMediaAccess =
+    isSystemAdmin ||
+    (mediaDeptId !== null &&
+      activeRoles.some(
+        (r) =>
+          r.departmentId === mediaDeptId &&
+          (r.roleType === "hod" || r.roleType === "department_admin")
+      ));
+
   return {
     user,
     profile: profile ?? null,
     activeRoles,
     hasAdministrationAccess,
+    hasMediaAccess,
   };
 }
 

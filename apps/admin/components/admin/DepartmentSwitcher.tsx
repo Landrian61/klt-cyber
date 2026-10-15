@@ -22,12 +22,16 @@ import {
 // the caller may enter: System Admin sees all 13, everyone else sees the
 // departments they're rostered in or hold hod/department_admin for.
 //
-// Administration is the one department with a dedicated portal today; the rest
-// route to their placeholder page ("Out of scope — Part 2").
-const ADMINISTRATION = "Administration";
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
-function hrefFor(name: string, id: string) {
-  return name === ADMINISTRATION ? "/admin" : `/departments/${id}`;
+function hrefFor(name: string) {
+  return `/areas-of-service/${slugify(name)}`;
 }
 
 export function DepartmentSwitcher({
@@ -88,7 +92,7 @@ export function DepartmentSwitcher({
             return (
               <DropdownMenuItem
                 key={department._id}
-                onSelect={() => router.push(hrefFor(department.name, department._id))}
+                onSelect={() => router.push(hrefFor(department.name))}
                 className="gap-2"
               >
                 <Check
