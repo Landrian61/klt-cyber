@@ -15,7 +15,6 @@ import * as Haptics from 'expo-haptics';
 import { FontFamily, Spacing, Radius, AmbientShadow, Duration, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Cover } from '@/components/ui/cover';
-import { Button } from '@/components/ui/button';
 import { api, type Doc } from '@/lib/api';
 import { formatEventDate, formatClockTime } from '@/lib/content-format';
 

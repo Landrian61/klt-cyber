@@ -28,7 +28,7 @@ export function useTodayKey(): string {
       sub.remove();
       clearTimeout(timer);
     };
-  }, []);
+  }, [key]);
 
   return key;
 }

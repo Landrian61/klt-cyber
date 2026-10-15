@@ -28,6 +28,16 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/areas-of-service/administration/devotionals",
+        destination: "/areas-of-service/media/devotionals",
+        permanent: true,
+      },
+      {
+        source: "/areas-of-service/administration/past-events",
+        destination: "/areas-of-service/media/past-events",
+        permanent: true,
+      },
+      {
         source: "/admin/:path+",
         destination: "/areas-of-service/administration/:path+",
         permanent: true,
