@@ -18,7 +18,7 @@ _This scope transcribes the already-agreed `spec/BUILD-PLAN.md` into the living 
 | 5 | Remove suspension and web sign-up; move System Admin pages into Administration | Week 1 | in-progress |
 | 22 | Devotionals and past events | Week 1 | in-progress |
 | 6 | Department-scoped permissions, portal access rules, permission tests | Week 2 | in-progress |
-| 7 | Password reset and the five emails (Resend) | Week 2 | planned |
+| 7 | Password reset and the five emails (Resend) | Week 2 | in-progress |
 | 8 | Account deletion | Week 2 | planned |
 | 11 | Cancel and restore a single program occurrence | Week 2 | in-progress |
 | 12 | Mobile shell and Home slots | Week 2 | in-progress |
@@ -152,12 +152,21 @@ Code: `convex/lib/authz.ts` (hasPortalAccess), `convex/events.ts`, `convex/theme
 - [ ] Document it: `/document department-scoped permissions`
 SRS: F3-01, F3-04, F3-05, F3-08, F3-09, F3-19, S1-03, F5-09, NF-01, NF-17
 
-### 7. Password reset and the five emails (Resend) · planned
+### 7. Password reset and the five emails (Resend) · in-progress
 Track A. Let anyone who forgets their password get back in, and send the five emails the SRS actually calls for — no more, no less.
 **Done when:** F1-03: a reset link is requested by email, expires, and the screen shows the same message whether or not the email exists. Exactly five events send email: welcome, password reset, profile verified, profile sent back, account deletion confirmed — from a church-domain Resend address, replies to `kingdomlifeug@gmail.com`.
-- [ ] Design it (spec): `/architect password reset and emails`
-Spec: not yet captured
-SRS: F1-03, F1-10
+- [x] Design it (spec): `/architect password reset and emails`
+Spec: [0007](../specs/_root/0007-password-reset-emails/index.md)
+- [ ] Build it: `/develop password reset and emails`
+  - [ ] Email layer foundation: Resend provisioning checklist, the `@convex-dev/resend` component pinned and registered, the closed five template registry plus its two guard tests in `packages/shared`, the shared layout with HTML escaping, and `internal.emails.send` with per template idempotency keys, satisfies AC-14, AC-15, AC-17, AC-20 — all code built and green (component pinned at `0.2.9` and registered, registry plus both guard tests, escaping layout, `internal.emails.send` with the idempotency formulas). Left open deliberately: the Resend account itself and the five `RESEND_*`/`EMAIL_*` env vars on the dev deployment, which need the account owner's credentials. AC-17 cannot pass until those are set
+  - [ ] Reset backend wiring in `convex/auth.ts`: the `sendResetPassword` callback through the scheduler, the 1 hour expiry from the shared constant, session revocation, and the database backed rate limiter (plus the one time check that a real client address reaches it on both the mobile and portal proxy paths), satisfies AC-3, AC-5, AC-8, AC-11, AC-18 — all code built and typechecking. Left open: the one time live check of the limiter, which matters more than the spec assumed. Better Auth keys counters on the client IP from `x-forwarded-for` and **skips limiting entirely** (one log warning) when it cannot read one, so if Convex does not forward that header, AC-11 silently does not hold. Also still to measure: the access token window AC-8 names
+  - [x] Both portal pages: `/reset-password` (form, expired state with inline re request, success panel) and `/forgot-password`, each public, allowlisted in middleware, `noindex`, with loading, offline and rate limited states, satisfies AC-2, AC-6, AC-7, AC-9, AC-10, AC-21
+  - [x] Mobile forgot password screen: replace the `setTimeout` mock with the real call passing `redirectTo`, add `EXPO_PUBLIC_PORTAL_URL` per EAS profile, and fix the expiry copy, satisfies AC-1, AC-4, AC-21
+  - [ ] Delivery visibility and the other four emails: the `/resend-webhook` route and event handler writing `email.failed` to Sentry, the remaining templates, the welcome and profile verified triggers, then the verified sending domain and production config, satisfies AC-12, AC-13, AC-16, AC-17, AC-19 — all code built and green (route, signature verified handler, all five templates, welcome trigger in `auth.ts` `onCreate`, profile verified trigger in `verifyProfile`). Left open: registering the webhook in the Resend dashboard per environment, and the verified sending domain plus production `EMAIL_FROM`/`EMAIL_TEST_MODE`, which is blocked on the spec's open DNS identity decision (subdomain versus root)
+- [ ] Verify it: `/check verify password reset and emails`
+- [ ] Test it: `/test password reset and emails`
+- [ ] Document it: `/document password reset and emails`
+SRS: F1-03, F1-10 · code: `convex/emails.ts`, `convex/emails.test.ts`, `convex/lib/emails/{layout,templates}.ts`, `convex/auth.ts`, `convex/http.ts`, `convex/convex.config.ts`, `convex/memberProfiles.ts` (`verifyProfile`), `packages/shared/src/constants/emails.ts`, `apps/admin/app/(auth)/{reset-password,forgot-password}/`, `apps/admin/components/auth/RequestResetForm.tsx`, `apps/admin/lib/password-reset.ts`, `apps/admin/middleware.ts`, `apps/mobile/lib/password-reset.ts`, `apps/mobile/app/(auth)/forgot-password.tsx`, `apps/mobile/eas.json`
 
 ### 8. Account deletion · planned · GA
 Track A. Let a person leave the platform from inside the app, without leaving their personal data behind.
