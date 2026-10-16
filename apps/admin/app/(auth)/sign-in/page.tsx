@@ -1,7 +1,9 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { FORGOT_PASSWORD_PATH } from "@klt-cyber/shared";
 import { loadValidators, warmValidators } from "@/lib/validators";
 import { authClient } from "@/lib/auth";
 import { Card } from "@/components/shadcn/card";
@@ -152,6 +154,15 @@ function SignInForm() {
               placeholder="Enter your password"
             />
           </Field>
+
+          <div className="text-right">
+            <Link
+              href={FORGOT_PASSWORD_PATH}
+              className="font-body text-sm font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              Forgot your password?
+            </Link>
+          </div>
 
           <Button type="submit" loading={loading} className="w-full">
             Sign in
