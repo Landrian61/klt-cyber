@@ -4,6 +4,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+
+import { passwordResetExpiryLabel } from '@klt-cyber/shared';
 
 import { FontFamily, Spacing } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
@@ -11,6 +14,11 @@ import { AuthHeader } from '@/components/auth/auth-header';
 import { KeyboardAwareScroll } from '@/components/auth/keyboard-aware-scroll';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  RESET_REQUEST_MESSAGES,
+  requestResetLink,
+  type ResetRequestOutcome,
+} from '@/lib/password-reset';
 
 export default function ForgotPasswordScreen() {
   const Colors = useThemeColors();
@@ -18,14 +26,28 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSendReset = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setError(null);
     setLoading(true);
-    // TODO: Integrate real password reset
-    setTimeout(() => {
-      setLoading(false);
+
+    const outcome: ResetRequestOutcome = await requestResetLink(email);
+    setLoading(false);
+
+    if (outcome.kind === 'sent') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSent(true);
-    }, 1500);
+      return;
+    }
+
+    // Every other outcome is a real failure worth saying out loud. Note that
+    // "this address has no account" is deliberately NOT among them: the
+    // backend answers identically either way so the form cannot be used to
+    // find out who has an account (AC-4).
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    setError(RESET_REQUEST_MESSAGES[outcome.kind]);
   };
 
   if (sent) {
@@ -40,10 +62,22 @@ export default function ForgotPasswordScreen() {
             <Ionicons name="checkmark" size={40} color="#FFFFFF" />
           </LinearGradient>
           <Text style={[styles.successTitle, { color: Colors.onSurface }]}>Check your inbox</Text>
+          {/* Identical whether or not that address has an account (AC-4), so
+              the wording is conditional on purpose: "if". */}
           <Text style={[styles.successBody, { color: Colors.onSurfaceVariant }]}>
-            {"We've sent a reset link to"}{'\n'}
-            <Text style={[styles.emailHighlight, { color: Colors.onSurface }]}>{email}</Text>
-            {'\n'}Expires in 30 minutes.
+            {'If there is an account for'}{'\n'}
+            <Text style={[styles.emailHighlight, { color: Colors.onSurface }]}>
+              {email.trim().toLowerCase()}
+            </Text>
+            {'\n'}a reset link is on its way.
+          </Text>
+          {/* Expiry derived from the shared constant, never retyped: this copy
+              said "30 minutes" against nothing at all while the screen was a
+              mock, which is the drift the constant exists to stop. */}
+          <Text style={[styles.successBody, { color: Colors.onSurfaceVariant }]}>
+            The link works once and expires in {passwordResetExpiryLabel()}. It
+            opens in your browser; once you have set your new password, come
+            back here and sign in.
           </Text>
           <View style={styles.backLink}>
             <Button
@@ -81,6 +115,7 @@ export default function ForgotPasswordScreen() {
           autoComplete="email"
           icon="mail-outline"
           placeholder="Enter your email"
+          error={error ?? undefined}
         />
       </Animated.View>
 

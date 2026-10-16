@@ -30,8 +30,14 @@ Create `apps/mobile/.env.local` pointing at your Convex deployment (both require
 ```bash
 EXPO_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
 EXPO_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
+EXPO_PUBLIC_PORTAL_URL=http://localhost:3000   # where a password reset link lands
 APP_VARIANT=development   # matches the dev client build (com.kltcyber.church.dev)
 ```
+
+`EXPO_PUBLIC_PORTAL_URL` must match the **same** `SITE_URL` you set on your
+Convex deployment, because the backend checks a reset link's `redirectTo`
+against its trusted origins and answers `403` on a mismatch. Each EAS profile
+in `eas.json` carries its own value for the same reason.
 
 ### 3. Run
 
