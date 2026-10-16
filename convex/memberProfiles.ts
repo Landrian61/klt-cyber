@@ -395,6 +395,16 @@ export const verifyProfile = mutation({
       }),
     });
 
+    // The same news by email (AC-13), beside the push notice rather than
+    // instead of it. Its wording deliberately matches the copy above: verified,
+    // and no claim of membership or completed mentorship. Scheduled, so a
+    // send that cannot be queued never fails the verification itself.
+    await ctx.scheduler.runAfter(0, internal.emails.sendProfileVerified, {
+      userId: profile.userId,
+      profileId,
+      verifiedAt: now,
+    });
+
     return { ok: true as const };
   },
 });

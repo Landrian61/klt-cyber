@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import { FORGOT_PASSWORD_PATH, RESET_PASSWORD_PATH } from "@klt-cyber/shared";
 
 /*
   Cheap, non-authoritative routing gate. It answers one question — "does this
@@ -60,6 +61,18 @@ export default async function middleware(request: NextRequest) {
     if (sessionCookie) {
       return NextResponse.redirect(new URL("/areas-of-service", request.url));
     }
+    return NextResponse.next();
+  }
+
+  // Public: the password reset pages (spec 0007, AC-10). Unlike /sign-in these
+  // do NOT bounce a request that carries a session cookie — somebody already
+  // signed in on this browser may still be following a reset link for a
+  // forgotten password, and redirecting them away would strip the token out of
+  // the URL and strand them.
+  if (
+    pathname === FORGOT_PASSWORD_PATH ||
+    pathname === RESET_PASSWORD_PATH
+  ) {
     return NextResponse.next();
   }
 
