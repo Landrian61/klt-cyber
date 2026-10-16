@@ -29,6 +29,7 @@
     "@convex-dev/better-auth": "^0.12.2",
     "@convex-dev/expo-push-notifications": "^0.3.1",
     "@convex-dev/r2": "^0.10.2",
+    "@convex-dev/resend": "0.2.9",
     "@klt-cyber/shared": "workspace:*",
     "better-auth": "~1.6.11"
   }
