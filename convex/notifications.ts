@@ -110,7 +110,9 @@ export const unregisterMyPushNotificationToken = mutation({
  */
 async function resolveAllAudience(ctx: QueryCtx | MutationCtx): Promise<Id<"users">[]> {
   const users = await ctx.db.query("users").collect();
-  return users.map((u) => u._id);
+  // Minus deleted accounts (spec 0008 AC-22). They cannot sign in to read a
+  // notification, and nothing should be addressed to them.
+  return users.filter((u) => u.deletedAt === undefined).map((u) => u._id);
 }
 
 /**

@@ -43,7 +43,13 @@ async function resolveActor(ctx: MutationCtx): Promise<Id<"users"> | null> {
       .unique();
     if (admin) return admin._id;
   }
-  const first = await ctx.db.query("users").first();
+  // Not just the first row: a deleted account is anonymized and cannot sign
+  // in, so attributing seeded content to it would be attributing it to
+  // nobody (spec 0008 AC-22).
+  const first = await ctx.db
+    .query("users")
+    .filter((q) => q.eq(q.field("deletedAt"), undefined))
+    .first();
   return first?._id ?? null;
 }
 
