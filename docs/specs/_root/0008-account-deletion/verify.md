@@ -64,6 +64,8 @@ Statically de risked already: `components.betterAuth.adapter.deleteOne`/`deleteM
 - [ ] Force the identity destroy to throw (temporarily break `destroyIdentity`), then delete an account → the deletion still reports success, the row is anonymized, `identityDeletePending` stays `true`, and Sentry receives the error → AC-18
 - [x] In that state, try to sign in with the surviving credential → refused as signed out, even though the Better Auth identity still exists → AC-19
 - [x] Then run `npx convex run accountDeletion:retryIdentityDelete` → it reports `settled: 1`, the component rows go, and `identityDeletePending` is cleared → AC-18
+- [ ] In the Convex dashboard, the "account deletion identity retry" cron is registered and shows an hourly schedule → AC-18
+- [ ] Leave a stuck identity in place over one cron tick → it is settled without anybody running the sweep by hand → AC-11, AC-18
 - [ ] Delete a user carrying several hundred `notificationReads` and `activityLogs` rows → it completes without a transaction limit error, and any scheduled `continueCleanup` finishes the remainder → AC-13
 - [ ] Same run, with more than 200 `activityLogs` entries carrying an unlisted metadata key → `continueCleanup` scrubs the entries BEYOND the first page too, and stops rescheduling itself once it has walked them all → AC-13, AC-24
 - [ ] Same run → the `account.deleted` entry still reads `viaPublicPage` after the extra cleanup passes, not `"[removed]"` → AC-13

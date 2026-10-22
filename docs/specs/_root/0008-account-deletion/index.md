@@ -102,7 +102,7 @@ What a deletion does, table by table:
 | `accountDeletion.requestEmailedLink` | action | none, uses caller identity | `{ ok: true }` | authenticated | none surfaced |
 | `accountDeletion.requestByEmail` | action | `email: string` (req) | `{ ok: true }` always | public, rate limited | none surfaced |
 | `accountDeletion.confirmByToken` | action | `token: string` (req) | `{ ok: true }` | token possession | `TOKEN_INVALID`, `TOKEN_EXPIRED`, `TOKEN_USED`, `ACCOUNT_GONE` |
-| `accountDeletion.retryIdentityDelete` | internal action | none | count settled | internal only | none; reports to Sentry |
+| `accountDeletion.retryIdentityDelete` | internal action | none | count settled | internal only; hourly cron | none; reports to Sentry |
 
 **Value sourcing**:
 
@@ -195,7 +195,7 @@ Ordered as Tracer Bullet slices, per the scope header: a thin thread through eve
 
 **Slice 3, the guards and the sweep**
 
-13. Sentry reporting plus `retryIdentityDelete`, selecting on `identityDeletePending`, satisfies **AC-18**.
+13. Sentry reporting plus `retryIdentityDelete`, selecting on `identityDeletePending`, satisfies **AC-18**. It runs on an hourly cron (`convex/crons.ts`): AC-18 asks only for a selector a retry can find, but nothing automatic reading that selector would leave a stuck identity holding the person's real name and email indefinitely, and their address unavailable for a fresh sign up (**AC-11**).
 14. Find and patch every existing query that counts or lists users so it excludes `deletedAt`, satisfies **AC-22**.
 15. Confirm the address is released, and that a fresh sign up with it produces a clean visitor, satisfies **AC-11**.
 
