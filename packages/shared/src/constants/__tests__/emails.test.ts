@@ -7,17 +7,20 @@ import {
   passwordResetExpiryLabel,
 } from '../emails';
 
-describe('EMAIL_TEMPLATES (the closed five, SRS F1-10, AC-14)', () => {
-  // The point of this test: the SRS allows exactly five system emails. If a
-  // later feature adds a sixth template name, or quietly drops one, this fails
-  // and forces the SRS conversation instead of letting the rule erode.
-  it('holds exactly five template names', () => {
-    expect(EMAIL_TEMPLATES).toHaveLength(5);
+describe('EMAIL_TEMPLATES (the closed six, SRS F1-10, AC-14)', () => {
+  // The point of this test: the SRS allows exactly six system emails. If a
+  // later feature adds a seventh template name, or quietly drops one, this
+  // fails and forces the SRS conversation instead of letting the rule erode.
+  // It was five until spec 0008 added the public deletion link and amended
+  // the SRS to match, which is the process working rather than failing.
+  it('holds exactly six template names', () => {
+    expect(EMAIL_TEMPLATES).toHaveLength(6);
   });
 
-  it('holds exactly the five the SRS names, and nothing else', () => {
+  it('holds exactly the six the SRS names, and nothing else', () => {
     expect([...EMAIL_TEMPLATES].sort()).toEqual([
       'account_deleted',
+      'account_deletion_requested',
       'password_reset',
       'profile_sent_back',
       'profile_verified',
