@@ -293,7 +293,7 @@ Members are told plainly, when claiming a department or choosing a clan, that th
 **Email rules**
 
 - Service: **Resend**, sending from an address on the church-owned domain (e.g. `no-reply@<church-domain>`) with replies to **kingdomlifeug@gmail.com**.
-- **Exactly five events send email, nothing else:** welcome on sign-up; password reset; profile verified; profile sent back (with the reason); account deletion confirmed.
+- **Exactly six events send email, nothing else:** welcome on sign-up; password reset; profile verified; profile sent back (with the reason); account deletion confirmed; account deletion link requested from the public web page (spec 0008 — a person who has already removed the app cannot confirm a deletion inside it).
 
 ---
 

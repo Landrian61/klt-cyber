@@ -45,10 +45,23 @@ export default defineSchema({
     // Narrow this back out once every environment's migration is clean.
     status: v.optional(v.union(v.literal("active"), v.literal("suspended"))),
     profileCompleted: v.boolean(),
+    // Account deletion (spec 0008). A row is never removed; it is anonymized
+    // in place, so church history, the giving trail and the audit record stay
+    // whole. `deletedAt` set means the row carries no personal data in any
+    // field and cannot authenticate (convex/lib/authz.ts enforces the second
+    // part, whatever state the Better Auth identity is in).
+    deletedAt: v.optional(v.number()),
+    // True between anonymizing the row and destroying the Better Auth
+    // identity. If the identity delete fails the data stays anonymized and
+    // this is left set, which is the selector `retryIdentityDelete` sweeps.
+    identityDeletePending: v.optional(v.boolean()),
   })
     .index("by_authId", ["authId"])
     .index("by_email", ["email"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    // The retry sweep's selector (spec 0008 AC-18). Indexed rather than
+    // filtered so the sweep never scans the whole table.
+    .index("by_identityDeletePending", ["identityDeletePending"]),
 
   activityLogs: defineTable({
     actorUserId: v.id("users"),
@@ -58,7 +71,11 @@ export default defineSchema({
     metadata: v.optional(v.any()),
   })
     .index("by_actor", ["actorUserId"])
-    .index("by_action", ["action"]),
+    .index("by_action", ["action"])
+    // Deletion scrubs a leaving user's metadata on entries that *target* them,
+    // not only the ones they acted on (spec 0008 AC-13). Indexed so the scrub
+    // reads that user's entries instead of the whole audit trail.
+    .index("by_target", ["targetType", "targetId"]),
 
   // The rich church-domain profile submitted via the mobile 7-step wizard.
   // 1:1 with `users`; created once at final submission (not on first form
@@ -484,4 +501,25 @@ export default defineSchema({
   })
     .index("by_userId_notificationId", ["userId", "notificationId"])
     .index("by_userId", ["userId"]),
+
+  // ── Spec 0008 — Account deletion requests from the public web page ─────────
+  // A person who has already removed the app cannot reach the in app flow, so
+  // the public page issues a one hour link instead. The token is never stored
+  // in plain text, only as a hash, and it binds to the `userId` resolved when
+  // the link was issued rather than to the address. That matters because an
+  // address can be reused after a deletion: binding to the address would let a
+  // stale link delete whoever signed up next.
+  accountDeletionRequests: defineTable({
+    userId: v.id("users"),
+    // Normalized (trimmed, lowercased). Kept for the rate limit count only.
+    email: v.string(),
+    tokenHash: v.string(),
+    expiresAt: v.number(),
+    // Set when the link is claimed, inside the same transaction that performs
+    // the deletion, so two concurrent confirmations cannot both succeed.
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_email", ["email"]),
 });

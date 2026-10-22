@@ -12,4 +12,19 @@ crons.cron(
   internal.weeklyPrograms.checkWeeklyProgramReminders
 );
 
+// Hourly, not daily: until the Better Auth identity behind a deleted account
+// is destroyed, that account still holds the person's real name and email
+// after they asked for both to go, and their address stays unavailable for a
+// fresh sign up (AC-11, AC-18). An hour is how long that state is allowed to
+// last. Cheap enough to run that often — `pendingIdentityDeletes` reads
+// through `by_identityDeletePending` and normally returns nothing, and the
+// sweep is safe to run as often as you like, since an account whose identity
+// is already gone simply has its flag cleared. Offset off the hour to stay
+// clear of whatever else lands at :00.
+crons.cron(
+  "account deletion identity retry",
+  "17 * * * *",
+  internal.accountDeletion.retryIdentityDelete
+);
+
 export default crons;

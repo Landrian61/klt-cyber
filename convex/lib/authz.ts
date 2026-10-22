@@ -9,16 +9,24 @@ import { authComponent } from "../auth";
 /**
  * Resolve the calling user's app `users` row from the Better Auth identity, or
  * null when unauthenticated / not yet provisioned.
+ *
+ * A deleted row resolves to null (spec 0008 AC-19). Deletion anonymizes the
+ * `users` row and then destroys the Better Auth identity, and those are two
+ * steps: if the second fails, a usable credential can outlive the data it
+ * pointed at. The guard lives here, in the one resolver every caller goes
+ * through, rather than in each caller, so there is no path that forgets it.
  */
 export async function getCurrentUser(
   ctx: QueryCtx | MutationCtx
 ): Promise<Doc<"users"> | null> {
   const authUser = await authComponent.safeGetAuthUser(ctx);
   if (!authUser) return null;
-  return await ctx.db
+  const user = await ctx.db
     .query("users")
     .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
     .unique();
+  if (user?.deletedAt !== undefined) return null;
+  return user;
 }
 
 /** Like {@link getCurrentUser} but throws when there is no authenticated user. */

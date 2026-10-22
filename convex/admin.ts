@@ -122,12 +122,18 @@ export const listUsers = query({
     if (!(await getSystemAdminOrNull(ctx))) return null;
 
     const roleFilter = args.filter?.role;
-    let users = roleFilter
-      ? await ctx.db
-          .query("users")
-          .withIndex("by_role", (q) => q.eq("role", roleFilter))
-          .collect()
-      : await ctx.db.query("users").collect();
+    // Deleted accounts are anonymized rows, not people (spec 0008 AC-22):
+    // they stay in the table so history holds, and they stay out of every
+    // list and count so nobody is looking at `deleted-...@deleted.invalid`
+    // in the directory.
+    let users = (
+      roleFilter
+        ? await ctx.db
+            .query("users")
+            .withIndex("by_role", (q) => q.eq("role", roleFilter))
+            .collect()
+        : await ctx.db.query("users").collect()
+    ).filter((user) => user.deletedAt === undefined);
 
     // Active assignments, grouped by holder — powers both the hasAnyRole
     // filter and the role chips in the results.
@@ -291,7 +297,11 @@ export const getDashboardStats = query({
     if (!(await getSystemAdminOrNull(ctx))) return null;
 
     const now = Date.now();
-    const users = await ctx.db.query("users").collect();
+    // Excludes deleted accounts, so the dashboard counts people rather than
+    // rows (spec 0008 AC-22).
+    const users = (await ctx.db.query("users").collect()).filter(
+      (user) => user.deletedAt === undefined
+    );
     const profiles = await ctx.db.query("memberProfiles").collect();
     const activeAssignments = (
       await ctx.db.query("roleAssignments").collect()

@@ -143,6 +143,7 @@ function RootLayoutInner() {
           <Stack.Screen name="profile-completion" />
           <Stack.Screen name="notifications" />
           <Stack.Screen name="profile" />
+          <Stack.Screen name="delete-account" />
           <Stack.Screen name="giving" />
           <Stack.Screen name="members" />
           <Stack.Screen name="programs" />

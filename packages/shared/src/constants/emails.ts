@@ -1,14 +1,17 @@
 /**
- * The closed email registry (SRS F1-10, spec 0007).
+ * The closed email registry (SRS F1-10, spec 0007, amended by spec 0008).
  *
- * The SRS allows exactly five system emails and no more. This list is the only
+ * The SRS allows exactly six system emails and no more. This list is the only
  * source of that rule: `internal.emails.send` accepts no template name outside
  * it, a test in `__tests__/emails.test.ts` fails if the list grows or shrinks,
  * and a second test in `convex/emails.test.ts` fails if the Resend component's
  * `sendEmail` is called from any file other than `convex/emails.ts`.
  *
- * Adding a sixth email is therefore a deliberate act that breaks a test and
- * needs an SRS change, not something a feature can do by accident.
+ * Adding a seventh email is therefore a deliberate act that breaks a test and
+ * needs an SRS change, not something a feature can do by accident. That is
+ * exactly how the sixth arrived: spec 0008 needed a deletion link for people
+ * who have already removed the app, broke this test on purpose, and amended
+ * the SRS rather than working around the rule.
  */
 export const EMAIL_TEMPLATES = [
   'welcome',
@@ -16,6 +19,9 @@ export const EMAIL_TEMPLATES = [
   'profile_verified',
   'profile_sent_back',
   'account_deleted',
+  // Spec 0008: the public deletion page emails a one hour link, because
+  // somebody who has removed the app cannot confirm inside it.
+  'account_deletion_requested',
 ] as const;
 
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];

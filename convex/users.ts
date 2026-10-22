@@ -36,6 +36,9 @@ export const searchUsersForSpouseLink = query({
 
     const matches = everyone.filter((u) => {
       if (u._id === caller._id) return false;
+      // A deleted account is an anonymized row, never a spouse to link to
+      // (spec 0008 AC-22).
+      if (u.deletedAt !== undefined) return false;
       const first = (u.firstName ?? "").toLowerCase();
       const last = (u.lastName ?? "").toLowerCase();
       const full = `${first} ${last}`.trim();

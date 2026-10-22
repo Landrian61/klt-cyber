@@ -63,7 +63,8 @@ const vEmailTemplate = v.union(
   v.literal("password_reset"),
   v.literal("profile_verified"),
   v.literal("profile_sent_back"),
-  v.literal("account_deleted")
+  v.literal("account_deleted"),
+  v.literal("account_deletion_requested")
 );
 
 /**
@@ -108,7 +109,11 @@ export const recipientByUserId = internalQuery({
   ),
   handler: async (ctx, { userId }) => {
     const user = await ctx.db.get(userId);
-    if (!user) return null;
+    // A deleted row carries `deleted-...@deleted.invalid`, which is
+    // undeliverable by design, so there is no recipient here (spec 0008).
+    // The deletion confirmation itself does not come through this lookup: it
+    // is passed the real address, captured before anonymization.
+    if (!user || user.deletedAt !== undefined) return null;
     // `users` is the one source of truth for name and email (F1-07), never
     // the `memberProfiles` copy.
     return {
@@ -133,7 +138,9 @@ export const recipientByAuthId = internalQuery({
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", authId))
       .unique();
-    if (!user) return null;
+    // Same reason as `recipientByUserId` above: a deleted account has no
+    // deliverable address (spec 0008).
+    if (!user || user.deletedAt !== undefined) return null;
     return {
       userId: user._id,
       email: user.email,
@@ -457,6 +464,36 @@ export const sendProfileSentBack = internalAction({
       userId,
       idempotencyKey: `profile_sent_back:${profileId}:${sentBackAt}`,
       data: { firstName: recipient.firstName, reason },
+    });
+    return null;
+  },
+});
+
+/**
+ * The public deletion page's link (spec 0008 AC-15), the sixth email.
+ *
+ * Takes the address explicitly rather than resolving it, and passes no name to
+ * the template: this is the one email a person can receive without having
+ * asked for anything, so it must not confirm to a stranger that the address
+ * they typed belongs to a member. The request row's id is the idempotency key,
+ * so a retry of the same request cannot send twice while a genuinely new
+ * request still sends.
+ */
+export const sendAccountDeletionRequested = internalAction({
+  args: {
+    requestId: v.string(),
+    userId: v.union(v.id("users"), v.null()),
+    email: v.string(),
+    url: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, { requestId, userId, email, url }) => {
+    await deliver(ctx, {
+      template: "account_deletion_requested",
+      to: email,
+      userId,
+      idempotencyKey: `account_deletion_requested:${requestId}`,
+      data: { url },
     });
     return null;
   },

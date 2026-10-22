@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { FORGOT_PASSWORD_PATH, RESET_PASSWORD_PATH } from "@klt-cyber/shared";
+import {
+  DELETE_ACCOUNT_PATH,
+  FORGOT_PASSWORD_PATH,
+  RESET_PASSWORD_PATH,
+} from "@klt-cyber/shared";
 
 /*
   Cheap, non-authoritative routing gate. It answers one question — "does this
@@ -73,6 +77,20 @@ export default async function middleware(request: NextRequest) {
     pathname === FORGOT_PASSWORD_PATH ||
     pathname === RESET_PASSWORD_PATH
   ) {
+    return NextResponse.next();
+  }
+
+  // Public: the account deletion pages (spec 0008, AC-14). This door exists
+  // for people who have already removed the app, so by definition the caller
+  // has no session and must not be bounced to /sign-in. `startsWith` covers
+  // both the request page and `/delete-account/confirm` beneath it, which is
+  // why the two paths are nested rather than siblings.
+  //
+  // Like the reset pages, a request carrying a session cookie is NOT
+  // redirected away: somebody signed in on this browser may still be
+  // following a deletion link, and redirecting would strip the token out of
+  // the URL and strand them.
+  if (pathname.startsWith(DELETE_ACCOUNT_PATH)) {
     return NextResponse.next();
   }
 
