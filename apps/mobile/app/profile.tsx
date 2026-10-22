@@ -346,6 +346,20 @@ export default function ProfileScreen() {
           {/* Actions */}
           <View style={styles.actions}>
             <Button label="Sign out" variant="destructive" fullWidth onPress={signOut} />
+            {/* Account deletion (SRS F1-06, spec 0008). Reachable from inside
+                the app because Apple and Google both require it to be, and
+                styled as a quiet text link rather than a second red button:
+                it sits next to sign out, and the two must not look equally
+                routine. Everything that explains and confirms the deletion
+                lives on the screen it opens (AC-1). */}
+            <Button
+              label="Delete account"
+              variant="textLink"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/delete-account');
+              }}
+            />
           </View>
         </View>
       </Animated.ScrollView>
