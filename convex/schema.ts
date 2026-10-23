@@ -311,6 +311,37 @@ export default defineSchema({
     .index("by_active", ["active"])
     .index("by_dayOfWeek", ["dayOfWeek"]), // kept until the legacy field is dropped
 
+  // Called-off single occurrences of a recurring program (spec 0009, A4-02 /
+  // A4-03). One row = one cancelled occurrence; NO ROW = the occurrence is on,
+  // and restore deletes the row rather than flipping a flag. An occurrence
+  // itself is never stored (calendar.ts expands them at query time), so this is
+  // the only place a per-occurrence fact can live.
+  //
+  // A row may outlive the occurrence it describes: editing a program's day
+  // orphans its cancellations. Orphans are never read (every read path only
+  // asks about dates the program actually occurs on) and are never pruned —
+  // editing the day back brings the cancellation back with it, deliberately.
+  programOccurrenceCancellations: defineTable({
+    programId: v.id("weeklyPrograms"),
+    // "YYYY-MM-DD", Kampala-local calendar day — the same shape as the
+    // `occurrenceKey` suffix, so the two can never disagree about which day
+    // an occurrence belongs to. ISO strings sort in calendar order, which is
+    // what makes the `by_date` range query below work without a second field.
+    date: v.string(),
+    // Trimmed, capped at PROGRAM_CANCELLATION_REASON_MAX_LENGTH (@klt-cyber/
+    // shared); empty after trimming is stored as absent, not "". Member-visible.
+    reason: v.optional(v.string()),
+    cancelledBy: v.id("users"),
+    cancelledAt: v.number(),
+    updatedAt: v.number(), // moves when the reason is corrected
+    // Set when a member notification was scheduled on cancel — never cleared
+    // while the row lives. Drives the restore dialog's "members were already
+    // told" warning, so it records intent-to-send, not delivery.
+    notifiedAt: v.optional(v.number()),
+  })
+    .index("by_program_date", ["programId", "date"]) // one occurrence, or one program's cancelled dates
+    .index("by_date", ["date"]), // a week/month/year range across all programs
+
   // One-off events. Separate from weeklyPrograms — events grow event-specific
   // features (ICS export, RSVPs) that programs never need.
   events: defineTable({

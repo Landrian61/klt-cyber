@@ -2,6 +2,7 @@ export * from './constants/appSchemes';
 export * from './constants/auth';
 export * from './constants/emails';
 export * from './constants/accountDeletion';
+export * from './constants/weeklyPrograms';
 export * from './enums/user';
 export * from './enums/roles';
 export * from './enums/departments';

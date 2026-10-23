@@ -16,12 +16,23 @@ export function notificationCommon(params: {
   deepLink: { type: string; id: string };
   createdBy: Id<"users">;
   imageUrl?: string;
+  /**
+   * Optional: the program occurrence this notification is about (spec 0009).
+   *
+   * Only the weekly-program reminder cron passes it. When present,
+   * `notifications.dispatch` re-checks at FIRE time that the occurrence is
+   * still on, so a reminder already sitting in the scheduler for an occurrence
+   * that gets called off later never goes out (AC-6). Every other call site
+   * omits it and behaves exactly as before.
+   */
+  occurrence?: { programId: Id<"weeklyPrograms">; date: string };
 }) {
   return {
     audience: params.audience,
     deepLink: params.deepLink,
     createdBy: params.createdBy,
     ...(params.imageUrl ? { imageUrl: params.imageUrl } : {}),
+    ...(params.occurrence ? { occurrence: params.occurrence } : {}),
   };
 }
 

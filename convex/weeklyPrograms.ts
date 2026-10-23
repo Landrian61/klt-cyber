@@ -1,7 +1,12 @@
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import type { RecurrenceType, WeekOfMonth } from "@klt-cyber/shared";
+import {
+  PROGRAM_CANCELLATION_REASON_MAX_LENGTH,
+  formatOccurrenceDate,
+} from "@klt-cyber/shared";
 import {
   canManageContent,
   getAdministrationAuthorityOrNull,
@@ -9,8 +14,15 @@ import {
   logActivity,
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
-import { kampalaParts, occurrenceInstant, DAY_MS } from "./calendar";
+import { kampalaParts, occurrenceInstant, ymd, DAY_MS } from "./calendar";
 import { weeklyProgramOccursOn } from "./lib/recurrence";
+import {
+  cancellationKey,
+  getCancellation,
+  getCancellationsInRange,
+  parseOccurrenceDate,
+  type Cancellation,
+} from "./lib/occurrences";
 import { notificationCommon, scheduleReminderEntries } from "./lib/reminders";
 
 // Weekly programs — recurring (or one-off) slots defined once. The calendar
@@ -137,7 +149,30 @@ function validateRecurrenceFields(args: {
 
 // ── Reads ────────────────────────────────────────────────────────────────────
 
-/** Open: active programs, ordered by weekday then time. */
+/**
+ * How far ahead `listActivePrograms` looks for a program's next occurrence and
+ * its cancelled dates. A module constant, not an argument: every consumer wants
+ * the same window, and letting a screen choose its own would let two screens
+ * disagree about whether a program has anything coming up.
+ *
+ * 8 weeks covers a monthly program's next slot with room to spare, which is the
+ * longest gap the recurrence model can produce.
+ */
+const UPCOMING_HORIZON_DAYS = 8 * 7;
+
+/**
+ * Open: active programs, ordered by weekday then time, each carrying its next
+ * occurrence and its cancelled dates in the window above (AC-8).
+ *
+ * Both fields are additive, so the screens that only wanted the program row
+ * (mobile programs list, program detail, the admin dashboard) keep working.
+ *
+ * `nextOccurrence` is the first occurrence on TODAY's Kampala calendar day or
+ * later — by day, not by instant, so a program that started two hours ago is
+ * still "next" rather than skipping to next week. That is the same window
+ * cancelOccurrence allows an admin to act in, deliberately, so the admin and
+ * the member can never disagree about which occurrence "the next one" is.
+ */
 export const listActivePrograms = query({
   args: {},
   handler: async (ctx) => {
@@ -146,7 +181,91 @@ export const listActivePrograms = query({
       .query("weeklyPrograms")
       .withIndex("by_active", (q) => q.eq("active", true))
       .collect();
-    return resolveCoverUrls(programs.sort(byDayThenTime));
+
+    const todayParts = kampalaParts(Date.now());
+    const todayMidnight = occurrenceInstant(
+      todayParts.year,
+      todayParts.month,
+      todayParts.day,
+      "00:00"
+    );
+    const todayYmd = ymd(todayParts.year, todayParts.month, todayParts.day);
+    const lastParts = kampalaParts(todayMidnight + (UPCOMING_HORIZON_DAYS - 1) * DAY_MS);
+    const horizonYmd = ymd(lastParts.year, lastParts.month, lastParts.day);
+
+    // One indexed read for the window rather than one per program: this query
+    // feeds three mobile screens and re-runs reactively, so a per-program
+    // lookup was an N+1 across all of them. Keyed by cancellationKey, the same
+    // way both calendar paths read cancellations.
+    const cancellations = await getCancellationsInRange(ctx, todayYmd, horizonYmd);
+
+    const withOccurrences = programs.sort(byDayThenTime).map((program) => {
+      const startTime = program.startTime ?? program.time;
+
+      // A row carrying neither field predates the recurrence model and has no
+      // time to anchor an occurrence to — the same defensive skip both
+      // calendar day walks make. It reports no next occurrence rather than
+      // guessing one.
+      if (!startTime) {
+        return {
+          ...program,
+          nextOccurrence: null as null | {
+            date: string;
+            startsAt: number;
+            cancelled: boolean;
+            reason?: string;
+          },
+          cancelledUpcoming: [] as { date: string; reason?: string }[],
+        };
+      }
+
+      // Walk the window once, collecting the days this program actually runs.
+      const occurrenceDates = new Set<string>();
+      let firstDate: string | undefined;
+      let firstInstant = 0;
+      for (let i = 0; i < UPCOMING_HORIZON_DAYS; i += 1) {
+        const dayMidnight = todayMidnight + i * DAY_MS;
+        const parts = kampalaParts(dayMidnight);
+        if (!weeklyProgramOccursOn(program, dayMidnight, parts)) continue;
+        const date = ymd(parts.year, parts.month, parts.day);
+        occurrenceDates.add(date);
+        if (firstDate === undefined) {
+          firstDate = date;
+          firstInstant = occurrenceInstant(parts.year, parts.month, parts.day, startTime);
+        }
+      }
+
+      // Intersected with the days the program runs, so a row orphaned by a
+      // program edit stays unread (AC-13, invariant 2). occurrenceDates was
+      // filled by an ascending day walk, so iterating it yields date order
+      // without a sort.
+      const live: Cancellation[] = [];
+      for (const date of occurrenceDates) {
+        const row = cancellations.get(cancellationKey(program._id, date));
+        if (row) live.push(row);
+      }
+      const byDate = new Map(live.map((row) => [row.date, row]));
+      const firstCancellation = firstDate ? byDate.get(firstDate) : undefined;
+
+      return {
+        ...program,
+        nextOccurrence:
+          firstDate === undefined
+            ? null
+            : {
+                date: firstDate,
+                startsAt: firstInstant,
+                cancelled: firstCancellation !== undefined,
+                ...(firstCancellation?.reason ? { reason: firstCancellation.reason } : {}),
+              },
+        cancelledUpcoming: live.map((row) => ({
+          date: row.date,
+          ...(row.reason ? { reason: row.reason } : {}),
+        })),
+      };
+    });
+
+    return resolveCoverUrls(withOccurrences);
   },
 });
 
@@ -319,6 +438,276 @@ export const toggleProgramActive = mutation({
   },
 });
 
+// ── Single-occurrence cancel / restore (spec 0009) ───────────────────────────
+
+/**
+ * How much of a reason rides along in a PUSH body. The stored reason keeps its
+ * full PROGRAM_CANCELLATION_REASON_MAX_LENGTH characters and the in-app row
+ * shows all of it; only the push is shortened, because a notification tray
+ * truncates mid-word anyway and an ellipsis we control reads better than one
+ * the OS picks.
+ */
+const PUSH_REASON_MAX_LENGTH = 120;
+
+function pushReasonSuffix(reason?: string): string {
+  if (!reason) return "";
+  if (reason.length <= PUSH_REASON_MAX_LENGTH) return ` ${reason}`;
+  return ` ${reason.slice(0, PUSH_REASON_MAX_LENGTH - 1).trimEnd()}…`;
+}
+
+/**
+ * Whether `date` ("YYYY-MM-DD", Kampala) is a real, still-upcoming occurrence
+ * of `program` — the test a member-facing push about that date has to pass.
+ *
+ * cancelOccurrence asserts each part separately, because an admin who is
+ * refused deserves to know which rule stopped them. This collapses the same
+ * rules into one yes/no for restoreOccurrence, which clears the record either
+ * way and only needs to know whether a push would be telling the truth.
+ */
+function isLiveOccurrence(program: Doc<"weeklyPrograms">, date: string): boolean {
+  if (!program.active) return false;
+
+  const parts = parseOccurrenceDate(date);
+  if (!parts) return false;
+
+  const todayParts = kampalaParts(Date.now());
+  if (date < ymd(todayParts.year, todayParts.month, todayParts.day)) return false;
+
+  const dayMidnight = occurrenceInstant(parts.year, parts.month, parts.day, "00:00");
+  return weeklyProgramOccursOn(program, dayMidnight, kampalaParts(dayMidnight));
+}
+
+/** Trim a submitted reason; blank after trimming means "no reason", stored as absent. */
+function normalizeReason(reason: string | undefined): string | undefined {
+  const trimmed = reason?.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > PROGRAM_CANCELLATION_REASON_MAX_LENGTH) {
+    throw new Error(
+      `A reason can be at most ${PROGRAM_CANCELLATION_REASON_MAX_LENGTH} characters.`
+    );
+  }
+  return trimmed;
+}
+
+/**
+ * Call off one dated occurrence of a program without touching the program
+ * itself (A4-02). Writes one row; the occurrence reads as cancelled on every
+ * path that shows programs, and no reminder of any tier fires for it from this
+ * moment on — including one the daily cron has ALREADY scheduled, because the
+ * guard lives in the dispatch and not in the scheduling (see
+ * internal.notifications.dispatch).
+ *
+ * Validation is deliberately asymmetric with restoreOccurrence: cancelling
+ * asserts the occurrence is real and still ahead, restoring only asserts the
+ * record exists. Restore has to keep working after a program edit has orphaned
+ * the record, otherwise an admin could be left with a cancellation they cannot
+ * clear.
+ */
+export const cancelOccurrence = mutation({
+  args: {
+    programId: v.id("weeklyPrograms"),
+    date: v.string(), // "YYYY-MM-DD", Kampala-local; see the `date` note below
+    reason: v.optional(v.string()),
+    // Required, not optional: a default would mean some future call site could
+    // push to the whole church by forgetting an argument. The 48-hour rule
+    // changes what the dialog pre-ticks, not whether the caller must decide.
+    notify: v.boolean(),
+  },
+  handler: async (ctx, { programId, date, reason, notify }) => {
+    const actor = await canManageContent(ctx);
+
+    const program = await ctx.db.get(programId);
+    if (!program) throw new Error("Program not found");
+
+    // Checked before the date rules on purpose: a second cancel must always
+    // fail THIS way (AC-12), including the day after, when "the date is today
+    // or later" no longer holds and would otherwise shadow it.
+    const existing = await getCancellation(ctx, programId, date);
+    if (existing) throw new Error("This occurrence is already cancelled.");
+
+    if (!program.active) {
+      throw new Error("This program is switched off, so it has no occurrences to cancel.");
+    }
+
+    const parts = parseOccurrenceDate(date);
+    if (!parts) throw new Error("That is not a valid date.");
+
+    // `date` is a Kampala calendar day, so "is it in the past" is a comparison
+    // between calendar days and not between instants: an occurrence that
+    // started two hours ago today is still cancellable (AC-5), which is exactly
+    // when an admin is most likely to be calling one off.
+    const todayParts = kampalaParts(Date.now());
+    if (date < ymd(todayParts.year, todayParts.month, todayParts.day)) {
+      throw new Error("That date has already passed.");
+    }
+
+    // The same midnight instant both calendar day walks pass as `dayCursor`,
+    // so "does it occur on this day" is answered identically here and there.
+    const dayMidnight = occurrenceInstant(parts.year, parts.month, parts.day, "00:00");
+    const dayParts = kampalaParts(dayMidnight);
+    if (!weeklyProgramOccursOn(program, dayMidnight, dayParts)) {
+      throw new Error("This program does not run on that date.");
+    }
+
+    const storedReason = normalizeReason(reason);
+    const now = Date.now();
+
+    const cancellationId = await ctx.db.insert("programOccurrenceCancellations", {
+      programId,
+      date,
+      ...(storedReason ? { reason: storedReason } : {}),
+      cancelledBy: actor._id,
+      cancelledAt: now,
+      updatedAt: now,
+      ...(notify ? { notifiedAt: now } : {}),
+    });
+
+    if (notify) {
+      await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+        title: `Cancelled: ${program.title}`,
+        body: `${program.title} on ${formatOccurrenceDate(date)} is cancelled.${pushReasonSuffix(storedReason)}`,
+        ...notificationCommon({
+          audience: { type: "all" },
+          deepLink: { type: "program", id: programId },
+          // Unlike the cron, this has a real acting user, so the notification
+          // is attributed to the admin who called the occurrence off.
+          createdBy: actor._id,
+          imageUrl: program.coverImageUrl,
+        }),
+      });
+    }
+
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "content.program_occurrence_cancelled",
+      targetType: "programOccurrenceCancellations",
+      targetId: cancellationId,
+      metadata: {
+        programId,
+        title: program.title,
+        date,
+        ...(storedReason ? { reason: storedReason } : {}),
+        notified: notify,
+      },
+    });
+
+    return { ok: true as const };
+  },
+});
+
+/**
+ * Put a cancelled occurrence back on (A4-03) by deleting its record — there is
+ * no "restored" state, only the absence of a cancellation (invariant 3).
+ *
+ * Checks only that the record exists, by design: see cancelOccurrence's note on
+ * the asymmetry. Notifying is gated separately — the record always goes, but
+ * the push only goes when it would be true.
+ */
+export const restoreOccurrence = mutation({
+  args: {
+    programId: v.id("weeklyPrograms"),
+    date: v.string(),
+    notify: v.boolean(),
+  },
+  handler: async (ctx, { programId, date, notify }) => {
+    const actor = await canManageContent(ctx);
+
+    const existing = await getCancellation(ctx, programId, date);
+    if (!existing) throw new Error("This occurrence is not cancelled.");
+
+    await ctx.db.delete(existing._id);
+
+    // A program is never hard-deleted today, but the record outlives edits, so
+    // read defensively rather than assume a title is there to put in a push.
+    const program = await ctx.db.get(programId);
+
+    // The delete above is unconditional on purpose (see the note on the
+    // asymmetry). Telling the church is not: "X on <date> is back on" is a
+    // claim about something that is going to happen, and it is only true when
+    // the date is still ahead, the program still runs, and it still runs on
+    // THAT day. A past date, a switched-off program, or a record orphaned by a
+    // program edit (AC-13) each clear the cancellation silently instead.
+    let notified = false;
+
+    if (notify && program && isLiveOccurrence(program, date)) {
+      notified = true;
+      await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+        title: `Back on: ${program.title}`,
+        body: `${program.title} on ${formatOccurrenceDate(date)} is back on.`,
+        ...notificationCommon({
+          audience: { type: "all" },
+          deepLink: { type: "program", id: programId },
+          createdBy: actor._id,
+          imageUrl: program.coverImageUrl,
+        }),
+      });
+    }
+
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "content.program_occurrence_restored",
+      targetType: "programOccurrenceCancellations",
+      targetId: existing._id,
+      metadata: {
+        programId,
+        ...(program ? { title: program.title } : {}),
+        date,
+        notified,
+        // Worth keeping: it says whether members had been told it was off, which
+        // is the whole reason the restore notification matters.
+        wasNotified: existing.notifiedAt !== undefined,
+      },
+    });
+
+    return { ok: true as const };
+  },
+});
+
+/**
+ * Fix the reason on an occurrence that stays cancelled (AC-4).
+ *
+ * Never notifies: the church has already been told the occurrence is off, and a
+ * second push saying the same thing with better wording is noise. `cancelledAt`
+ * and `notifiedAt` are left alone so the record still says when it was called
+ * off and whether members heard about it; only `updatedAt` moves.
+ */
+export const updateCancellationReason = mutation({
+  args: {
+    programId: v.id("weeklyPrograms"),
+    date: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { programId, date, reason }) => {
+    const actor = await canManageContent(ctx);
+
+    const existing = await getCancellation(ctx, programId, date);
+    if (!existing) throw new Error("This occurrence is not cancelled.");
+
+    const storedReason = normalizeReason(reason);
+
+    await ctx.db.patch(existing._id, {
+      // Explicitly undefined rather than omitted — clearing a reason has to
+      // actually remove it, and omitting the key would leave the old one.
+      reason: storedReason,
+      updatedAt: Date.now(),
+    });
+
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "content.program_occurrence_reason_updated",
+      targetType: "programOccurrenceCancellations",
+      targetId: existing._id,
+      metadata: {
+        programId,
+        date,
+        ...(storedReason ? { reason: storedReason } : { reasonCleared: true }),
+      },
+    });
+
+    return { ok: true as const };
+  },
+});
+
 // ── Reminder cron ─────────────────────────────────────────────────────────
 
 /**
@@ -328,12 +717,22 @@ export const toggleProgramActive = mutation({
  * weeklyProgramOccursOn (convex/lib/recurrence.ts) — the same recurrence
  * matcher getCalendarRange uses — rather than a naive day-of-week check, so
  * once/biweekly/monthly and startDate/endDate-bounded programs are handled
- * correctly. There is no programExceptions mechanism in this schema — a
- * called-off occurrence still gets reminded here; that is a known, documented
- * gap, not silently worked
- * around. A cron run has no acting user, so createdBy on the dispatched
- * notification reuses the program's own createdBy rather than inventing a
- * system-user concept.
+ * correctly.
+ *
+ * A called-off occurrence is skipped (spec 0009, F4-02), but NOT here: the
+ * `occurrence` argument carried on each dispatch is the only guard, and it
+ * re-checks at fire time rather than trusting the moment it was scheduled.
+ * Skipping cancelled occurrences up front here looked like a free
+ * optimisation and was a bug — this cron runs once a day, so a cancellation
+ * entered in the morning and restored that afternoon left the occurrence with
+ * no scheduler entries at all and nothing to re-create them, and the service
+ * then happened with no reminder of either tier. Scheduling both tiers
+ * unconditionally costs one dead entry per cancelled occurrence, which the
+ * fire-time guard drops without sending anything.
+ *
+ * A cron run has no acting user, so createdBy on the dispatched notification
+ * reuses the program's own createdBy rather than inventing a system-user
+ * concept.
  */
 export const checkWeeklyProgramReminders = internalMutation({
   args: {},
@@ -359,11 +758,18 @@ export const checkWeeklyProgramReminders = internalMutation({
       const startTime = program.startTime ?? program.time;
       if (!startTime) continue; // pre-migration row; defensive, mirrors calendar.ts
 
+      const date = ymd(tomorrowParts.year, tomorrowParts.month, tomorrowParts.day);
+
       const common = notificationCommon({
         audience: { type: "all" },
         deepLink: { type: "program", id: program._id },
         createdBy: program.createdBy,
         imageUrl: program.coverImageUrl,
+        // Carried on BOTH tiers below. The day-before fires immediately, so the
+        // guard is a no-op for it today, but AC-6 is about every tier and a
+        // later tier that waits should inherit the check for free rather than
+        // need remembering.
+        occurrence: { programId: program._id, date },
       });
 
       const occurrence = occurrenceInstant(
