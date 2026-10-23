@@ -8,6 +8,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
+import { formatOccurrenceDate } from '@klt-cyber/shared';
+
 import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
@@ -98,6 +100,34 @@ export default function ProgramDetailScreen() {
           </Animated.View>
         )}
 
+        {/* Dates that are off (spec 0009, AC-8). Only rendered when there are
+            any, so the screen stays quiet for a program running normally. The
+            reason sits next to the date, because "it is off" without "why" is
+            the part people ask about. */}
+        {program.cancelledUpcoming.length > 0 && (
+          <Animated.View entering={FadeInUp.duration(300).delay(190)} style={styles.cancelledSection}>
+            <Text style={[styles.sectionLabel, { color: Colors.secondary }]}>NOT HAPPENING</Text>
+            {program.cancelledUpcoming.map((occurrence) => (
+              <View
+                key={occurrence.date}
+                style={[styles.cancelledRow, { backgroundColor: Colors.secondaryLight }]}
+              >
+                <Ionicons name="close-circle" size={18} color={Colors.secondary} />
+                <View style={styles.cancelledRowText}>
+                  <Text style={[styles.cancelledDate, { color: Colors.onSurface }]}>
+                    {formatOccurrenceDate(occurrence.date)}
+                  </Text>
+                  {occurrence.reason && (
+                    <Text style={[styles.cancelledReason, { color: Colors.onSurfaceVariant }]}>
+                      {occurrence.reason}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </Animated.View>
+        )}
+
         {/* Description */}
         {program.description && (
           <Animated.View entering={FadeInUp.duration(300).delay(220)} style={styles.descriptionSection}>
@@ -176,6 +206,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     flex: 1,
+  },
+  cancelledSection: {
+    marginTop: Spacing[2],
+    gap: Spacing[2],
+  },
+  sectionLabel: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 11,
+    lineHeight: 15.4,
+    letterSpacing: 0.6,
+    marginBottom: Spacing[1],
+  },
+  cancelledRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing[3],
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[3],
+  },
+  cancelledRowText: {
+    flex: 1,
+    gap: 2,
+  },
+  cancelledDate: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  cancelledReason: {
+    fontFamily: FontFamily.body,
+    fontSize: 12,
+    lineHeight: 18,
   },
   descriptionSection: {
     marginTop: Spacing[2],

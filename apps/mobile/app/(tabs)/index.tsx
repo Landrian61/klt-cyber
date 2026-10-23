@@ -118,9 +118,13 @@ interface ProgramOccurrence {
   endTime?: string;
   dayOfWeek: number;
   date: string;
+  /** Spec 0009: this one dated occurrence has been called off (M2-05). */
+  cancelled: boolean;
+  cancellationReason?: string;
 }
 
 function ProgramCard({ program, index }: { program: ProgramOccurrence; index: number }) {
+  const Colors = useThemeColors();
   const router = useRouter();
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -136,11 +140,34 @@ function ProgramCard({ program, index }: { program: ProgramOccurrence; index: nu
         }}
         style={[styles.programCard, animatedStyle]}
         accessibilityRole="button"
-        accessibilityLabel={`${program.title}, ${schedule}`}
+        accessibilityLabel={
+          program.cancelled
+            ? `${program.title}, ${schedule}, cancelled${program.cancellationReason ? `. ${program.cancellationReason}` : ''}`
+            : `${program.title}, ${schedule}`
+        }
       >
         <Cover uri={program.coverImageUrl} index={index} imageRadius={Radius.lg} style={styles.programCardImage}>
+          {/* A called-off occurrence keeps its place in the week and stays
+              tappable through to the program (M2-05) — it is information, not
+              an error, and hiding it is how somebody ends up travelling to a
+              service that is not happening. The badge is crimson, the design
+              system's secondary role, the same colour the portal marks it in. */}
+          {program.cancelled && (
+            <View style={[styles.programCancelledPill, { backgroundColor: Colors.secondary }]}>
+              <Text style={styles.programCancelledText}>CANCELLED</Text>
+            </View>
+          )}
           <View style={styles.programCardScrim}>
-            <Text style={styles.programCardName} numberOfLines={1}>{program.title}</Text>
+            <Text
+              style={[styles.programCardName, program.cancelled && styles.programCardNameCancelled]}
+              numberOfLines={1}
+            >
+              {program.title}
+            </Text>
+            {/* The schedule line stays even when the occurrence is off: it is
+                how you tell which night of the week this card is. The badge
+                already says it is cancelled, and the reason is one tap away on
+                program detail. */}
             <Text style={styles.programCardTime} numberOfLines={1}>{schedule}</Text>
           </View>
         </Cover>
@@ -473,7 +500,23 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: Radius.lg,
     borderBottomRightRadius: Radius.lg,
   },
+  programCancelledPill: {
+    position: 'absolute',
+    top: Spacing[2],
+    left: Spacing[2],
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing[2],
+    paddingVertical: 3,
+  },
+  programCancelledText: {
+    fontFamily: FontFamily.bodyExtraBold,
+    fontSize: 9,
+    letterSpacing: 0.8,
+    lineHeight: 12,
+    color: '#FFFFFF',
+  },
   programCardName: { fontFamily: FontFamily.bodySemiBold, fontSize: 14, lineHeight: 20, color: '#FFFFFF' },
+  programCardNameCancelled: { textDecorationLine: 'line-through' },
   programCardTime: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 15.4, color: 'rgba(255,255,255,0.80)', marginTop: 2 },
   // Event cards
   eventCard: { width: 260, height: 155, borderRadius: Radius.lg, overflow: 'hidden' },

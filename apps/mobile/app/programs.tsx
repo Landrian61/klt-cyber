@@ -10,17 +10,28 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
+import type { FunctionReturnType } from 'convex/server';
+import { formatOccurrenceDate } from '@klt-cyber/shared';
+
 import { FontFamily, Spacing, Radius, AmbientShadow, Duration } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Cover } from '@/components/ui/cover';
-import { api, type Doc } from '@/lib/api';
+import { api } from '@/lib/api';
 import { formatProgramSchedule, formatTime } from '@/lib/content-format';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+/** One row of api.weeklyPrograms.listActivePrograms — the program plus the
+ * `nextOccurrence` / `cancelledUpcoming` the query stamps on it (spec 0009).
+ * Derived from the query rather than hand-declared so the shape cannot drift
+ * from the backend. */
+type ActiveProgram = NonNullable<
+  FunctionReturnType<typeof api.weeklyPrograms.listActivePrograms>
+>[number];
+
 function ProgramRow({
   program, index, onPress,
-}: { program: Doc<'weeklyPrograms'>; index: number; onPress: () => void }) {
+}: { program: ActiveProgram; index: number; onPress: () => void }) {
   const Colors = useThemeColors();
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -31,6 +42,12 @@ function ProgramRow({
     program.startTime ? formatTime(program.startTime) : null,
     program.endTime ? formatTime(program.endTime) : null,
   ].filter(Boolean).join(' – ');
+
+  // The recurrence line above says when this program runs in general; this says
+  // which actual date is coming, and whether that one is off (AC-8). Both are
+  // worth having: "every Wednesday" is not an answer to "is there one this
+  // week".
+  const next = program.nextOccurrence;
 
   return (
     // Entering animation on the wrapper; press-scale stays on the inner pressable.
@@ -44,7 +61,13 @@ function ProgramRow({
         }}
         style={[styles.row, animatedStyle, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}
         accessibilityRole="button"
-        accessibilityLabel={`${program.title}, ${schedule}${timeRange ? `, ${timeRange}` : ''}`}
+        accessibilityLabel={[
+          program.title,
+          schedule,
+          timeRange || null,
+          next ? `next on ${formatOccurrenceDate(next.date)}` : null,
+          next?.cancelled ? 'cancelled' : null,
+        ].filter(Boolean).join(', ')}
       >
         <Cover uri={program.coverImageUrl} index={index} imageRadius={0} style={styles.rowImage} />
         <View style={styles.rowContent}>
@@ -54,6 +77,26 @@ function ProgramRow({
           <Text style={[styles.rowDay, { color: Colors.onSurfaceVariant }]} numberOfLines={1}>
             {schedule}{timeRange ? `, ${timeRange}` : ''}
           </Text>
+          {next && (
+            <View style={styles.rowNextRow}>
+              <Text
+                style={[
+                  styles.rowNext,
+                  { color: next.cancelled ? Colors.secondary : Colors.primary },
+                ]}
+                numberOfLines={1}
+              >
+                Next: {formatOccurrenceDate(next.date)}
+              </Text>
+              {next.cancelled && (
+                <View style={[styles.rowCancelledPill, { backgroundColor: Colors.secondaryLight }]}>
+                  <Text style={[styles.rowCancelledText, { color: Colors.secondary }]}>
+                    Cancelled
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
           {program.location && (
             <View style={styles.rowLocationRow}>
               <Ionicons name="location-outline" size={13} color={Colors.outline} />
@@ -187,6 +230,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginTop: 2,
+  },
+  rowNextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[2],
+    marginTop: 3,
+  },
+  rowNext: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 11,
+    lineHeight: 15.4,
+  },
+  rowCancelledPill: {
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing[2],
+    paddingVertical: 1,
+  },
+  rowCancelledText: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 10,
+    lineHeight: 14,
   },
   rowLocationRow: {
     flexDirection: 'row',
