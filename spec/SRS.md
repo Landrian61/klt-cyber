@@ -1267,6 +1267,7 @@ Channels: **P** push, **I** in-app centre, **B** web bell, **E** email, **S** SM
 | N43 | Library item low on stock | Library HOD, delegates, roster | P, B | No | L3-03 |
 | N44 | Service renewal approaching | System Admins | P, B | No | A8-05 |
 | N45 | Tomorrow has no devotional | Media (Dashboard warning, no push) | Dashboard | n/a | D1-02 |
+| N46 | Program occurrence restored (when Administration chooses to notify) | All signed-in users | P, I | Yes | A4-03 |
 
 **Delivery rules**
 

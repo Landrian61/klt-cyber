@@ -20,7 +20,7 @@ _This scope transcribes the already-agreed `spec/BUILD-PLAN.md` into the living 
 | 6 | Department-scoped permissions, portal access rules, permission tests | Week 2 | in-progress |
 | 7 | Password reset and the five emails (Resend) | Week 2 | in-progress |
 | 8 | Account deletion | Week 2 | in-progress |
-| 11 | Cancel and restore a single program occurrence | Week 2 | in-progress |
+| 11 | Cancel and restore a single program occurrence | Week 2 | done |
 | 12 | Mobile shell and Home slots | Week 2 | in-progress |
 | 15 | Updates "My groups", Events & Programs, add to calendar | Week 2 | in-progress |
 | 31 | Platform analytics and cost register | Week 2 | planned |
@@ -185,12 +185,21 @@ Spec: [0008](../specs/_root/0008-account-deletion/index.md)
 - [ ] Document it: `/document account deletion`
 SRS: F1-06 · code: `convex/accountDeletion.ts`, `convex/schema.ts` (`users.deletedAt`/`identityDeletePending`, `accountDeletionRequests`, `activityLogs.by_target`), `convex/lib/authz.ts` (the `getCurrentUser` deleted guard), `convex/emails.ts` (`sendAccountDeletionRequested`), `convex/lib/emails/templates.ts`, `convex/{admin,notifications,users,churchAdminSeed,contentSeed}.ts` (AC-22 exclusions), `packages/shared/src/constants/accountDeletion.ts` (plus its test), `apps/mobile/app/delete-account.tsx`, `apps/mobile/app/profile.tsx` (entry point), `apps/admin/app/(auth)/delete-account/`, `apps/admin/middleware.ts`
 
-### 11. Cancel and restore a single program occurrence · in-progress
+### 11. Cancel and restore a single program occurrence · done
 Track A. Let Administration call off one Wednesday's service without deleting the recurring program or leaving a stale reminder.
 **Done when:** A4-02: a single occurrence is cancelled with an optional reason, shows as cancelled, sends no reminder, with an option to notify members (N20). A4-03: a cancelled occurrence can be restored. F4-02: reminders never fire for a cancelled occurrence. M2-05/M4-03: a cancelled occurrence shows as cancelled wherever programs appear.
-- [ ] Design remaining work (spec): `/architect cancel and restore a program occurrence`
-Spec: not yet captured
-SRS: A4-02, A4-03, F4-02, M2-05, M4-03 · code: `convex/weeklyPrograms.ts` (recurring programs already exist; per-occurrence cancel does not)
+- [x] Design remaining work (spec): `/architect cancel and restore a program occurrence`
+Spec: [0009](../specs/_root/0009-cancel-restore-program-occurrence/index.md)
+- [x] Build it: `/develop cancel and restore a program occurrence`
+  - [x] Schema and shared contract: the `programOccurrenceCancellations` table with both indexes, plus `PROGRAM_CANCELLATION_REASON_MAX_LENGTH` and `formatOccurrenceDate` in a new `packages/shared/src/constants/weeklyPrograms.ts` with its test, foundation for AC-1, supports AC-2
+  - [x] Cancel and restore end to end, reminder already safe: the two mutations with their validation asymmetry and duplicate rejection, the shared lookup in a new `convex/lib/occurrences.ts`, the dispatch-time guard on `notifications.dispatch`, the Year Planner popup actions and chip treatment, the mobile Home cancelled badge, satisfies AC-1, AC-3, AC-5, AC-6, AC-7, AC-9, AC-10, AC-11, AC-12, AC-13
+  - [x] Member notifications on both actions plus the 48 hour pre-tick, and the `spec/SRS.md` §4.5 amendment adding the restore notification, satisfies AC-2, completes AC-3
+  - [x] Reason correction: `updateCancellationReason` and the edit affordance on an already cancelled row, satisfies AC-4
+  - [x] Mobile programs list and detail: `nextOccurrence` and `cancelledUpcoming` on `listActivePrograms` over the 8 week horizon, the next-occurrence line and the cancelled dates section, satisfies AC-8
+- [x] Verify it: verified by hand by the developer (UI and functions), not via `/check verify`
+- [ ] Test it: SKIPPED by the developer's decision at close-out. `docs/specs/_root/0009-cancel-restore-program-occurrence/verify.md` holds the durable steps if you ever want to lock them: `/test cancel and restore a program occurrence`
+- [ ] Document it: `/document cancel and restore a program occurrence`
+SRS: A4-02, A4-03, F4-02, M2-05, M4-03 · code: `convex/weeklyPrograms.ts` (3 mutations), `convex/lib/occurrences.ts`, `convex/schema.ts`, `convex/notifications.ts` (dispatch guard), `convex/calendar.ts`, `convex/plannedActivities.ts`, `packages/shared/src/constants/weeklyPrograms.ts`, `apps/admin/app/(admin)/areas-of-service/admin/year-planner/`, `apps/mobile/app/{(tabs)/index,programs,program-detail}.tsx`
 
 ### 12. Mobile shell and Home slots · in-progress
 Track B. Give the app its real tab bar and a Home screen built from real content instead of placeholders, so every later mobile feature has somewhere to slot in.
