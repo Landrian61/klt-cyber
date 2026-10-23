@@ -26,6 +26,11 @@ import {
 } from "@/components/shadcn/select";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import {
+  ANNOUNCEMENT_CATEGORIES,
+  ANNOUNCEMENT_CATEGORY_LABELS,
+  isAnnouncementCategory,
+} from "@klt-cyber/shared";
 import { Field, PriorityBadge, errorMessage, formatDate } from "../_lib/adminContent";
 
 // Row shape comes straight from the Convex query — coverImageUrl arrives
@@ -35,6 +40,11 @@ export type Announcement = NonNullable<
 >[number];
 
 type Priority = "low" | "normal" | "high";
+
+// Category is optional (spec 0010, AC-16), so "no category" has to be a real
+// choice in the select. Radix refuses an empty string as an item value, hence a
+// sentinel rather than "". It never leaves this file: the payload carries "".
+const NO_CATEGORY = "__none__";
 type LinkRow = { label: string; url: string };
 
 interface FormState {
@@ -129,7 +139,14 @@ function AnnouncementOverview({ a }: { a: Announcement }) {
             <PriorityBadge priority={a.priority} />
           </div>
         </DetailRow>
-        <DetailRow label="Category">{a.category}</DetailRow>
+        <DetailRow label="Category">
+          {/* The raw value when it is off-set, so an editor can see what is
+              actually stored before the select makes them replace it. */}
+          {a.category
+            ? (ANNOUNCEMENT_CATEGORY_LABELS[a.category as keyof typeof ANNOUNCEMENT_CATEGORY_LABELS] ??
+              a.category)
+            : "None"}
+        </DetailRow>
         <DetailRow label="Window">
           {formatDate(a.startDate)} – {formatDate(a.endDate)}
         </DetailRow>
@@ -227,10 +244,22 @@ export function AnnouncementDialog({
     const links = form.links
       .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
       .filter((l) => l.label && l.url);
+    // An announcement saved before the set was fixed can be holding something
+    // off-set. The app still renders it (AC-1), but re-saving it here has to
+    // resolve it, so the select shows no selection and this refuses to submit
+    // the stale value rather than letting the server reject it less clearly.
+    const category = form.category.trim();
+    if (category !== "" && !isAnnouncementCategory(category)) {
+      throw new Error(
+        `"${category}" is no longer a category. Choose one from the list.`
+      );
+    }
     return {
       title: form.title.trim(),
       body: form.body.trim(),
-      category: form.category.trim() || undefined,
+      // Sent even when empty, which is how the server is told to clear it.
+      // `undefined` would mean "leave the stored category alone".
+      category,
       priority: form.priority,
       links: links.length ? links : undefined,
       startDate,
@@ -308,12 +337,33 @@ export function AnnouncementDialog({
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Category" htmlFor="ann-category">
-              <Input
-                id="ann-category"
-                value={form.category}
-                onChange={(e) => set("category", e.target.value)}
-                placeholder="General"
-              />
+              <Select
+                value={
+                  isAnnouncementCategory(form.category)
+                    ? form.category
+                    : form.category === ""
+                      ? NO_CATEGORY
+                      : // An off-set stored value matches no item, so the
+                        // trigger shows the placeholder and the editor has to
+                        // choose.
+                        ""
+                }
+                onValueChange={(value) =>
+                  set("category", value === NO_CATEGORY ? "" : value)
+                }
+              >
+                <SelectTrigger id="ann-category">
+                  <SelectValue placeholder="Choose a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_CATEGORY}>No category</SelectItem>
+                  {ANNOUNCEMENT_CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {ANNOUNCEMENT_CATEGORY_LABELS[category]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="Priority" htmlFor="ann-priority">
               <Select
