@@ -172,7 +172,41 @@ async function resolveRoleAudience(
   return [...new Set(rows.map((r) => r.userId))];
 }
 
-/** Single entry point for all four audience types — see the note above. */
+/**
+ * VERIFIED members of a clan (spec 0010, AC-11).
+ *
+ * Deliberately narrower than the department audience above, and narrower than
+ * the in-app read rule in convex/lib/groupMembership.ts. `memberProfiles.clanId`
+ * is self-selected in the profile wizard, so an unverified claim to a clan is
+ * just a claim: it earns the member nothing until Administration verifies the
+ * profile. That keeps F4-17's and N27's verified-only push rule intact while
+ * the in-app read is allowed to be wider.
+ *
+ * The verified filter is part of the index read rather than a `.filter()` after
+ * it, so widening this audience to unverified claimants cannot happen by
+ * accident. Deleted accounts are excluded for the same reason
+ * `resolveAllAudience` excludes them: they cannot sign in to read anything, and
+ * nothing should be addressed to them.
+ */
+async function resolveClanAudience(
+  ctx: QueryCtx | MutationCtx,
+  clanId: Id<"clans">
+): Promise<Id<"users">[]> {
+  const profiles = await ctx.db
+    .query("memberProfiles")
+    .withIndex("by_clanId_profileStatus", (q) =>
+      q.eq("clanId", clanId).eq("profileStatus", "verified")
+    )
+    .collect();
+
+  const userIds = [...new Set(profiles.map((p) => p.userId))];
+  const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
+  return users
+    .filter((u): u is NonNullable<typeof u> => u !== null && u.deletedAt === undefined)
+    .map((u) => u._id);
+}
+
+/** Single entry point for all five audience types — see the note above. */
 async function resolveAudience(
   ctx: QueryCtx | MutationCtx,
   audience: NotificationAudience
@@ -186,6 +220,8 @@ async function resolveAudience(
       return resolveUsersAudience(audience.userIds);
     case "role":
       return resolveRoleAudience(ctx, audience.roleType);
+    case "clan":
+      return resolveClanAudience(ctx, audience.clanId);
     default: {
       const exhaustive: never = audience;
       throw new Error(`Unhandled audience type: ${JSON.stringify(exhaustive)}`);

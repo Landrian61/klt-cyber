@@ -5,6 +5,7 @@ import type { Doc } from "./_generated/dataModel";
 import type { RecurrenceType, WeekOfMonth } from "@klt-cyber/shared";
 import {
   PROGRAM_CANCELLATION_REASON_MAX_LENGTH,
+  UPCOMING_HORIZON_DAYS,
   formatOccurrenceDate,
 } from "@klt-cyber/shared";
 import {
@@ -149,16 +150,11 @@ function validateRecurrenceFields(args: {
 
 // ── Reads ────────────────────────────────────────────────────────────────────
 
-/**
- * How far ahead `listActivePrograms` looks for a program's next occurrence and
- * its cancelled dates. A module constant, not an argument: every consumer wants
- * the same window, and letting a screen choose its own would let two screens
- * disagree about whether a program has anything coming up.
- *
- * 8 weeks covers a monthly program's next slot with room to spare, which is the
- * longest gap the recurrence model can produce.
- */
-const UPCOMING_HORIZON_DAYS = 8 * 7;
+// How far ahead `listActivePrograms` looks for a program's next occurrence and
+// its cancelled dates now comes from @klt-cyber/shared, where the merged
+// upcoming query reads the same number. It was private here, which meant the
+// programs strip and the merged list on the one Events and Programs screen
+// could disagree about where "upcoming" stops.
 
 /**
  * Open: active programs, ordered by weekday then time, each carrying its next

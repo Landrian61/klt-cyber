@@ -10,7 +10,34 @@ import {
   logActivity,
 } from "./lib/authz";
 import { resolveCoverUrls } from "./lib/media";
+import { ANNOUNCEMENT_CATEGORIES, isAnnouncementCategory } from "@klt-cyber/shared";
 import { notificationCommon } from "./lib/reminders";
+
+/**
+ * Normalises and checks a category argument (spec 0010, AC-16).
+ *
+ * The schema field stays `v.optional(v.string())` on purpose: an older row
+ * holding a value this build does not know about must keep validating and keep
+ * rendering (the app degrades it to a neutral chip, AC-1). Only the write path
+ * is closed, and only here, so the portal select and the server can never
+ * disagree about what is allowed.
+ *
+ * Returns `undefined` both for "not supplied" and for an empty string, which is
+ * what the portal's "No category" option sends. Category is optional, so
+ * clearing it has to be expressible; an empty string stored as a category would
+ * render as a blank chip.
+ */
+function normalizeCategory(category: string | undefined): string | undefined {
+  if (category === undefined) return undefined;
+  const trimmed = category.trim();
+  if (trimmed === "") return undefined;
+  if (!isAnnouncementCategory(trimmed)) {
+    throw new Error(
+      `category must be one of: ${ANNOUNCEMENT_CATEGORIES.join(", ")}`
+    );
+  }
+  return trimmed;
+}
 
 // Push-notification body excerpt length — a full announcement body would
 // blow well past what a push notification renders anyway. Named so it's a
@@ -133,11 +160,12 @@ export const createAnnouncement = mutation({
     if (args.endDate < args.startDate) {
       throw new Error("endDate must be on or after startDate");
     }
+    const category = normalizeCategory(args.category);
     const now = Date.now();
     const announcementId = await ctx.db.insert("announcements", {
       title: args.title,
       body: args.body,
-      ...(args.category ? { category: args.category } : {}),
+      ...(category ? { category } : {}),
       ...(args.priority ? { priority: args.priority } : {}),
       ...(args.coverImageUrl ? { coverImageUrl: args.coverImageUrl } : {}),
       ...(args.links && args.links.length ? { links: args.links } : {}),
@@ -193,7 +221,9 @@ export const updateAnnouncement = mutation({
     const fields: Partial<Doc<"announcements">> = { updatedAt: Date.now() };
     if (patch.title !== undefined) fields.title = patch.title;
     if (patch.body !== undefined) fields.body = patch.body;
-    if (patch.category !== undefined) fields.category = patch.category;
+    // Supplied-but-empty clears the category; supplied-and-off-set is refused
+    // by normalizeCategory. Not supplied at all still means "leave it alone".
+    if (patch.category !== undefined) fields.category = normalizeCategory(patch.category);
     if (patch.priority !== undefined) fields.priority = patch.priority;
     if (patch.coverImageUrl !== undefined)
       fields.coverImageUrl = patch.coverImageUrl;

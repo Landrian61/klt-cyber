@@ -53,6 +53,40 @@ export const listFeaturedEvents = query({
   },
 });
 
+/**
+ * One event, for the shared detail screen and the `event` deep link (spec 0010,
+ * AC-7).
+ *
+ * Reads the event directly rather than finding it inside `listUpcomingEvents`,
+ * which is what the detail screen used to do: that only ever worked for an
+ * event still inside the upcoming window, so a notification tapped the day
+ * after the event showed "not found".
+ *
+ * Returns `null` for an archived event and for an unauthenticated session, so a
+ * forwarded or stale link lands on "no longer available" rather than on a
+ * crash. `tag` and `cancelled` are derived here so one screen can render an
+ * event and a group activity without knowing which it is holding.
+ */
+export const getEvent = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, { eventId }) => {
+    if (!(await getCurrentUser(ctx))) return null;
+
+    const event = await ctx.db.get(eventId);
+    // Archived, not cancelled: an archived event is a mistake being undone and
+    // disappears, while a cancelled one is still a real event on a real date
+    // and keeps showing, marked.
+    if (!event || !event.active) return null;
+
+    const [resolved] = await resolveCoverUrls([event]);
+    return {
+      ...resolved,
+      tag: "Church",
+      cancelled: event.cancelledAt !== undefined,
+    };
+  },
+});
+
 /** Admin: every event (past, inactive, all), soonest first. Gated. */
 export const listAllEvents = query({
   args: {},

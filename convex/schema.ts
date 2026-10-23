@@ -26,9 +26,36 @@ export const notificationAudienceValidator = v.union(
       v.literal("hod"),
       v.literal("department_admin")
     ),
+  }),
+  // Spec 0010. A clan audience resolves to the clan's VERIFIED members only,
+  // because `memberProfiles.clanId` is self-selected in the profile wizard —
+  // an unverified claim to a clan must not earn its pushes (F4-17, N27).
+  // That is deliberately narrower than the in-app read rule in
+  // convex/lib/groupMembership.ts. Adding a variant here without its case in
+  // `resolveAudience` (convex/notifications.ts) will not compile: that switch
+  // ends in an exhaustive `never` check.
+  v.object({
+    type: v.literal("clan"),
+    clanId: v.id("clans"),
   })
 );
 export type NotificationAudience = Infer<typeof notificationAudienceValidator>;
+
+// Who a group activity or group message belongs to (spec 0010, AC-11).
+//
+// A discriminated union rather than two optional id fields, so "exactly one
+// owner" holds at the type level: there is no way to write a row owning both a
+// department and a clan, or neither. Deliberately the same shape the
+// `department` and `clan` notification audiences use, so a mutation can pass an
+// owner straight through as an audience without reshaping it.
+//
+// Convex indexes the nested paths ("owner.departmentId"), which is what makes
+// one indexed read per group possible without a separate join table.
+export const groupOwnerValidator = v.union(
+  v.object({ type: v.literal("department"), departmentId: v.id("departments") }),
+  v.object({ type: v.literal("clan"), clanId: v.id("clans") })
+);
+export type GroupOwner = Infer<typeof groupOwnerValidator>;
 
 export default defineSchema({
   users: defineTable({
@@ -161,6 +188,12 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_profileStatus", ["profileStatus"])
+    // Spec 0010. The verified members of one clan, for the `clan` notification
+    // audience. Compound rather than a bare `by_clanId` so the verified filter
+    // is part of the index read: a clan audience must never widen to the people
+    // who have merely claimed the clan in the wizard, and reading the whole
+    // clan and filtering in memory would make that an easy mistake to make.
+    .index("by_clanId_profileStatus", ["clanId", "profileStatus"])
     .index("by_spouseUserId", ["spouseUserId"]),
 
   // Per-level leadership-institute progress. A separate table (not an array on
@@ -362,6 +395,15 @@ export default defineSchema({
     // (startDateTime changed, or the event was archived).
     weekBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
     dayBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
+    // Cancellation (spec 0010, AC-12). Deliberately NOT folded into `active`:
+    // cancelled means the event is still a real row on a real date and stays
+    // listed, marked, until that date passes, while `active: false` means
+    // archived and disappears at once. Collapsing the two would make
+    // "cancelled" either invisible or permanent. Feature 18 writes these;
+    // every read path here only reports them.
+    cancelledAt: v.optional(v.number()), // set = cancelled; absent = it is on
+    cancelledBy: v.optional(v.id("users")),
+    cancellationReason: v.optional(v.string()), // shown to members, capped at CANCELLATION_REASON_MAX_LENGTH
   })
     .index("by_startDateTime", ["startDateTime"])
     .index("by_featured", ["featured", "startDateTime"]),
@@ -445,6 +487,11 @@ export default defineSchema({
   // UI merges all three into one calendar. No stored `month`: it's derived
   // from `targetDate` at query/render time, same as "current theme" derives
   // from a period rather than a stored flag.
+  //
+  // Not to be confused with `groupActivities` below (spec 0010): this table is
+  // Administration's private planning record, that one is what a department or
+  // clan actually puts in front of its members. Nothing planned here becomes
+  // church-visible by itself.
   plannedActivities: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
@@ -459,6 +506,62 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_targetDate", ["targetDate"]),
+
+  // ── Spec 0010 — group content (member-facing) ──────────────────────────────
+  // Two tables that ship with no authoring interface: every read path a member
+  // needs is built here, and features 17 (department) and 23 (clan) write
+  // against this contract rather than each inventing their own shape. Sample
+  // rows come from `contentSeed:seedGroupSamples` on dev and staging only.
+
+  // One dated activity belonging to exactly one department or one clan — the
+  // member-facing counterpart to `plannedActivities` above. Shares `events`'s
+  // instant-based date fields so the two merge into one ordered list with a
+  // single comparison (convex/upcoming.ts).
+  groupActivities: defineTable({
+    title: v.string(), // capped at ACTIVITY_TITLE_MAX_LENGTH
+    description: v.optional(v.string()), // capped at ACTIVITY_DESCRIPTION_MAX_LENGTH
+    startDateTime: v.number(), // unix ms instant, directly comparable with events.startDateTime
+    endDateTime: v.number(), // at or after startDateTime; also the "has it finished" boundary
+    location: v.optional(v.string()), // capped at ACTIVITY_LOCATION_MAX_LENGTH
+    coverImageUrl: v.optional(v.string()), // an R2 key, resolved by resolveCoverUrls on the way out
+    owner: groupOwnerValidator,
+    // Cancellation, the same two-state split `events` carries: a cancelled
+    // activity keeps its place in the list until its end time passes.
+    cancelledAt: v.optional(v.number()),
+    cancelledBy: v.optional(v.id("users")),
+    cancellationReason: v.optional(v.string()), // capped at CANCELLATION_REASON_MAX_LENGTH
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    // No reminder job ids yet: feature 17 owns the activity reminder tiers
+    // (N23) and adds them when it decides what those tiers are.
+  })
+    // One equality plus one range read per group the caller belongs to. There
+    // is deliberately NO bare ["startDateTime"] index: a single window read
+    // across every activity in the church, filtered down in memory, would
+    // scale with how many groups exist rather than with how many the caller is
+    // in. Reading per eligible group bounds the work by the member's own
+    // memberships, which is a handful.
+    .index("by_department_start", ["owner.departmentId", "startDateTime"])
+    .index("by_clan_start", ["owner.clanId", "startDateTime"]),
+
+  // One message sent to one department or one clan. The in-app record behind a
+  // group push: the notification can be cleared, this cannot (M3-03).
+  groupMessages: defineTable({
+    body: v.string(), // capped at GROUP_MESSAGE_MAX_LENGTH
+    imageUrl: v.optional(v.string()), // an R2 key, resolved by resolveCoverUrls on the way out
+    owner: groupOwnerValidator,
+    sentBy: v.id("users"),
+    // Soft delete, so S5-03 leaves an audit trail. A deleted message is never
+    // purged; volume is a handful per group per year.
+    deletedAt: v.optional(v.number()),
+    deletedBy: v.optional(v.id("users")),
+    // No `sentAt`: Convex appends `_creationTime` to every index, so
+    // `by_department` plus a range on `_creationTime` gives the 90-day window
+    // read directly. Same reasoning as the `notifications` table above.
+  })
+    .index("by_department", ["owner.departmentId"])
+    .index("by_clan", ["owner.clanId"]),
 
   // ── Increment 6 — Push Notifications (@convex-dev/expo-push-notifications) ─
   // One row per notification *event*, not per recipient — `notificationReads`
