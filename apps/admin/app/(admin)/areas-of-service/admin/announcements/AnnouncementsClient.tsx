@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { announcementCategoryLabel } from "@klt-cyber/shared";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import { Heading } from "@/components/ui/Heading";
@@ -110,7 +111,7 @@ export function AnnouncementsClient() {
               key={a._id}
               coverImageUrl={a.coverImageUrl}
               title={a.title}
-              meta={a.category ?? "General"}
+              meta={announcementCategoryLabel(a.category) ?? a.category ?? "No category"}
               badges={<PriorityBadge priority={a.priority} />}
               onClick={() => openEdit(a)}
             />

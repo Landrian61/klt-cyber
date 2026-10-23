@@ -11,7 +11,10 @@ export type BadgeVariant =
   | 'visitor'
   | 'pending'
   | 'ended'
-  | 'live';
+  | 'live'
+  | 'category' | 'categoryUnknown'
+  | 'cancelled'
+  | 'group';
 
 export interface BadgeProps {
   label: string;
@@ -37,6 +40,17 @@ export function Badge({ label, variant = 'member' }: BadgeProps) {
     pending: { bg: Colors.goldTint, text: Colors.primaryDeep },
     ended: { bg: Colors.surfaceLow, text: Colors.outline },
     live: { bg: Colors.secondary, text: '#FFFFFF' },
+    // An announcement's category (spec 0010, AC-1) — blue tint, the same
+    // "information" register role badges use. `categoryUnknown` is the plain
+    // neutral chip an off-set stored value falls back to, so an older row
+    // still renders without claiming to be a category this build knows.
+    category: { bg: Colors.blueTint, text: Colors.tertiaryDeep },
+    categoryUnknown: { bg: Colors.surfaceLow, text: Colors.outline },
+    // Cancelled — solid crimson, the same heartbeat weight as LIVE and
+    // priority, because this is the one thing on a row a member must not miss.
+    cancelled: { bg: Colors.secondary, text: '#FFFFFF' },
+    // Which group a row belongs to, or Church for an event.
+    group: { bg: Colors.goldTint, text: Colors.primaryDeep },
   }), [Colors]);
 
   const colors = BADGE_COLORS[variant];

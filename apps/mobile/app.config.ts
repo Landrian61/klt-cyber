@@ -44,6 +44,12 @@ const scheme = IS_DEV
 // @expo/config-types — doesn't fail the outer literal's excess-property
 // check; a variable reference isn't a "fresh" literal, so only structural
 // assignability applies to it.
+// One string for every calendar permission prompt the OS might show (spec
+// 0010, AC-9 and AC-10). Written once rather than per key so the member reads
+// the same promise whether iOS asks for full or write-only access.
+const CALENDAR_PERMISSION_COPY =
+  "KLT Cyber adds a church event or group activity to your calendar only when you tap Add to calendar, so your phone can remind you.";
+
 const android = {
   package: `com.kltcyber.church${idSuffix}`,
   googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
@@ -84,6 +90,15 @@ export default (): ExpoConfig => {
     ios: {
       bundleIdentifier: `com.kltcyber.church${idSuffix}`,
       supportsTablet: true,
+      infoPlist: {
+        // iOS 17 split calendar access into full and write-only, and
+        // expo-calendar's own config plugin only writes the usage and
+        // full-access keys (see node_modules/expo-calendar/plugin). The app
+        // only ever writes an entry the member asked for, so the write-only
+        // prompt is the one iOS should be able to show — without this key it
+        // would have nothing to display and the request would fail.
+        NSCalendarsWriteOnlyAccessUsageDescription: CALENDAR_PERMISSION_COPY,
+      },
     },
     android,
     web: {
@@ -104,6 +119,7 @@ export default (): ExpoConfig => {
       "@react-native-community/datetimepicker",
       "expo-secure-store",
       "expo-notifications",
+      ["expo-calendar", { calendarPermission: CALENDAR_PERMISSION_COPY }],
       [
         "@sentry/react-native/expo",
         {

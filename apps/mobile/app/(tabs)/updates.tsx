@@ -9,11 +9,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
+import { announcementCategoryChip } from '@klt-cyber/shared';
+
 import { FontFamily, Spacing, Radius, Duration, HeavenGradient, ShadowE2 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Card } from '@/components/ui/card';
 import { Cover } from '@/components/ui/cover';
 import { Badge } from '@/components/ui/badge';
+import { MyGroupsSection } from '@/components/my-groups-section';
 import { api, type Doc } from '@/lib/api';
 import { formatFullDate } from '@/lib/content-format';
 
@@ -24,6 +27,21 @@ const PRIORITY_BADGE: Record<string, { label: string; variant: 'priority' | 'mem
   normal: { label: 'Update', variant: 'member' },
   low: { label: 'Notice', variant: 'pending' },
 };
+
+/**
+ * An announcement's category, as a chip (spec 0010, AC-1).
+ *
+ * Three outcomes, all of them from the shared helper so the app and the portal
+ * agree: no category renders nothing at all (the layout must not collapse
+ * around a missing chip), a known one renders in the blue information register,
+ * and a value from before the set was fixed renders as a plain neutral chip
+ * showing the stored word rather than breaking the screen.
+ */
+function CategoryChip({ category }: { category: string | undefined }) {
+  const chip = announcementCategoryChip(category);
+  if (!chip) return null;
+  return <Badge label={chip.label} variant={chip.known ? 'category' : 'categoryUnknown'} />;
+}
 
 function AnnouncementCard({
   item,
@@ -66,7 +84,10 @@ function AnnouncementCard({
           <Text style={[styles.announcementBody, { color: Colors.onSurfaceVariant }]} numberOfLines={2}>
             {item.body}
           </Text>
-          <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
+          <View style={styles.announcementMeta}>
+            <CategoryChip category={item.category} />
+            <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
+          </View>
         </View>
         <View style={styles.announcementChevron}>
           <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
@@ -81,6 +102,9 @@ function UpdatesScreen() {
   const router = useRouter();
   const announcements = useQuery(api.announcements.listActiveAnnouncements);
   const isLoading = announcements === undefined;
+  // My groups loads alongside the announcements rather than after them, and
+  // renders nothing until it has something to say (spec 0010, AC-2).
+  const myGroups = useQuery(api.groups.listMyGroupMessages);
 
   // "Pinned" isn't a stored flag — the highest-priority announcements read
   // as pinned, matching the priority badge shown everywhere else.
@@ -143,7 +167,10 @@ function UpdatesScreen() {
                     <Image source={{ uri: item.coverImageUrl }} style={styles.pinnedThumb} contentFit="cover" />
                   )}
                 </View>
-                <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
+                <View style={styles.announcementMeta}>
+                  <CategoryChip category={item.category} />
+                  <Text style={[styles.dateText, { color: Colors.outline }]}>{formatFullDate(item.startDate)}</Text>
+                </View>
               </Card>
             </Pressable>
           ))}
@@ -175,6 +202,8 @@ function UpdatesScreen() {
           ) : null}
         </>
       )}
+
+      <MyGroupsSection sections={myGroups} />
 
       <View style={{ height: Spacing[6] }} />
     </ScrollView>
@@ -322,11 +351,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 2,
   },
+  // Chip and date share one line. `flexWrap` so a long category on a narrow
+  // phone drops the date to the next line rather than squeezing it.
+  announcementMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing[2],
+    marginTop: Spacing[2],
+  },
   dateText: {
     fontFamily: FontFamily.body,
     fontSize: 11,
     lineHeight: 15.4,
-    marginTop: Spacing[2],
   },
   emptyState: {
     alignItems: 'center',
