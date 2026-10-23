@@ -151,6 +151,7 @@ function RootLayoutInner() {
           <Stack.Screen name="devotionals" />
           <Stack.Screen name="events" />
           <Stack.Screen name="event-detail" />
+          <Stack.Screen name="item-detail" />
           <Stack.Screen name="announcement-detail" />
           <Stack.Screen name="give" />
         </Stack.Protected>

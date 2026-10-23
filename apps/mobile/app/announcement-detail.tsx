@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
+import { announcementCategoryChip } from '@klt-cyber/shared';
+
 import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
@@ -50,6 +52,9 @@ export default function AnnouncementDetailScreen() {
   }
 
   const badge = PRIORITY_BADGE[announcement.priority ?? 'normal'];
+  // Same shared rule the Updates list uses, so a member never sees one wording
+  // on the card and another on the detail (spec 0010, AC-1).
+  const categoryChip = announcementCategoryChip(announcement.category);
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface, paddingTop: insets.top }]}>
@@ -75,8 +80,11 @@ export default function AnnouncementDetailScreen() {
         {/* Badge + date */}
         <Animated.View entering={FadeInUp.duration(300).delay(100)} style={styles.metaRow}>
           {badge && <Badge label={badge.label} variant={badge.variant} />}
-          {announcement.category && (
-            <Text style={[styles.category, { color: Colors.outline }]}>{announcement.category}</Text>
+          {categoryChip && (
+            <Badge
+              label={categoryChip.label}
+              variant={categoryChip.known ? 'category' : 'categoryUnknown'}
+            />
           )}
           <Text style={[styles.date, { color: Colors.outline }]}>{formatFullDate(announcement.startDate)}</Text>
         </Animated.View>
@@ -152,12 +160,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing[3],
     marginBottom: Spacing[3],
-  },
-  category: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    lineHeight: 15.4,
-    textTransform: 'capitalize',
   },
   date: {
     fontFamily: FontFamily.body,
