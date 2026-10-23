@@ -37,6 +37,36 @@ export const PLANNER_TYPE_COLOR: Record<
 export const PLANNER_TYPES: PlannerItem["type"][] = ["program", "event", "activity"];
 
 /**
+ * A called-off program occurrence (spec 0009) takes crimson — the design
+ * system's secondary role, which already carries "priority / destructive"
+ * everywhere else in the portal — rather than its program gold, so a cancelled
+ * night reads as different at a glance and not merely as one more program.
+ *
+ * The colour alone is not the signal: `PlannerChip` also strikes the title
+ * through, and the day pop-up spells the word out. Crimson is already the
+ * activity colour, so colour on its own would be ambiguous.
+ */
+export const PLANNER_CANCELLED_COLOR = {
+  bg: "bg-crimson-light",
+  text: "text-crimson",
+  border: "border-crimson",
+  dot: "bg-crimson",
+  label: "Cancelled",
+} as const;
+
+/** True when this item is a program occurrence that has been called off. */
+export function isCancelledOccurrence(item: PlannerItem): boolean {
+  return item.type === "program" && item.cancelled;
+}
+
+/** The palette an item actually renders in — its type's, unless it is cancelled. */
+export function plannerItemColor(item: PlannerItem) {
+  return isCancelledOccurrence(item)
+    ? PLANNER_CANCELLED_COLOR
+    : PLANNER_TYPE_COLOR[item.type];
+}
+
+/**
  * "9:00 AM" for program/event — both carry a real time-of-day. `undefined`
  * for activity: `targetDate` is a day-level plan, not a scheduled time, so
  * there's nothing meaningful to show.

@@ -24,6 +24,11 @@ import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
 import { DayPopup } from "./DayPopup";
 import { ActivityDialog, type EditingActivity } from "./ActivityDialog";
+import {
+  OccurrenceDialog,
+  type OccurrenceAction,
+  type TargetOccurrence,
+} from "./OccurrenceDialog";
 import { PLANNER_TYPE_COLOR, PLANNER_TYPES } from "./plannerColors";
 import type { ActivityItem, PlannerItem, PlannerView } from "./types";
 
@@ -57,6 +62,9 @@ export function YearPlannerClient() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<EditingActivity | null>(null);
   const [dialogDefaultDate, setDialogDefaultDate] = useState<Date>(today);
+  const [occurrenceOpen, setOccurrenceOpen] = useState(false);
+  const [occurrenceAction, setOccurrenceAction] = useState<OccurrenceAction>("cancel");
+  const [occurrenceTarget, setOccurrenceTarget] = useState<TargetOccurrence | null>(null);
 
   const range = useMemo(() => {
     switch (view) {
@@ -108,6 +116,32 @@ export function YearPlannerClient() {
     });
     setDialogDefaultDate(new Date(item.start));
     setDialogOpen(true);
+  }
+
+  /**
+   * Open the cancel / restore / edit-reason dialog for one program occurrence.
+   *
+   * `date: item.date` is load-bearing: that string is the Kampala calendar day
+   * the server stamped on the occurrence. The grid above buckets days by
+   * `localYmd`, which is browser-local, so deriving the date from the clicked
+   * cell would send the wrong day for an admin outside Kampala.
+   */
+  function openOccurrenceAction(
+    item: Extract<PlannerItem, { type: "program" }>,
+    action: OccurrenceAction,
+  ) {
+    setSelectedDay(null);
+    setOccurrenceAction(action);
+    setOccurrenceTarget({
+      programId: item.programId as Id<"weeklyPrograms">,
+      date: item.date,
+      title: item.title,
+      start: item.start,
+      cancelled: item.cancelled,
+      cancellationReason: item.cancellationReason,
+      notifiedAt: item.notifiedAt,
+    });
+    setOccurrenceOpen(true);
   }
 
   return (
@@ -236,6 +270,14 @@ export function YearPlannerClient() {
         onOpenChange={(open) => !open && setSelectedDay(null)}
         onAddActivity={() => selectedDay && openAddActivity(selectedDay)}
         onEditActivity={openEditActivity}
+        onOccurrenceAction={openOccurrenceAction}
+      />
+
+      <OccurrenceDialog
+        open={occurrenceOpen}
+        action={occurrenceAction}
+        occurrence={occurrenceTarget}
+        onOpenChange={setOccurrenceOpen}
       />
 
       <ActivityDialog
