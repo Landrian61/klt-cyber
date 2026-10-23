@@ -33,6 +33,7 @@ import type * as lib_emails_layout from "../lib/emails/layout.js";
 import type * as lib_emails_templates from "../lib/emails/templates.js";
 import type * as lib_environment from "../lib/environment.js";
 import type * as lib_media from "../lib/media.js";
+import type * as lib_occurrences from "../lib/occurrences.js";
 import type * as lib_recurrence from "../lib/recurrence.js";
 import type * as lib_reminders from "../lib/reminders.js";
 import type * as lib_sentry from "../lib/sentry.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "lib/emails/templates": typeof lib_emails_templates;
   "lib/environment": typeof lib_environment;
   "lib/media": typeof lib_media;
+  "lib/occurrences": typeof lib_occurrences;
   "lib/recurrence": typeof lib_recurrence;
   "lib/reminders": typeof lib_reminders;
   "lib/sentry": typeof lib_sentry;

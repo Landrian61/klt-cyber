@@ -6,8 +6,15 @@ import {
   getAdministrationAuthorityOrNull,
   logActivity,
 } from "./lib/authz";
-import { DAY_MS, kampalaParts, occurrenceInstant, ymd } from "./calendar";
+import {
+  DAY_MS,
+  KAMPALA_OFFSET_MS,
+  kampalaParts,
+  occurrenceInstant,
+  ymd,
+} from "./calendar";
 import { weeklyProgramOccursOn } from "./lib/recurrence";
+import { cancellationKey, getCancellationsInRange } from "./lib/occurrences";
 
 // Year Planner. Internal planning records, never shown
 // to members — distinct from the member-facing `weeklyPrograms`/`events`
@@ -49,7 +56,10 @@ export const getYearPlannerRange = query({
       throw new Error("endDate must be on or after startDate");
     }
 
-    const [programs, eventsInRange, activitiesInRange] = await Promise.all([
+    const rangeStart = kampalaParts(startDate);
+    const rangeEnd = kampalaParts(endDate);
+
+    const [programs, eventsInRange, activitiesInRange, cancellations] = await Promise.all([
       ctx.db
         .query("weeklyPrograms")
         .withIndex("by_active", (q) => q.eq("active", true))
@@ -66,6 +76,14 @@ export const getYearPlannerRange = query({
           q.gte("targetDate", startDate).lte("targetDate", endDate)
         )
         .collect(),
+      // Called-off program occurrences in the same window (spec 0009), through
+      // the same helper the member-facing calendar uses so the planner and the
+      // app cannot disagree about what is off.
+      getCancellationsInRange(
+        ctx,
+        ymd(rangeStart.year, rangeStart.month, rangeStart.day),
+        ymd(rangeEnd.year, rangeEnd.month, rangeEnd.day)
+      ),
     ]);
 
     type PlannerItem =
@@ -79,6 +97,12 @@ export const getYearPlannerRange = query({
           startTime: string;
           endTime?: string;
           location?: string;
+          // Spec 0009. `notifiedAt` is planner-only (the member calendar has no
+          // use for it): it is what lets the restore dialog warn that members
+          // have already been told the occurrence was off.
+          cancelled: boolean;
+          cancellationReason?: string;
+          notifiedAt?: number;
         }
       | {
           type: "event";
@@ -108,7 +132,7 @@ export const getYearPlannerRange = query({
     // must never see).
     const firstDay = kampalaParts(startDate);
     let dayCursor =
-      Date.UTC(firstDay.year, firstDay.month, firstDay.day) - 3 * 60 * 60 * 1000;
+      Date.UTC(firstDay.year, firstDay.month, firstDay.day) - KAMPALA_OFFSET_MS;
     for (; dayCursor <= endDate; dayCursor += DAY_MS) {
       const parts = kampalaParts(dayCursor);
       for (const program of programs) {
@@ -123,6 +147,7 @@ export const getYearPlannerRange = query({
         );
         if (instant < startDate || instant > endDate) continue;
         const date = ymd(parts.year, parts.month, parts.day);
+        const cancellation = cancellations.get(cancellationKey(program._id, date));
         items.push({
           type: "program",
           date,
@@ -133,6 +158,11 @@ export const getYearPlannerRange = query({
           startTime,
           ...(program.endTime ? { endTime: program.endTime } : {}),
           ...(program.location ? { location: program.location } : {}),
+          cancelled: cancellation !== undefined,
+          ...(cancellation?.reason ? { cancellationReason: cancellation.reason } : {}),
+          ...(cancellation?.notifiedAt !== undefined
+            ? { notifiedAt: cancellation.notifiedAt }
+            : {}),
         });
       }
     }

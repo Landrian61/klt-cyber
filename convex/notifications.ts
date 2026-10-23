@@ -7,6 +7,9 @@ import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { getCurrentUser, requireUser } from "./lib/authz";
+import { getCancellation, parseOccurrenceDate } from "./lib/occurrences";
+import { weeklyProgramOccursOn } from "./lib/recurrence";
+import { kampalaParts, occurrenceInstant } from "./calendar";
 import { notificationAudienceValidator, type NotificationAudience } from "./schema";
 
 // Thin wrapper around @convex-dev/expo-push-notifications, scoped to the
@@ -389,11 +392,43 @@ export const dispatch = internalMutation({
     deepLink: v.object({ type: v.string(), id: v.string() }),
     createdBy: v.id("users"),
     imageUrl: v.optional(v.string()),
+    // The program occurrence this notification is about, when it is about one
+    // (spec 0009). Optional and ignored by every other kind of notification.
+    occurrence: v.optional(
+      v.object({ programId: v.id("weeklyPrograms"), date: v.string() })
+    ),
   },
-  handler: async (ctx, { title, body, audience, deepLink, createdBy, imageUrl }) => {
+  handler: async (
+    ctx,
+    { title, body, audience, deepLink, createdBy, imageUrl, occurrence }
+  ) => {
     // Unused until the component (or a bespoke rich-notification path)
     // supports an image field — see the doc comment above.
     void imageUrl;
+
+    // Checked HERE rather than where the reminder was scheduled, which is the
+    // whole point: the daily cron queues the hour-before push a day ahead, so a
+    // cancellation entered after that would otherwise arrive too late to stop
+    // it. Re-reading at fire time makes the guarantee unconditional (AC-6,
+    // invariant 4) — no sequence of admin actions and cron timing can leak a
+    // reminder for an occurrence that is off.
+    //
+    // All three conditions, not just the cancellation: a program can also be
+    // switched off, or edited onto a different day, between the 09:00 cron and
+    // the push firing. Those two were already silent bugs before this feature;
+    // the same guard closes them (invariant 5).
+    if (occurrence) {
+      const cancelled = await getCancellation(ctx, occurrence.programId, occurrence.date);
+      if (cancelled) return;
+
+      const program = await ctx.db.get(occurrence.programId);
+      if (!program || !program.active) return;
+
+      const parts = parseOccurrenceDate(occurrence.date);
+      if (!parts) return;
+      const dayMidnight = occurrenceInstant(parts.year, parts.month, parts.day, "00:00");
+      if (!weeklyProgramOccursOn(program, dayMidnight, kampalaParts(dayMidnight))) return;
+    }
 
     const recipients = await resolveAudience(ctx, audience);
 

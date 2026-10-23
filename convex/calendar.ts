@@ -2,6 +2,8 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { resolveCoverUrls } from "./lib/media";
 import { weeklyProgramOccursOn } from "./lib/recurrence";
+import { cancellationKey, getCancellationsInRange } from "./lib/occurrences";
+import { KAMPALA_UTC_OFFSET_MS } from "@klt-cyber/shared";
 
 // Calendar is a query, not a table — it avoids a redundant store that could
 // drift from `events` / `weeklyPrograms`. It expands active weekly programs into
@@ -13,8 +15,11 @@ import { weeklyProgramOccursOn } from "./lib/recurrence";
 // regardless of the server's own timezone.
 // Exported (not just module-local) so other admin-only calendar views —
 // currently the Year Planner (convex/plannedActivities.ts) — can expand
-// occurrences the same way without duplicating the Kampala-offset math.
-export const KAMPALA_OFFSET_MS = 3 * 60 * 60 * 1000;
+// occurrences the same way without duplicating the Kampala-offset math. The
+// value itself comes from @klt-cyber/shared, because the admin portal needs
+// the same offset to decide whether a date has already passed in Kampala and
+// the two must not be able to drift.
+export const KAMPALA_OFFSET_MS = KAMPALA_UTC_OFFSET_MS;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The Kampala-local calendar parts of a unix instant. */
@@ -61,7 +66,10 @@ export const getCalendarRange = query({
       throw new Error("endDate must be on or after startDate");
     }
 
-    const [programs, eventsInRange] = await Promise.all([
+    const rangeStart = kampalaParts(startDate);
+    const rangeEnd = kampalaParts(endDate);
+
+    const [programs, eventsInRange, cancellations] = await Promise.all([
       ctx.db
         .query("weeklyPrograms")
         .withIndex("by_active", (q) => q.eq("active", true))
@@ -72,6 +80,14 @@ export const getCalendarRange = query({
           q.gte("startDateTime", startDate).lte("startDateTime", endDate)
         )
         .collect(),
+      // Called-off occurrences in the same window (spec 0009). Fetched once for
+      // the whole range rather than per expanded occurrence — see
+      // convex/lib/occurrences.ts.
+      getCancellationsInRange(
+        ctx,
+        ymd(rangeStart.year, rangeStart.month, rangeStart.day),
+        ymd(rangeEnd.year, rangeEnd.month, rangeEnd.day)
+      ),
     ]);
 
     type CalendarItem =
@@ -88,6 +104,11 @@ export const getCalendarRange = query({
           endTime?: string;
           dayOfWeek: number;
           date: string;
+          // Spec 0009: this one dated occurrence has been called off. Member
+          // visible by design — the reason is what stops someone travelling to
+          // a service that is not happening.
+          cancelled: boolean;
+          cancellationReason?: string;
         }
       | {
           type: "event";
@@ -123,10 +144,13 @@ export const getCalendarRange = query({
         );
         if (instant < startDate || instant > endDate) continue;
         const date = ymd(parts.year, parts.month, parts.day);
+        const cancellation = cancellations.get(cancellationKey(program._id, date));
         items.push({
           type: "program",
           start: instant,
           occurrenceKey: `${program._id}_${date}`,
+          cancelled: cancellation !== undefined,
+          ...(cancellation?.reason ? { cancellationReason: cancellation.reason } : {}),
           programId: program._id,
           title: program.title,
           ...(program.description ? { description: program.description } : {}),
