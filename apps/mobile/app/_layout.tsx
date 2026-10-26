@@ -23,6 +23,7 @@ import { ensureDefaultAndroidChannel } from '@/lib/notification-setup';
 import { resolveDeepLinkHref } from '@/lib/notification-links';
 import { initSentry, Sentry } from '@/lib/sentry';
 import { useMyAccount } from '@/hooks/use-my-account';
+import { useActivityReporter } from '@/hooks/use-activity-reporter';
 
 SplashScreen.preventAutoHideAsync();
 initSentry();
@@ -47,6 +48,11 @@ function RootLayoutInner() {
   useEffect(() => {
     Sentry.setUser(user ? { id: user._id } : null);
   }, [user]);
+
+  // "This phone is being used" (spec 0011, SRS F1-11). Mounted here, at the
+  // root, because it has to fire on every launch and foreground regardless of
+  // which screen the user is on. It renders nothing and never throws.
+  useActivityReporter(isAuthenticated);
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(colors.surfaceLowest);
