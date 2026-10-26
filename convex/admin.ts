@@ -68,18 +68,25 @@ async function hydrateActivity(ctx: QueryCtx, logs: Doc<"activityLogs">[]) {
     const metadata = (log.metadata ?? {}) as Record<string, unknown>;
 
     // Resolve the human target of the event, wherever this log shape put it.
+    //
+    // Every id goes through `normalizeId`, which answers null for a string
+    // that is not an id of that table instead of throwing the way `db.get`
+    // does. `targetId` and the metadata keys are plain strings on the schema,
+    // so they can hold anything a past mutation wrote: an account deletion
+    // scrubs `metadata.userId` to "[removed]" (convex/accountDeletion.ts), and
+    // one such row used to take the whole activity feed down with it.
     let targetUserId: Id<"users"> | null = null;
     if (log.targetType === "users" && log.targetId) {
-      targetUserId = log.targetId as Id<"users">;
+      targetUserId = ctx.db.normalizeId("users", log.targetId);
     } else if (typeof metadata.userId === "string") {
-      targetUserId = metadata.userId as Id<"users">;
+      targetUserId = ctx.db.normalizeId("users", metadata.userId);
     }
 
     let clanId: Id<"clans"> | null = null;
     if (log.targetType === "clans" && log.targetId) {
-      clanId = log.targetId as Id<"clans">;
+      clanId = ctx.db.normalizeId("clans", log.targetId);
     } else if (typeof metadata.clanId === "string") {
-      clanId = metadata.clanId as Id<"clans">;
+      clanId = ctx.db.normalizeId("clans", metadata.clanId);
     }
 
     entries.push({
