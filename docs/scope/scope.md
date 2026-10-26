@@ -23,7 +23,7 @@ _This scope transcribes the already-agreed `spec/BUILD-PLAN.md` into the living 
 | 11 | Cancel and restore a single program occurrence | Week 2 | done |
 | 12 | Mobile shell and Home slots | Week 2 | in-progress |
 | 15 | Updates "My groups", Events & Programs, add to calendar | Week 2 | in-progress |
-| 31 | Platform analytics and cost register | Week 2 | planned |
+| 31 | Platform analytics and cost register | Week 2 | in-progress |
 | 17 | Shared department shell | Week 3 | in-progress |
 | 10 | Notification targeting: appointment audiences, revocation notice, first-publish only, deep links to ended items | Week 3 | in-progress |
 | 9 | Profile lifecycle core: pending edits, send-back, edit after verification, clan "I don't know", name and photo sync, spouse search fix, mentorship bug | Week 3 | in-progress |
@@ -224,12 +224,21 @@ Spec: [0010](../specs/_root/0010-updates-events-programs/index.md)
 - [ ] Document it: `/document Updates, Events and Programs`
 SRS: M3-01, M3-02, M3-03, M3-04, M4-01, M4-02, M4-03, M4-04 · code: `convex/schema.ts`, `convex/groups.ts`, `convex/upcoming.ts`, `convex/lib/groupMembership.ts`, `convex/contentSeed.ts` (`seedGroupSamples`), `packages/shared/src/constants/groupContent.ts`, `packages/shared/src/enums/announcements.ts`, `apps/mobile/app/(tabs)/updates.tsx`, `apps/mobile/app/events.tsx`, `apps/mobile/app/item-detail.tsx`, `apps/mobile/components/my-groups-section.tsx`, `apps/mobile/lib/add-to-calendar.ts`
 
-### 31. Platform analytics and cost register · planned
+### 31. Platform analytics and cost register · in-progress
 Track B. Give the System Admin one screen for platform health (people, activity, devices, engagement, notifications, errors) and one for what every paid service actually costs.
 **Done when:** F3-17/A8-04: System Admin sees people/activity/device/engagement/notification/health numbers as specified in SRS §4.3.3. A8-05: a cost register (plan, cost, billing cycle, renewal date per service) with renewal reminders (F5-07). F1-11: "last active" is recorded on use, feeding active-user counts.
-- [ ] Design it (spec): `/architect platform analytics and cost register`
-Spec: not yet captured
-SRS: F3-17, F1-11, A8-04, A8-05
+- [x] Design it (spec): `/architect platform analytics and cost register`
+Spec: [0011](../specs/_root/0011-platform-analytics-cost-register/index.md)
+- [x] Build it: `/develop platform analytics and cost register`
+  - [x] The thinnest honest thread: the shared cost register contract with its tests, the Africa/Kampala day and month helpers, one additive schema change (`userActivity`, `userDevices`, `costServices`, `costRenewalNotices`, `platformMetrics`, `notifications.recipientCount`), the System Admin route group under `areas-of-service/admin/(system)/`, and the Analytics page showing the People section live, satisfies AC-4, AC-17, AC-20
+  - [x] Activity and devices end to end: `recordActivity` with its per target 55 minute throttle, the mobile reporter and its device id, the portal reporter in the `(admin)` layout, the Activity and Devices sections, and the `performDeletion` extension, satisfies AC-1, AC-2, AC-3, AC-5, AC-19
+  - [x] The remaining sections, gaps and all: `recipientCount` on dispatch, Engagement and Notifications over the calendar month, the nightly R2 storage job, Health, and every honest gap line, satisfies AC-6, AC-7, AC-8, AC-9, AC-10
+  - [x] The cost register end to end: the five mutations with their validation and audit entries, the safe everywhere reference seed, the Costs page with per currency totals and the record renewal action, and the three `serviceKey` lookups feeding Devices, Notifications and Health, satisfies AC-11, AC-12, AC-13, AC-16, AC-18
+  - [x] Renewal reminders: the daily threshold sweep with its idempotency key and scheduled dispatch to System Admins, the overdue treatment, and the notice cap, satisfies AC-14, AC-15
+- [ ] Verify it: `/check verify platform analytics and cost register`
+- [ ] Test it: `/test platform analytics and cost register`
+- [ ] Document it: `/document platform analytics and cost register`
+SRS: F3-17, F1-11, A8-04, A8-05 · code: `convex/schema.ts`, `convex/{activity,analytics,costs}.ts`, `convex/lib/costValidators.ts`, `convex/calendar.ts`, `convex/crons.ts`, `convex/notifications.ts` (`dispatch`), `convex/accountDeletion.ts` (`performDeletion`), `convex/seed.ts` (`costServices`), `convex/exchangeRates.ts`, `packages/shared/src/constants/costRegister.ts`, `apps/admin/lib/serviceLogos.ts`, `apps/admin/components/ui/ServiceLogo.tsx`, `apps/admin/app/(admin)/layout.tsx`, `apps/admin/components/ActivityReporter.tsx`, `apps/admin/app/(admin)/areas-of-service/admin/(system)/{analytics,costs}/`, `apps/mobile/{lib/device-id.ts,hooks/use-activity-reporter.ts,app/_layout.tsx}`
 
 ## Week 3
 
