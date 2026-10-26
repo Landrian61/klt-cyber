@@ -37,6 +37,12 @@ export default async function AdminLayout({
   if (!account) redirect("/sign-in");
 
   const { user, activeRoles, hasAdministrationAccess } = account;
+  // Decided here, where the account is already resolved, and passed down:
+  // the rail must not make a second round trip to ask what this layout
+  // already knows (spec 0011 AC-20).
+  const isSystemAdmin = activeRoles.some(
+    (role) => role.roleType === "system_admin",
+  );
   if (!hasAdministrationAccess) {
     redirect(activeRoles.length > 0 ? "/areas-of-service" : "/unauthorized");
   }
@@ -49,7 +55,7 @@ export default async function AdminLayout({
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <AdminSidebar />
+      <AdminSidebar isSystemAdmin={isSystemAdmin} />
       {/* Deeper warm-parchment page so the white cards and glass top bar lift. */}
       <SidebarInset className="bg-surface-low">
         <AdminTopBar

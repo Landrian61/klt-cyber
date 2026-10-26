@@ -232,12 +232,74 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+// The System Admin only group (spec 0011). Kept out of NAV_GROUPS because it
+// is the one group whose visibility is conditional: every other page here is
+// shown to every authorized person and differs only in which *actions* it
+// offers. These two pages are not shown at all to an HOD or delegate, since
+// the route group beneath them redirects anyone without the role.
+//
+// Hiding a link is never the guard — the layout redirects and Convex refuses
+// — but showing a link that leads straight to a redirect is a dead end, and
+// the platform's costs are not an HOD's business to be teased with either.
+const SYSTEM_ADMIN_GROUP: NavGroup = {
+  label: "Platform",
+  items: [
+    {
+      href: "/areas-of-service/admin/analytics",
+      label: "Analytics",
+      icon: (
+        <svg
+          className={iconClass}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+        </svg>
+      ),
+    },
+    {
+      href: "/areas-of-service/admin/costs",
+      label: "Costs",
+      icon: (
+        <svg
+          className={iconClass}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="2.5" y="5.5" width="19" height="13" rx="2" />
+          <path d="M2.5 10h19" />
+          <path d="M6 14.5h4" />
+        </svg>
+      ),
+    },
+  ],
+};
+
 // Dark blue dominates ~58% before easing into the brighter royal at the foot.
 const SIDEBAR_GRADIENT =
   "[&_[data-slot=sidebar-inner]]:bg-[linear-gradient(180deg,var(--color-heaven-deep)_0%,var(--color-heaven-deep)_58%,var(--color-heaven)_82%,var(--color-heaven-bright)_100%)]";
 
-export function AdminSidebar() {
+export function AdminSidebar({
+  /** Whether the viewer holds system_admin — decided by the layout, which
+   * has already resolved the account server-side, not re-fetched here. */
+  isSystemAdmin = false,
+}: {
+  isSystemAdmin?: boolean;
+}) {
   const pathname = usePathname();
+  const groups = isSystemAdmin
+    ? [...NAV_GROUPS, SYSTEM_ADMIN_GROUP]
+    : NAV_GROUPS;
 
   return (
     <Sidebar collapsible="icon" className={SIDEBAR_GRADIENT}>
@@ -265,7 +327,7 @@ export function AdminSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>
