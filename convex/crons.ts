@@ -27,4 +27,33 @@ crons.cron(
   internal.accountDeletion.retryIdentityDelete
 );
 
+// 02:10 UTC = 05:10 Kampala — the quietest hour, and the one job here that
+// reads the whole storage bucket (spec 0011, AC-10). Offset off the hour for
+// the same reason the retry sweep is: nothing else should land at :00.
+crons.cron(
+  "platform storage measurement",
+  "10 2 * * *",
+  internal.analytics.measureStorage
+);
+
+// 06:30 UTC = 09:30 Kampala — half an hour after the weekly program reminders,
+// so two unrelated notification jobs do not fire into the same minute. The
+// stages this sweep fires are thresholds, not exact days, so a sweep that
+// misses a run fires once and late rather than losing the notice (AC-14).
+crons.cron(
+  "cost renewal reminders",
+  "30 6 * * *",
+  internal.costs.checkRenewalReminders
+);
+
+// 01:30 UTC = 04:30 Kampala. The rate source refreshes just after midnight
+// UTC, so this reads a figure that is already a few minutes old rather than
+// racing its publication (spec 0011). Before the storage job, because it is a
+// single small request and should not queue behind a full bucket walk.
+crons.cron(
+  "usd to ugx exchange rate",
+  "30 1 * * *",
+  internal.exchangeRates.fetchUsdToUgx
+);
+
 export default crons;

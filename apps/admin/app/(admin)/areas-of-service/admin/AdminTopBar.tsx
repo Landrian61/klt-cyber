@@ -34,6 +34,8 @@ const MODULE_TITLES: [prefix: string, title: string][] = [
   [`${BASE}/announcements`, "Announcements"],
   [`${BASE}/year-planner`, "Year planner"],
   [`${BASE}/settings`, "Settings"],
+  [`${BASE}/analytics`, "Platform analytics"],
+  [`${BASE}/costs`, "Cost register"],
   [BASE, "Dashboard"],
 ];
 

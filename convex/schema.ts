@@ -1,5 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v, type Infer } from "convex/values";
+import {
+  vBillingCycle,
+  vCostCurrency,
+  vCostServiceKey,
+} from "./lib/costValidators";
 
 // Shared with convex/notifications.ts (the dispatch action's arg validator)
 // so the audience shape is defined exactly once — duplicating it across the
@@ -579,6 +584,14 @@ export default defineSchema({
       id: v.string(),
     }),
     createdBy: v.id("users"),
+    // How many users the resolved audience contained, written by `dispatch` at
+    // insert time from the recipient list it already computes (spec 0011).
+    // Without it the analytics page can count notifications but not reach:
+    // "40 sent" and "40 sent to 1,200 people" are different facts and the page
+    // shows both. Optional because rows written before this feature carry no
+    // fan-out size, and the page's label says the figure counts only rows that
+    // record one rather than quietly treating an absent field as zero.
+    recipientCount: v.optional(v.number()),
   }).index("by_audience_type", ["audience.type"]),
 
   // One row per (user, notification) once read. No row = unread — same
@@ -656,4 +669,133 @@ export default defineSchema({
   })
     .index("by_tokenHash", ["tokenHash"])
     .index("by_email", ["email"]),
+
+  // ── Platform analytics & cost register (spec 0011) ─────────────────────────
+
+  // One row per user who has ever reported activity. No row = never reported,
+  // which is honest; a missing field on a shared document invites a zero.
+  //
+  // Deliberately NOT a field on `users`. An hourly write to a `users` document
+  // would invalidate every live query reading that document — the role checks
+  // in lib/authz.ts, Administration's dashboard, the member directory, every
+  // profile subscription. Writing to a document nothing else subscribes to
+  // keeps the cost of this feature inside this feature.
+  userActivity: defineTable({
+    userId: v.id("users"),
+    lastActiveAt: v.number(), // unix ms
+  })
+    .index("by_userId", ["userId"])
+    // The three nesting window reads (today / 7 days / 30 days), each a range
+    // from its boundary rather than a scan of everyone who ever signed in.
+    .index("by_lastActiveAt", ["lastActiveAt"]),
+
+  // One row per phone that has reported while signed in. The row's identity is
+  // `deviceId`, not the user: the same account on two phones is two rows, and
+  // a different account signing in on one phone reassigns that row rather than
+  // adding a second.
+  userDevices: defineTable({
+    // Generated once on the phone and kept in its own storage. Never derived
+    // server-side, which is what makes two phones on one account countable.
+    deviceId: v.string(),
+    userId: v.id("users"),
+    // Phones only. The portal writes no row here, so there is deliberately no
+    // `web` member to let one in by accident.
+    platform: v.union(v.literal("android"), v.literal("ios")),
+    appVersion: v.string(), // from expo-constants; the app's string to define
+    lastSeenAt: v.number(), // unix ms, throttled on this row's own value
+  })
+    .index("by_deviceId", ["deviceId"])
+    .index("by_userId", ["userId"]) // the deletion sweep (spec 0008)
+    .index("by_lastSeenAt", ["lastSeenAt"]), // the 30-day window read
+
+  // One row per external service the church uses (SRS §7). Maintained by hand
+  // by a System Admin; the only automatic writer is the one-time reference
+  // seed, which asserts a name, key and purpose and no money at all.
+  costServices: defineTable({
+    name: v.string(), // capped at COST_NAME_MAX; unique among non-archived rows
+    // A COST_SERVICE_KEYS value, set by the seed. How a page finds a specific
+    // service without matching on a name a System Admin may have edited:
+    // Devices reads `play_console`/`app_store`, Health reads `sentry`, the
+    // email allowance reads `resend`. Optional, since a System Admin may add a
+    // service the set does not name.
+    serviceKey: v.optional(vCostServiceKey),
+    purpose: v.optional(v.string()), // capped at COST_PURPOSE_MAX
+    plan: v.optional(v.string()), // capped at COST_PLAN_MAX; free text
+    // A non-negative whole number of the currency's smallest unit: USD in
+    // cents, UGX in shillings. Optional because a seeded row has no figure
+    // until somebody reads the invoice.
+    amountMinor: v.optional(v.number()),
+    currency: v.optional(vCostCurrency),
+    billingCycle: v.optional(vBillingCycle),
+    // "YYYY-MM-DD" Africa/Kampala date key, the convention `devotionals` and
+    // `pastEvents` already use. Required once the cycle is monthly or annual,
+    // forbidden for the other three, validated as a real calendar date.
+    renewalDate: v.optional(v.string()),
+    // The plan's included allowance. Its unit is implied by `serviceKey`
+    // through SERVICE_USAGE_METRIC, so there is no second unit field here to
+    // contradict it.
+    allowanceLimit: v.optional(v.number()),
+    // Must start with https — enforced on write, because both pages render it
+    // as an anchor and a `javascript:` value would execute in the browser.
+    consoleUrl: v.optional(v.string()),
+    accountHeldBy: v.optional(v.string()), // capped at COST_HELD_BY_MAX
+    notes: v.optional(v.string()), // capped at COST_NOTES_MAX
+    // Set means archived: out of the totals and out of the reminder sweep,
+    // still readable. An explicit timestamp, not a soft-delete flag. Nothing
+    // in this feature is ever deleted.
+    archivedAt: v.optional(v.number()),
+    archivedBy: v.optional(v.id("users")),
+    // Also who the renewal sweep attributes its notification to, since a cron
+    // has no acting user — the pattern convex/weeklyPrograms.ts already uses.
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_archivedAt", ["archivedAt"]) // the register list and the sweep
+    .index("by_serviceKey", ["serviceKey"]), // the four analytics lookups
+
+  // One row per reminder already sent. A row existing means that notice went
+  // out; there is no "not sent" row, the same convention `notificationReads`
+  // and `roleAssignments` follow.
+  costRenewalNotices: defineTable({
+    serviceId: v.id("costServices"),
+    // The date the notice was about. In the key, which is what re-arms all
+    // three stages when a renewal date moves forward.
+    renewalDate: v.string(),
+    stage: v.union(v.literal("t14"), v.literal("t3"), v.literal("due")),
+    // The Africa/Kampala date the notice actually went out. In the key, which
+    // is what lets `due` repeat once a day while a renewal is overdue without
+    // `t14` or `t3` ever repeating, since those two are also keyed on stage.
+    noticeDate: v.string(),
+    sentAt: v.number(),
+  }).index("by_service_renewal_stage", ["serviceId", "renewalDate", "stage"]),
+
+  // Exactly one row, patched nightly. One row rather than a row per night
+  // because the page shows current numbers only; a daily row would be storing
+  // history nothing reads. Found with `.first()`, so no index.
+  // The dollar rate the cost register converts with (spec 0011). One row per
+  // pair, patched in place by the daily job, never appended to: the register
+  // shows today's figure, and a history of rates is a different feature from
+  // a register of costs.
+  exchangeRates: defineTable({
+    base: v.string(), // "USD"
+    quote: v.string(), // "UGX"
+    // Quote units per base unit, e.g. 4336.26 shillings per dollar. Not minor
+    // units: a rate is a ratio, and rounding one to the shilling before it is
+    // applied would lose more than it saves.
+    rate: v.number(),
+    // Shown beside every converted figure, because a rate without its moment
+    // is a number nobody can check.
+    fetchedAt: v.number(),
+    source: v.string(), // the host that said so, shown once on the page
+  }).index("by_pair", ["base", "quote"]),
+
+  platformMetrics: defineTable({
+    // Sum of every R2 object's size, treating a missing size as zero since the
+    // component types it optional. Written only after a complete pass, so the
+    // page never shows a partial sum.
+    storageBytes: v.number(),
+    storageObjectCount: v.number(),
+    computedAt: v.number(), // shown beside the figure, because it is a day old
+  }),
 });

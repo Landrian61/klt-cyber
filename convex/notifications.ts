@@ -474,6 +474,12 @@ export const dispatch = internalMutation({
       audience,
       deepLink,
       createdBy,
+      // How far this one actually reached (spec 0011, AC-7). Recorded here
+      // because `resolveAudience` has just worked it out and nothing
+      // downstream can reconstruct it: an audience is resolved at send time,
+      // so counting the role or department again later would give today's
+      // membership, not the membership this notification went to.
+      recipientCount: recipients.length,
     });
 
     if (recipients.length === 0) return;

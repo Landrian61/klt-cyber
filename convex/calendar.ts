@@ -50,6 +50,35 @@ export function ymd(year: number, month: number, day: number): string {
   return `${year}-${pad(month + 1)}-${pad(day)}`;
 }
 
+// ── Kampala-local period boundaries (spec 0011) ────────────────────────────
+// The analytics page asks two different kinds of time question and must not
+// confuse them. "Active today" is a calendar-day question — a Kampala church's
+// day ends at Kampala midnight, not at UTC midnight, which is three hours
+// earlier and would move every evening's activity into tomorrow. "Sent this
+// month" is a calendar-month question for the same reason, and because the
+// allowances it is compared against reset with the calendar.
+//
+// Built on `kampalaParts` rather than on a second offset constant, so there is
+// exactly one place the Kampala offset is written down.
+
+/** The unix instant of Kampala-local midnight on the day containing `instant`. */
+export function kampalaDayStart(instant: number): number {
+  const { year, month, day } = kampalaParts(instant);
+  return Date.UTC(year, month, day) - KAMPALA_OFFSET_MS;
+}
+
+/** The unix instant of Kampala-local midnight starting `instant`'s month. */
+export function kampalaMonthStart(instant: number): number {
+  const { year, month } = kampalaParts(instant);
+  return Date.UTC(year, month, 1) - KAMPALA_OFFSET_MS;
+}
+
+/** The "YYYY-MM-DD" key of the Kampala-local date containing `instant`. */
+export function kampalaDateKey(instant: number): string {
+  const { year, month, day } = kampalaParts(instant);
+  return ymd(year, month, day);
+}
+
 /**
  * Merged, sorted calendar for [startDate, endDate] (unix ms, inclusive).
  * Programs are expanded into occurrences per their recurrence pattern (see
