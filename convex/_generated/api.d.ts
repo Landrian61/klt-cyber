@@ -9,7 +9,9 @@
  */
 
 import type * as accountDeletion from "../accountDeletion.js";
+import type * as activity from "../activity.js";
 import type * as admin from "../admin.js";
+import type * as analytics from "../analytics.js";
 import type * as announcements from "../announcements.js";
 import type * as auth from "../auth.js";
 import type * as calendar from "../calendar.js";
@@ -18,6 +20,7 @@ import type * as churchAdminSeed from "../churchAdminSeed.js";
 import type * as clans from "../clans.js";
 import type * as content from "../content.js";
 import type * as contentSeed from "../contentSeed.js";
+import type * as costs from "../costs.js";
 import type * as crons from "../crons.js";
 import type * as departmentMemberships from "../departmentMemberships.js";
 import type * as departmentMigration from "../departmentMigration.js";
@@ -25,11 +28,13 @@ import type * as departments from "../departments.js";
 import type * as devotionals from "../devotionals.js";
 import type * as emails from "../emails.js";
 import type * as events from "../events.js";
+import type * as exchangeRates from "../exchangeRates.js";
 import type * as facilities from "../facilities.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as leadershipMigration from "../leadershipMigration.js";
 import type * as lib_authz from "../lib/authz.js";
+import type * as lib_costValidators from "../lib/costValidators.js";
 import type * as lib_emails_layout from "../lib/emails/layout.js";
 import type * as lib_emails_templates from "../lib/emails/templates.js";
 import type * as lib_environment from "../lib/environment.js";
@@ -62,7 +67,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accountDeletion: typeof accountDeletion;
+  activity: typeof activity;
   admin: typeof admin;
+  analytics: typeof analytics;
   announcements: typeof announcements;
   auth: typeof auth;
   calendar: typeof calendar;
@@ -71,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   clans: typeof clans;
   content: typeof content;
   contentSeed: typeof contentSeed;
+  costs: typeof costs;
   crons: typeof crons;
   departmentMemberships: typeof departmentMemberships;
   departmentMigration: typeof departmentMigration;
@@ -78,11 +86,13 @@ declare const fullApi: ApiFromModules<{
   devotionals: typeof devotionals;
   emails: typeof emails;
   events: typeof events;
+  exchangeRates: typeof exchangeRates;
   facilities: typeof facilities;
   groups: typeof groups;
   http: typeof http;
   leadershipMigration: typeof leadershipMigration;
   "lib/authz": typeof lib_authz;
+  "lib/costValidators": typeof lib_costValidators;
   "lib/emails/layout": typeof lib_emails_layout;
   "lib/emails/templates": typeof lib_emails_templates;
   "lib/environment": typeof lib_environment;

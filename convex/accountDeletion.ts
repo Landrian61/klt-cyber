@@ -664,6 +664,27 @@ export const performDeletion = internalMutation({
       });
     }
 
+    // Activity and device rows (spec 0011 AC-19). Deleted outright rather
+    // than anonymized: both exist only to answer "how many people and phones
+    // are using this", and a row kept against an anonymized account would
+    // keep that person in the active-user counts after they left. Inside this
+    // transaction with the rest, so a refusal leaves them untouched.
+    //
+    // Unbounded loops are fine here: a person has one activity row and a
+    // handful of phones, which is nothing like the paged notification and
+    // audit sweeps below.
+    const activityRow = await ctx.db
+      .query("userActivity")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (activityRow) await ctx.db.delete(activityRow._id);
+
+    const deviceRows = await ctx.db
+      .query("userDevices")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+    for (const device of deviceRows) await ctx.db.delete(device._id);
+
     const moreNotifications = await deleteNotificationPage(ctx, userId);
 
     // This device's push token, removed here rather than from the client.
