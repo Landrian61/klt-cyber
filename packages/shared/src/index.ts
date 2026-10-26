@@ -4,6 +4,7 @@ export * from './constants/emails';
 export * from './constants/accountDeletion';
 export * from './constants/weeklyPrograms';
 export * from './constants/groupContent';
+export * from './constants/costRegister';
 export * from './enums/user';
 export * from './enums/roles';
 export * from './enums/departments';
