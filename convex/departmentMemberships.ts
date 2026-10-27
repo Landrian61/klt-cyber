@@ -1,13 +1,16 @@
 import { mutation, query } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import { MAX_ACTIVE_DEPARTMENTS, PAUSED_DEPARTMENTS } from "@klt-cyber/shared";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
+import {
+  CLAIM_DECLINE_REASON_MAX_LENGTH,
+  MAX_ACTIVE_DEPARTMENTS,
+  PAUSED_DEPARTMENTS,
+} from "@klt-cyber/shared";
 import {
   requireUser,
   getCurrentUser,
-  requireDepartmentAuthority,
-  requireDepartmentHod,
   getAdministrationAuthorityOrNull,
   isActiveSystemAdmin,
   hasActiveDepartmentRole,
@@ -15,18 +18,32 @@ import {
   getAdministrationDepartmentId,
   hasPortalAccess,
   logActivity,
+  departmentCapabilities,
+  requireDepartmentCapability,
+  resolveDepartmentShellRole,
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
+import { notificationCommon } from "./lib/reminders";
+import {
+  findLiveMembership,
+  listActiveMemberships,
+  placeOnRoster,
+} from "./lib/departmentMembership";
+import { assignRoleCore, revokeRoleCore } from "./roles";
 
 // Department roster. Membership is separate
 // from `roleAssignments`: being on a department's roster doesn't imply any
 // administrative authority, and holding hod/department_admin for a
 // department implies roster membership (enforced in roles.ts assignRoleCore)
-// but not the reverse. A roster row can also be self-added by the member
-// during profile submission (see convex/memberProfiles.ts `submitProfile`) —
-// that path writes directly to this table rather than going through
-// `addDepartmentMember` below, so it isn't gated on department authority or
-// on the profile already being verified.
+// but not the reverse.
+//
+// Since spec 0012 a person's own selection during profile submission writes a
+// `pending_claim` row rather than an active one (see convex/memberProfiles.ts
+// `submitProfile`): asking to serve is a request this department's HOD confirms
+// or declines. A seat on a roster therefore means an authorised leader put the
+// person there, which is what every department audience notification assumes.
+// Rows that were already active before that change are grandfathered: they stay
+// on the roster, labelled, and are excluded from the verified count.
 
 export const addDepartmentMember = mutation({
   args: {
@@ -35,7 +52,13 @@ export const addDepartmentMember = mutation({
     positionTitle: v.optional(v.string()),
   },
   handler: async (ctx, { departmentId, userId, positionTitle }) => {
-    const actor = await requireDepartmentAuthority(ctx, departmentId); // hod, department_admin, or system_admin
+    // hod, department_admin, or system_admin — read from the one capability
+    // matrix, so this file enforces nothing the interface does not render from.
+    const { actor } = await requireDepartmentCapability(
+      ctx,
+      departmentId,
+      "addMember"
+    );
 
     const profile = await ctx.db
       .query("memberProfiles")
@@ -45,12 +68,7 @@ export const addDepartmentMember = mutation({
       throw new Error("Only verified members can be added to a department roster");
     }
 
-    const activeMemberships = await ctx.db
-      .query("departmentMemberships")
-      .withIndex("by_userId_status", (q) =>
-        q.eq("userId", userId).eq("status", "active")
-      )
-      .collect();
+    const activeMemberships = await listActiveMemberships(ctx, userId);
     if (activeMemberships.some((m) => m.departmentId === departmentId)) {
       throw new Error("Already an active member of this department");
     }
@@ -60,21 +78,214 @@ export const addDepartmentMember = mutation({
       );
     }
 
-    const membershipId = await ctx.db.insert("departmentMemberships", {
+    // Promotes an existing `pending_claim` row rather than inserting beside it
+    // (spec 0012 AC-15): adding someone who had already asked to serve here
+    // would otherwise leave them on the roster twice, once as a member and once
+    // as a claimant still awaiting confirmation.
+    const { membershipId, outcome } = await placeOnRoster(ctx, {
       userId,
       departmentId,
-      ...(positionTitle ? { positionTitle } : {}),
-      addedBy: actor._id,
-      status: "active",
+      actorUserId: actor._id,
+      positionTitle,
     });
     await logActivity(ctx, {
       actorUserId: actor._id,
       action: "department.member_added",
       targetType: "departmentMemberships",
       targetId: membershipId,
-      metadata: { userId, departmentId },
+      departmentId,
+      // `fromClaim` is what separates "the HOD added them" from "the HOD
+      // effectively confirmed the claim they had already made" in the feed.
+      metadata: { userId, departmentId, fromClaim: outcome === "promoted" },
     });
+
+    // N12, to the person themself and nobody else: joining a roster is their
+    // own news, not an announcement.
+    const department = await ctx.db.get(departmentId);
+    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+      title: `You are now serving in ${department?.name ?? "a new area"}`,
+      body: outcome === "promoted"
+        ? `Your request to serve in ${department?.name ?? "that area"} was taken up. You are on its roster.`
+        : `You were added to the ${department?.name ?? "department"} roster.`,
+      ...notificationCommon({
+        audience: { type: "users", userIds: [userId] },
+        deepLink: { type: "profile", id: userId },
+        createdBy: actor._id,
+      }),
+    });
+
     return { membershipId };
+  },
+});
+
+// ── The claim lifecycle (spec 0012) ─────────────────────────────────────────
+
+/**
+ * The claim an HOD is deciding on, with the two reads every decision needs.
+ *
+ * Both mutations below start the same way, and the order matters: the row must
+ * still be pending before anything else is said about it, so a second confirm
+ * of the same claim reports "no longer pending" rather than patching a row that
+ * has already moved on.
+ */
+async function requirePendingClaim(
+  ctx: MutationCtx,
+  membershipId: Id<"departmentMemberships">,
+  capability: "confirmClaim" | "declineClaim"
+) {
+  const membership = await ctx.db.get(membershipId);
+  if (!membership) throw new Error("That request could not be found");
+
+  const { actor } = await requireDepartmentCapability(
+    ctx,
+    membership.departmentId,
+    capability
+  );
+
+  if (membership.status !== "pending_claim") {
+    throw new Error("That request is no longer waiting for a decision");
+  }
+
+  const department = await ctx.db.get(membership.departmentId);
+  return { membership, actor, departmentName: department?.name ?? "the department" };
+}
+
+/**
+ * Confirm a claim: the person asking to serve here joins the roster
+ * (spec 0012, AC-16).
+ *
+ * HOD (or System Admin) only; a delegate is rejected here and not merely shown
+ * no button (AC-18). The validation order is the spec's, so the interface can
+ * explain the refusal: still pending, then profile verified, then the three
+ * department cap.
+ *
+ * No application lock is needed for the cap. Convex mutations are serialisable
+ * over their read set, so two confirms that both read this person's active
+ * memberships conflict and one retries, then fails the status check above.
+ */
+export const confirmClaim = mutation({
+  args: { membershipId: v.id("departmentMemberships") },
+  handler: async (ctx, { membershipId }) => {
+    const { membership, actor, departmentName } = await requirePendingClaim(
+      ctx,
+      membershipId,
+      "confirmClaim"
+    );
+
+    const profile = await ctx.db
+      .query("memberProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", membership.userId))
+      .unique();
+    if (!profile || profile.profileStatus !== "verified") {
+      throw new Error(
+        "This person's member profile has not been verified yet, so they cannot " +
+          "join the roster. Administration verifies profiles."
+      );
+    }
+
+    const activeMemberships = await listActiveMemberships(ctx, membership.userId);
+    if (activeMemberships.length >= MAX_ACTIVE_DEPARTMENTS) {
+      throw new Error(
+        `This person already serves in the maximum of ${MAX_ACTIVE_DEPARTMENTS} areas of service`
+      );
+    }
+
+    await ctx.db.patch(membershipId, {
+      status: "active",
+      decidedBy: actor._id,
+      decidedAt: Date.now(),
+    });
+
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "department.claim_confirmed",
+      targetType: "departmentMemberships",
+      targetId: membershipId,
+      departmentId: membership.departmentId,
+      metadata: { userId: membership.userId },
+    });
+
+    // N11. Scheduled after the write has succeeded, the same best-effort
+    // convention every other notification here follows.
+    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+      title: `Welcome to ${departmentName}`,
+      body: `Your request to serve in ${departmentName} was confirmed. You are now on its roster.`,
+      ...notificationCommon({
+        audience: { type: "users", userIds: [membership.userId] },
+        deepLink: { type: "profile", id: membership.userId },
+        createdBy: actor._id,
+      }),
+    });
+
+    return { ok: true as const };
+  },
+});
+
+/**
+ * Decline a claim, with an optional reason (spec 0012, AC-17).
+ *
+ * The row becomes `declined` rather than being deleted, so the department keeps
+ * a readable history of who asked and what was decided. A blank or
+ * whitespace-only reason stores as absent, matching how `positionTitle` and the
+ * program cancellation reason already behave.
+ *
+ * `declineReason` goes back only to the claimant (in this notification) and to
+ * that department's HOD; it is never in a roster list, since a declined row
+ * appears in neither.
+ */
+export const declineClaim = mutation({
+  args: {
+    membershipId: v.id("departmentMemberships"),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { membershipId, reason }) => {
+    const { membership, actor, departmentName } = await requirePendingClaim(
+      ctx,
+      membershipId,
+      "declineClaim"
+    );
+
+    const trimmed = reason?.trim();
+    if (trimmed && trimmed.length > CLAIM_DECLINE_REASON_MAX_LENGTH) {
+      throw new Error(
+        `A reason can be at most ${CLAIM_DECLINE_REASON_MAX_LENGTH} characters`
+      );
+    }
+    const storedReason = trimmed ? trimmed : undefined;
+
+    await ctx.db.patch(membershipId, {
+      status: "declined",
+      decidedBy: actor._id,
+      decidedAt: Date.now(),
+      declineReason: storedReason,
+    });
+
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "department.claim_declined",
+      targetType: "departmentMemberships",
+      targetId: membershipId,
+      departmentId: membership.departmentId,
+      // The reason itself stays off the audit entry: it is free text about a
+      // person, readable by the claimant and their HOD, and the audit trail is
+      // read by others.
+      metadata: { userId: membership.userId, hadReason: storedReason !== undefined },
+    });
+
+    // N11, carrying the reason so the person is not left guessing.
+    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+      title: `About your ${departmentName} request`,
+      body: storedReason
+        ? `Your request to serve in ${departmentName} was not taken up. ${storedReason}`
+        : `Your request to serve in ${departmentName} was not taken up this time.`,
+      ...notificationCommon({
+        audience: { type: "users", userIds: [membership.userId] },
+        deepLink: { type: "profile", id: membership.userId },
+        createdBy: actor._id,
+      }),
+    });
+
+    return { ok: true as const };
   },
 });
 
@@ -106,10 +317,17 @@ export const updateDepartmentMembership = mutation({
     const membership = await ctx.db.get(membershipId);
     if (!membership) throw new Error("Membership not found");
     if (membership.status !== "active") {
-      throw new Error("Cannot re-title a membership that has been removed");
+      throw new Error("Only someone actually serving here can be given a position");
     }
 
-    const actor = await requireDepartmentHod(ctx, membership.departmentId); // hod or system_admin ONLY
+    // hod or system_admin ONLY, read from the one capability matrix rather than
+    // restated here, so a delegate is refused by the same table the interface
+    // hides the control with (spec 0012, AC-18).
+    const { actor } = await requireDepartmentCapability(
+      ctx,
+      membership.departmentId,
+      "setPosition"
+    );
 
     // Blank and whitespace-only both mean "no title", matching how
     // addDepartmentMember treats an empty string.
@@ -130,6 +348,7 @@ export const updateDepartmentMembership = mutation({
       action: "department.member_title_updated",
       targetType: "departmentMemberships",
       targetId: membershipId,
+      departmentId: membership.departmentId,
       metadata: {
         userId: membership.userId,
         departmentId: membership.departmentId,
@@ -148,7 +367,23 @@ export const removeDepartmentMember = mutation({
     const membership = await ctx.db.get(membershipId);
     if (!membership) throw new Error("Membership not found");
 
-    const actor = await requireDepartmentHod(ctx, membership.departmentId); // hod or system_admin ONLY
+    // hod or system_admin ONLY, from the same matrix as every other shell
+    // action (AC-18).
+    const { actor } = await requireDepartmentCapability(
+      ctx,
+      membership.departmentId,
+      "removeMember"
+    );
+
+    // Only someone actually serving can be removed. Handed a `pending_claim`
+    // row this would otherwise discard the claim, log a removal that never
+    // happened and tell the person their roster place had ended when they never
+    // had one; handed the same row twice it would do it all again. Declining a
+    // claim is `declineClaim`, which is a different decision with its own
+    // notification.
+    if (membership.status !== "active") {
+      throw new Error("Only someone currently serving here can be removed");
+    }
 
     await ctx.db.patch(membershipId, {
       status: "removed",
@@ -160,6 +395,7 @@ export const removeDepartmentMember = mutation({
       action: "department.member_removed",
       targetType: "departmentMemberships",
       targetId: membershipId,
+      departmentId: membership.departmentId,
       metadata: { userId: membership.userId, departmentId: membership.departmentId },
     });
 
@@ -189,11 +425,153 @@ export const removeDepartmentMember = mutation({
         action: "role.revoked",
         targetType: "roleAssignments",
         targetId: role._id,
+        departmentId: membership.departmentId,
         metadata: { reason: "roster_removal", userId: membership.userId },
       });
     }
 
+    // N12, privately to the person who was removed (AC-20). Not an
+    // announcement: leaving a roster is nobody else's business.
+    const department = await ctx.db.get(membership.departmentId);
+    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+      title: `Your ${department?.name ?? "department"} roster place has ended`,
+      body: `You are no longer on the ${department?.name ?? "department"} roster. Speak to its head if this looks wrong.`,
+      ...notificationCommon({
+        audience: { type: "users", userIds: [membership.userId] },
+        deepLink: { type: "profile", id: membership.userId },
+        createdBy: actor._id,
+      }),
+    });
+
     return { ok: true as const };
+  },
+});
+
+/**
+ * Appoint a roster member as this department's delegate (`department_admin`),
+ * per AC-20.
+ *
+ * Goes through the existing `roles.ts` path rather than writing a role row
+ * here, so one place still owns role cardinality and the implicit roster
+ * insert. This adds what the shell needs on top: the choice is restricted to
+ * verified members of THIS roster (a delegate who does not serve here makes no
+ * sense), and the audit entry carries `departmentId` so the appointment shows up
+ * in the department's own feed.
+ *
+ * `assignRoleCore` already notifies the appointee — today church-wide, which
+ * feature 10 (notification targeting, F4-03) narrows. No second notice is sent
+ * from here, which would simply reach the appointee twice.
+ */
+export const appointDelegate = mutation({
+  args: { departmentId: v.id("departments"), userId: v.id("users") },
+  handler: async (ctx, { departmentId, userId }) => {
+    const { actor } = await requireDepartmentCapability(
+      ctx,
+      departmentId,
+      "manageDelegates"
+    );
+
+    const membership = await findLiveMembership(ctx, userId, departmentId);
+    if (!membership || membership.status !== "active") {
+      throw new Error("A delegate has to be on this department's roster already");
+    }
+    const profile = await ctx.db
+      .query("memberProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!profile || profile.profileStatus !== "verified") {
+      throw new Error("Only a verified member can be appointed as a delegate");
+    }
+
+    const existing = await ctx.db
+      .query("roleAssignments")
+      .withIndex("by_departmentId", (q) => q.eq("departmentId", departmentId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("userId"), userId),
+          q.eq(q.field("status"), "active"),
+          q.eq(q.field("roleType"), "department_admin")
+        )
+      )
+      .first();
+    if (existing) return { roleAssignmentId: existing._id, changed: false as const };
+
+    const { roleAssignmentId } = await assignRoleCore(ctx, {
+      roleType: "department_admin",
+      userId,
+      departmentId,
+    });
+
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "department.delegate_appointed",
+      targetType: "roleAssignments",
+      targetId: roleAssignmentId,
+      departmentId,
+      metadata: { userId },
+    });
+
+    return { roleAssignmentId, changed: true as const };
+  },
+});
+
+/**
+ * Stand a delegate down (AC-20). The roster place is untouched: they stop being
+ * a delegate, they do not stop serving.
+ *
+ * N15 is sent from here rather than from `revokeRoleCore`, which deliberately
+ * notifies nobody for the general case. Losing authority you were given is
+ * worth telling someone about, and privately: the shell is the one place that
+ * knows the removal was a department decision rather than an audit cleanup.
+ */
+export const removeDelegate = mutation({
+  args: { departmentId: v.id("departments"), userId: v.id("users") },
+  handler: async (ctx, { departmentId, userId }) => {
+    const { actor } = await requireDepartmentCapability(
+      ctx,
+      departmentId,
+      "manageDelegates"
+    );
+
+    const assignment = await ctx.db
+      .query("roleAssignments")
+      .withIndex("by_departmentId", (q) => q.eq("departmentId", departmentId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("userId"), userId),
+          q.eq(q.field("status"), "active"),
+          q.eq(q.field("roleType"), "department_admin")
+        )
+      )
+      .first();
+    if (!assignment) {
+      return { ok: true as const, changed: false as const };
+    }
+
+    await revokeRoleCore(ctx, { roleAssignmentId: assignment._id });
+
+    const department = await ctx.db.get(departmentId);
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "department.delegate_removed",
+      targetType: "roleAssignments",
+      targetId: assignment._id,
+      departmentId,
+      metadata: { userId },
+    });
+
+    // N15.
+    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+      title: `Your ${department?.name ?? "department"} delegate role has ended`,
+      body: `You are no longer a delegate for ${department?.name ?? "the department"}. You are still on its roster.`,
+      ...notificationCommon({
+        audience: { type: "users", userIds: [userId] },
+        deepLink: { type: "profile", id: userId },
+        createdBy: actor._id,
+      }),
+    });
+
+    return { ok: true as const, changed: true as const };
   },
 });
 
@@ -339,6 +717,257 @@ export const listDepartmentMembersWithProfiles = query({
     return { department, members };
   },
 });
+
+// ── The shell's roster read (spec 0012) ─────────────────────────────────────
+
+/**
+ * How much of a department's roster the caller may see.
+ *
+ * `full` — this department's HOD or delegate, or a System Admin: the active
+ * roster and the claims waiting on a decision.
+ *
+ * `administration` — Administration authority, which spec 0006 gave the active
+ * roster of any department and which gains nothing here. SRS 4.7.2 grants the
+ * claimants list to the HOD and delegate columns only, and a claimant's
+ * verification state is information about a person that another department's
+ * leaders have no need for.
+ *
+ * `null` — everyone else, including a plain roster member of this very
+ * department, and an unauthenticated caller mid-teardown.
+ */
+async function rosterViewScope(
+  ctx: QueryCtx,
+  departmentId: Id<"departments">
+): Promise<"full" | "administration" | null> {
+  const user = await getCurrentUser(ctx);
+  if (!user) return null;
+  if (await isActiveSystemAdmin(ctx, user._id)) return "full";
+  if (
+    await hasActiveDepartmentRole(ctx, user._id, departmentId, [
+      "hod",
+      "department_admin",
+    ])
+  ) {
+    return "full";
+  }
+  const adminDeptId = await getAdministrationDepartmentId(ctx);
+  if (
+    adminDeptId &&
+    (await hasActiveDepartmentRole(ctx, user._id, adminDeptId, [
+      "hod",
+      "department_admin",
+    ]))
+  ) {
+    return "administration";
+  }
+  return null;
+}
+
+/**
+ * The department's roster as two lists: who serves, and who has asked to
+ * (spec 0012, AC-10, AC-13).
+ *
+ * Both come from the existing `by_departmentId_status` index, so the new
+ * statuses needed no new index. Mentorship status is read live from the
+ * profile and never copied onto the membership row.
+ *
+ * Search and filter run on this list in the client: one department's roster is
+ * tens of rows, so a server side search would be a round trip for nothing. The
+ * filter options come back with it — clans from the `clans` table, positions
+ * from the distinct titles actually present on this roster.
+ */
+export const listRosterWithClaims = query({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, { departmentId }) => {
+    const scope = await rosterViewScope(ctx, departmentId);
+    if (!scope) return null;
+
+    const department = await ctx.db.get(departmentId);
+    if (!department) return null;
+
+    // One read of this department's role rows, rather than two per roster
+    // member: the roster shows who leads it and who deputises, and asking per
+    // person would be a query per row on a live subscription.
+    const roleRows = await ctx.db
+      .query("roleAssignments")
+      .withIndex("by_departmentId", (q) => q.eq("departmentId", departmentId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+    const hodIds = new Set(
+      roleRows.filter((r) => r.roleType === "hod").map((r) => r.userId)
+    );
+    const delegateIds = new Set(
+      roleRows
+        .filter((r) => r.roleType === "department_admin")
+        .map((r) => r.userId)
+    );
+
+    const rowsFor = async (status: "active" | "pending_claim") =>
+      await ctx.db
+        .query("departmentMemberships")
+        .withIndex("by_departmentId_status", (q) =>
+          q.eq("departmentId", departmentId).eq("status", status)
+        )
+        .collect();
+
+    const [activeRows, pendingRows] = await Promise.all([
+      rowsFor("active"),
+      scope === "full" ? rowsFor("pending_claim") : Promise.resolve([]),
+    ]);
+
+    const join = async (membership: Doc<"departmentMemberships">) => {
+      const [profile, user] = await Promise.all([
+        ctx.db
+          .query("memberProfiles")
+          .withIndex("by_userId", (q) => q.eq("userId", membership.userId))
+          .unique(),
+        ctx.db.get(membership.userId),
+      ]);
+      const clan = profile?.clanId ? await ctx.db.get(profile.clanId) : null;
+      return {
+        membershipId: membership._id,
+        userId: membership.userId,
+        status: membership.status,
+        positionTitle: membership.positionTitle ?? null,
+        claimedAt: membership.claimedAt ?? membership._creationTime,
+        since: membership._creationTime,
+        // The same formula `listDepartmentMembersWithProfiles` already uses, so
+        // one person does not read as two different names on two screens.
+        displayName: user
+          ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email
+          : "A former member",
+        // May be an R2 key or a Google account URL, which is why it goes
+        // through resolveMediaUrl rather than straight out.
+        photoUrl: await resolveMediaUrl(profile?.photoUrl),
+        clanName: clan?.name ?? null,
+        // Read live, never hardcoded: a hardcoded mentorship value is exactly
+        // the bug F2-11 records on the mobile side.
+        mentorshipStatus: profile?.mentorshipStatus ?? null,
+        // What separates "awaiting confirmation" from "not yet verified" on a
+        // claim, and what puts the "not verified" label on a grandfathered
+        // active row (AC-13, AC-33).
+        profileStatus: profile?.profileStatus ?? null,
+        isHod: hodIds.has(membership.userId),
+        isDelegate: delegateIds.has(membership.userId),
+      };
+    };
+
+    const [active, pending] = await Promise.all([
+      Promise.all(activeRows.map(join)),
+      Promise.all(pendingRows.map(join)),
+    ]);
+
+    // Last name then first name, so the list reads like a register. The display
+    // name is a fallback chain, so sort on the user's own fields where present.
+    const byName = (
+      a: Awaited<ReturnType<typeof join>>,
+      b: Awaited<ReturnType<typeof join>>
+    ) => {
+      const last = (n: string) => n.split(" ").slice(-1)[0] ?? n;
+      return (
+        last(a.displayName).localeCompare(last(b.displayName)) ||
+        a.displayName.localeCompare(b.displayName)
+      );
+    };
+
+    const clans = await ctx.db.query("clans").withIndex("by_order").collect();
+
+    return {
+      department: { _id: department._id, name: department.name },
+      active: active.sort(byName),
+      // Oldest claim first, so the person who has waited longest is at the top.
+      // `claimedAt` falls back to `_creationTime` for a row written before the
+      // field existed.
+      pending: pending.sort((a, b) => a.claimedAt - b.claimedAt),
+      filters: {
+        clanNames: clans.map((c) => c.name),
+        positions: [
+          ...new Set(
+            active
+              .map((m) => m.positionTitle)
+              .filter((t): t is string => !!t && t.trim() !== "")
+          ),
+        ].sort((a, b) => a.localeCompare(b)),
+      },
+      scope,
+    };
+  },
+});
+
+/**
+ * Verified members an HOD or delegate may add to this roster (AC-19).
+ *
+ * A LOOKUP, not a directory. `memberProfiles.listVerifiedMembersWithRoles` is
+ * gated to Administration authority and would hand a department head the whole
+ * church, so this is its own narrow read: it needs at least two characters to
+ * match on, returns a capped page, and projects four fields — the name to pick
+ * from, the photo to recognise the person by, and the clan to tell two people
+ * with the same name apart. Nothing else about a member leaves the server here;
+ * widening this projection is a disclosure decision, not a convenience.
+ *
+ * Anyone with a live row in this department is already excluded, so the picker
+ * cannot produce a duplicate for `addDepartmentMember` to reject.
+ */
+export const listAddableMembers = query({
+  args: { departmentId: v.id("departments"), search: v.string() },
+  handler: async (ctx, { departmentId, search }) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    const role = await resolveDepartmentShellRole(ctx, user._id, departmentId);
+    if (!role || !departmentCapabilities(role).addMember) return null;
+
+    const needle = search.trim().toLowerCase();
+    if (needle.length < 2) return [];
+
+    const [verified, liveHere, clans] = await Promise.all([
+      ctx.db
+        .query("memberProfiles")
+        .withIndex("by_profileStatus", (q) => q.eq("profileStatus", "verified"))
+        .collect(),
+      (async () => {
+        const ids = new Set<Id<"users">>();
+        for (const status of ["active", "pending_claim"] as const) {
+          const rows = await ctx.db
+            .query("departmentMemberships")
+            .withIndex("by_departmentId_status", (q) =>
+              q.eq("departmentId", departmentId).eq("status", status)
+            )
+            .collect();
+          for (const row of rows) ids.add(row.userId);
+        }
+        return ids;
+      })(),
+      ctx.db.query("clans").withIndex("by_order").collect(),
+    ]);
+
+    const clanNameById = new Map(clans.map((c) => [c._id, c.name]));
+
+    const matches = verified
+      .filter((profile) => !liveHere.has(profile.userId))
+      .filter((profile) =>
+        [profile.firstName, profile.middleName, profile.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(needle)
+      )
+      .slice(0, ADDABLE_PAGE_SIZE);
+
+    return await Promise.all(
+      matches.map(async (profile) => ({
+        userId: profile.userId,
+        displayName: [profile.firstName, profile.middleName, profile.lastName]
+          .filter(Boolean)
+          .join(" "),
+        photoUrl: await resolveMediaUrl(profile.photoUrl),
+        clanName: profile.clanId ? clanNameById.get(profile.clanId) ?? null : null,
+      }))
+    );
+  },
+});
+
+/** How many people the add-member lookup offers at once. */
+const ADDABLE_PAGE_SIZE = 20;
 
 /** The caller's own active department memberships. Null when unauthenticated. */
 export const getMyDepartmentMemberships = query({

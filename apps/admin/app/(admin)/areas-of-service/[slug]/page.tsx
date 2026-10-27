@@ -4,10 +4,17 @@ import { ArrowLeft, Hammer } from "lucide-react";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "@/lib/api";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { slugify } from "@/lib/slugify";
+import { isPausedSlug } from "@/lib/departmentRoutes";
+import { slugifyDepartmentName } from "@klt-cyber/shared";
 
-const PORTAL_DEFAULTS: Record<string, string> = {};
-
+/**
+ * A department's entry point.
+ *
+ * An active department lands on its Dashboard (AC-1); the layout above has
+ * already resolved the slug and gated the caller, so there is nothing left to
+ * check here. A paused department keeps the "Coming soon" page it has today,
+ * with its own access check, since the layout renders it without shell chrome.
+ */
 export default async function DepartmentEntryPage({
   params,
 }: {
@@ -15,9 +22,8 @@ export default async function DepartmentEntryPage({
 }) {
   const { slug } = await params;
 
-  const defaultPage = PORTAL_DEFAULTS[slug];
-  if (defaultPage) {
-    redirect(defaultPage);
+  if (!isPausedSlug(slug)) {
+    redirect(`/areas-of-service/${slug}/dashboard`);
   }
 
   let departmentName: string | null = null;
@@ -27,7 +33,7 @@ export default async function DepartmentEntryPage({
     );
     if (departments) {
       const match = departments.find(
-        ({ department }) => slugify(department.name) === slug,
+        ({ department }) => slugifyDepartmentName(department.name) === slug,
       );
       if (match) {
         departmentName = match.department.name;
@@ -67,8 +73,8 @@ export default async function DepartmentEntryPage({
           Coming soon.
         </p>
         <p className="mx-auto mt-3 max-w-sm font-body text-sm text-muted-foreground">
-          This department&apos;s workspace hasn&apos;t been built yet. Check
-          back soon.
+          This department&apos;s workspace hasn&apos;t opened yet. Check back
+          soon.
         </p>
       </div>
     </div>

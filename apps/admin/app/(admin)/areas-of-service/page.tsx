@@ -8,22 +8,14 @@ import {
   type PausedTile,
   type ClanTile,
 } from "./AreasOfServiceClient";
-import { slugify } from "@/lib/slugify";
+import { departmentIconKey } from "@klt-cyber/shared";
+import { canEnterDepartment, departmentHref } from "@/lib/departmentRoutes";
 
 const OFFLINE_FALLBACK = (
   <div className="flex min-h-dvh items-center justify-center bg-background">
     <ErrorState cause="offline" />
   </div>
 );
-
-const SLUG_OVERRIDES: Record<string, string> = {
-  Administration: "admin",
-};
-
-function departmentHref(departmentName: string) {
-  const slug = SLUG_OVERRIDES[departmentName] ?? slugify(departmentName);
-  return `/areas-of-service/${slug}`;
-}
 
 export default async function AreasOfServicePage() {
   let account;
@@ -50,17 +42,29 @@ export default async function AreasOfServicePage() {
   }
 
   const departments: DepartmentTile[] = hubData.active.map(
-    ({ department }) => ({
+    ({ department, roles, isSystemAdmin }) => ({
       id: department._id,
       name: department.name,
       description: department.description ?? null,
-      href: departmentHref(department.name),
+      // `null` for a department with no pages for this caller, which renders
+      // the tile as a plain card rather than a link. Being on a roster is not
+      // enough to enter (see `canEnterDepartment`), and a tile that led to a
+      // layout which turned you around would send you straight back to this
+      // very page.
+      href: canEnterDepartment(roles, isSystemAdmin)
+        ? departmentHref(department.name)
+        : null,
+      // Each department's own fixed mark, the same one its portal header shows
+      // (AC-7). Resolved from the shared name-to-key map, so a department added
+      // later with no entry gets the fallback rather than an empty square.
+      iconKey: departmentIconKey(department.name),
     })
   );
 
   const pausedTiles: PausedTile[] = hubData.paused.map(({ department }) => ({
     id: department._id,
     name: department.name,
+    iconKey: departmentIconKey(department.name),
   }));
 
   const clanIds = [

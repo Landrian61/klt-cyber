@@ -101,13 +101,22 @@ export default defineSchema({
     targetType: v.optional(v.string()),
     targetId: v.optional(v.string()),
     metadata: v.optional(v.any()),
+    // The department an entry concerns, at the top level and NOT inside
+    // `metadata` (spec 0012 AC-37): `metadata` is `v.any()`, and Convex cannot
+    // index a path inside an `any`. Every department-shell mutation writes it,
+    // which is what makes each department's dashboard feed an indexed read
+    // bounded by one department rather than a scan of all church activity.
+    // Entries written before spec 0012 carry their department only inside
+    // `metadata`, so the feed starts from this change forward — no backfill.
+    departmentId: v.optional(v.id("departments")),
   })
     .index("by_actor", ["actorUserId"])
     .index("by_action", ["action"])
     // Deletion scrubs a leaving user's metadata on entries that *target* them,
     // not only the ones they acted on (spec 0008 AC-13). Indexed so the scrub
     // reads that user's entries instead of the whole audit trail.
-    .index("by_target", ["targetType", "targetId"]),
+    .index("by_target", ["targetType", "targetId"])
+    .index("by_department", ["departmentId"]),
 
   // The rich church-domain profile submitted via the mobile 7-step wizard.
   // 1:1 with `users`; created once at final submission (not on first form
@@ -243,12 +252,16 @@ export default defineSchema({
   }).index("by_parentUserId", ["parentUserId"]),
 
   // The 13 fixed Areas of Service — seeded reference data (seed:departments).
-  // Mirrors `clans` below: no toggle, no admin-created/edited rows.
+  // Mirrors `clans` below for name and order: no toggle, no admin-created rows.
   departments: defineTable({
     name: v.string(),
     order: v.number(),
     // A one-line hint of what the department does, shown on its picker card.
-    // Still fixed/seeded, not admin-editable — same status as name/order.
+    // Name and order stay fixed, but since spec 0012 this field is editable by
+    // that department's HOD (AC-8). The seed still supplies the initial text,
+    // so a department nobody edits reads exactly as it did before. Capped at
+    // DEPARTMENT_DESCRIPTION_MAX_LENGTH; absent means the card renders no
+    // description line.
     description: v.optional(v.string()),
   })
     .index("by_order", ["order"])
@@ -474,14 +487,39 @@ export default defineSchema({
 
   // Department roster. Separate from
   // `roleAssignments`: membership doesn't imply administrative authority.
+  // A person's seat on one department's roster, and — since spec 0012 — their
+  // request for one. `status` carries the whole relationship, so confirming a
+  // claim is a single patch and the row keeps its own history. At most one row
+  // per user and department is ever `pending_claim` or `active`; every writer
+  // either promotes the live row or rejects, since Convex has no unique
+  // indexes. `declined` and `removed` are terminal, so a person who claims
+  // again gets a fresh row and the sequence of decisions stays legible.
   departmentMemberships: defineTable({
     userId: v.id("users"),
     departmentId: v.id("departments"),
     positionTitle: v.optional(v.string()),
     addedBy: v.id("users"),
-    status: v.union(v.literal("active"), v.literal("removed")),
+    // Mirrors DEPARTMENT_MEMBERSHIP_STATUSES in @klt-cyber/shared. Rows written
+    // before spec 0012 are `active` or `removed` and stay valid — widening a
+    // union needs no migration, and every existing read filters on
+    // `status === "active"`, so none of them can mistake a claim for a member.
+    status: v.union(
+      v.literal("pending_claim"),
+      v.literal("active"),
+      v.literal("removed"),
+      v.literal("declined")
+    ),
     removedBy: v.optional(v.id("users")),
     removedAt: v.optional(v.number()),
+    // Claim lifecycle (spec 0012 AC-14). All optional, so existing rows stay
+    // valid. `claimedAt` orders the pending list oldest-first; a legacy row
+    // without it falls back to `_creationTime`.
+    claimedAt: v.optional(v.number()),
+    decidedBy: v.optional(v.id("users")),
+    decidedAt: v.optional(v.number()),
+    // Capped at CLAIM_DECLINE_REASON_MAX_LENGTH. Readable only by the claimant
+    // and by that department's HOD, and cleared on account deletion (AC-39).
+    declineReason: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_status", ["userId", "status"])
@@ -538,8 +576,12 @@ export default defineSchema({
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
-    // No reminder job ids yet: feature 17 owns the activity reminder tiers
-    // (N23) and adds them when it decides what those tiers are.
+    // The one reminder tier spec 0012 decided on: about 24 hours before the
+    // start (N23). The scheduled job's id is stored so moving the start time
+    // can cancel and reschedule it, and cancelling the activity can stop it.
+    // A job that fires anyway re-checks the activity's current start time,
+    // existence and cancellation, so a stale one delivers nothing (AC-24).
+    dayBeforeReminderJobId: v.optional(v.id("_scheduled_functions")),
   })
     // One equality plus one range read per group the caller belongs to. There
     // is deliberately NO bare ["startDateTime"] index: a single window read
@@ -567,6 +609,35 @@ export default defineSchema({
   })
     .index("by_department", ["owner.departmentId"])
     .index("by_clan", ["owner.clanId"]),
+
+  // ── Spec 0012 — HOD-to-HOD notices ────────────────────────────────────────
+  // One-way word from one department's head to one, several, or all of the
+  // others (F4-20). Deliberately no reply path and no thread: a notice is an
+  // announcement between leaders, and a conversation belongs in a channel the
+  // church does not run here.
+  //
+  // Recipients are stored as *department* ids, not user ids, so a notice
+  // follows whoever currently holds the HOD seat rather than freezing to the
+  // person who held it the day it was sent. A notice to a department with no
+  // current HOD reaches nobody and waits unread until one is appointed.
+  hodNotices: defineTable({
+    fromUserId: v.id("users"),
+    // Absent when a System Admin sends, since they hold no department seat.
+    fromDepartmentId: v.optional(v.id("departments")),
+    body: v.string(), // capped at HOD_NOTICE_MAX_LENGTH
+    scope: v.union(v.literal("all"), v.literal("selected")),
+    // Empty when `scope` is "all"; at least one entry when "selected".
+    recipientDepartmentIds: v.array(v.id("departments")),
+    // Stored rather than derived from `_creationTime` because the received list
+    // is resolved at read time across the whole table, and reading one explicit
+    // field keeps the sort obvious at both ends.
+    sentAt: v.number(),
+  })
+    // The sender's own "sent" list.
+    .index("by_from", ["fromUserId"])
+    // The received list: newest first, paginated, with no time window, so a
+    // notice is still readable long after it was sent (AC-32).
+    .index("by_sentAt", ["sentAt"]),
 
   // ── Increment 6 — Push Notifications (@convex-dev/expo-push-notifications) ─
   // One row per notification *event*, not per recipient — `notificationReads`

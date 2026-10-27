@@ -13,6 +13,7 @@ import {
   requireUser,
 } from "./lib/authz";
 import { notificationCommon } from "./lib/reminders";
+import { placeOnRoster } from "./lib/departmentMembership";
 
 const ROLE_LABEL: Record<AssignRoleArgs["roleType"], string> = {
   system_admin: "System Admin",
@@ -193,27 +194,19 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
   });
 
   // hod/department_admin implicitly puts the appointee on that department's
-  // roster too, if they aren't on it already.
+  // roster too, if they aren't on it already. `placeOnRoster` promotes a
+  // `pending_claim` row rather than inserting beside it (spec 0012 AC-15):
+  // appointing someone who had asked to serve here would otherwise leave them
+  // on the roster twice, as a leader and as a claimant still waiting.
   if (
     (args.roleType === "hod" || args.roleType === "department_admin") &&
     args.departmentId
   ) {
-    const departmentId = args.departmentId;
-    const existingMembership = await ctx.db
-      .query("departmentMemberships")
-      .withIndex("by_userId_status", (q) =>
-        q.eq("userId", args.userId).eq("status", "active")
-      )
-      .filter((q) => q.eq(q.field("departmentId"), departmentId))
-      .first();
-    if (!existingMembership) {
-      await ctx.db.insert("departmentMemberships", {
-        userId: args.userId,
-        departmentId,
-        addedBy: actor._id,
-        status: "active",
-      });
-    }
+    await placeOnRoster(ctx, {
+      userId: args.userId,
+      departmentId: args.departmentId,
+      actorUserId: actor._id,
+    });
   }
 
   // Broadcast the appointment. Scheduled after everything above has

@@ -1,31 +1,47 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CalendarDays, MessageSquare, Settings, Users } from "lucide-react";
+import {
+  useDepartmentShell,
+  type DepartmentCapability,
+} from "@/components/department/DepartmentShellProvider";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/shadcn/sidebar";
+import { SidebarBrandHeader } from "@/components/brand/SidebarBrandHeader";
 
 interface NavItem {
   href: string;
   label: string;
   exact?: boolean;
   icon: ReactNode;
+  /** When set, the item renders only if the caller holds this capability. */
+  capability?: DepartmentCapability;
 }
 
 interface NavGroup {
   label: string;
   items: NavItem[];
+  /**
+   * When true, the whole group is hidden from a caller with no shell access, so
+   * nobody is shown a page the gate would bounce them back from.
+   *
+   * Unreachable in practice today: the Media layout's `hasMediaAccess` gate is
+   * already System Admin or Media's HOD or delegate, which is exactly the set
+   * that gets a shell context. Kept because the two gates are separate rules
+   * that could diverge, and because this rail must not depend on them agreeing.
+   */
+  requiresShell?: boolean;
 }
 
 const iconClass = "h-5 w-5 shrink-0";
@@ -74,6 +90,41 @@ const NAV_GROUPS: NavGroup[] = [
       },
     ],
   },
+  // The shared department pages (spec 0012, AC-3). Media renders exactly the
+  // same components every other department does, in its own chrome, and keeps
+  // Devotionals and Past events above as the pages that are genuinely its own.
+  // Each item is gated by the capability its page needs, from the same `can`
+  // object the Convex functions enforce, so a plain roster member sees none of
+  // them and a delegate sees only what a delegate may do.
+  {
+    label: "Department",
+    requiresShell: true,
+    items: [
+      {
+        href: "/areas-of-service/media/roster",
+        label: "Roster",
+        capability: "viewRoster",
+        icon: <Users className={iconClass} />,
+      },
+      {
+        href: "/areas-of-service/media/activities",
+        label: "Activities",
+        capability: "createActivity",
+        icon: <CalendarDays className={iconClass} />,
+      },
+      {
+        href: "/areas-of-service/media/messages",
+        label: "Messages",
+        capability: "viewMessages",
+        icon: <MessageSquare className={iconClass} />,
+      },
+      {
+        href: "/areas-of-service/media/settings",
+        label: "Settings",
+        icon: <Settings className={iconClass} />,
+      },
+    ],
+  },
 ];
 
 const SIDEBAR_GRADIENT =
@@ -81,34 +132,28 @@ const SIDEBAR_GRADIENT =
 
 export function MediaSidebar() {
   const pathname = usePathname();
+  // Null for a plain Media roster member, who reaches Devotionals and Past
+  // events but holds no shell page at all.
+  const shell = useDepartmentShell();
+
+  const groups = NAV_GROUPS.filter((group) => !group.requiresShell || shell)
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.capability || shell?.can[item.capability],
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <Sidebar collapsible="icon" className={SIDEBAR_GRADIENT}>
-      <SidebarHeader className="p-3">
-        <Link
-          href="/areas-of-service/media/devotionals"
-          className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
-        >
-          <Image
-            src="/logo-circle-96.png"
-            alt="KLT Cyber Church"
-            width={36}
-            height={36}
-            className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-white/15"
-          />
-          <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-body text-sm font-semibold text-white">
-              KLT Cyber Church
-            </span>
-            <span className="truncate font-body text-[11px] uppercase tracking-[0.16em] text-sidebar-primary">
-              Media
-            </span>
-          </span>
-        </Link>
-      </SidebarHeader>
+      <SidebarBrandHeader
+        href="/areas-of-service/media/devotionals"
+        caption="Media"
+      />
 
       <SidebarContent>
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>

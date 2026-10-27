@@ -13,6 +13,10 @@ import {
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
 import { notificationCommon } from "./lib/reminders";
+import {
+  findLiveMembership,
+  findLiveMemberships,
+} from "./lib/departmentMembership";
 
 // The mobile 7-step profile-submission wizard and its Church Admin
 // verification workflow — creating a
@@ -146,16 +150,17 @@ async function withChildrenAndLeadership(
     // Resolve a linked spouse's display name — `spouseUserId` alone isn't
     // reviewable. Unset when unlinked; `spouseNameUnlinked` covers that case.
     profile.spouseUserId ? ctx.db.get(profile.spouseUserId) : null,
-    // Areas of Service claimed at submission — self-added directly into
+    // Areas of Service claimed at submission — written straight into
     // `departmentMemberships` by `submitProfile`, not a field on this table
     // (see that mutation). Included here so every admin verification read
     // gets it for free, same as children/leadershipProgress.
-    ctx.db
-      .query("departmentMemberships")
-      .withIndex("by_userId_status", (q) =>
-        q.eq("userId", profile.userId).eq("status", "active")
-      )
-      .collect(),
+    //
+    // Both live statuses, not just `active` (spec 0012 AC-21): since a
+    // submission now creates `pending_claim` rows awaiting their HOD, an
+    // `active`-only read would show a reviewing admin an empty list for exactly
+    // the profiles they are reviewing. Each row carries its own `status`, so
+    // the reviewer can tell a confirmed seat from a request still waiting.
+    findLiveMemberships(ctx, profile.userId),
   ]);
   // Resolve the uploaded photo + proof KEYS to signed URLs so a reviewing admin
   // sees the actual images. (photoUrl may be a Google account URL — passed
@@ -277,22 +282,45 @@ export const submitProfile = mutation({
           `You can select at most ${MAX_ACTIVE_DEPARTMENTS} areas of service`
         );
       }
-      // Self-service roster join — intentionally NOT `addDepartmentMember`,
-      // which requires department authority and an already-verified
-      // profile. Neither holds here: the caller is the member themself,
-      // submitting for the first time.
+      // A REQUEST to serve, not a roster place (spec 0012, AC-15). Until that
+      // change this path inserted `status: "active"`, so a person's own
+      // selection put them on a roster nobody had authorised. Now it writes a
+      // `pending_claim` row that the department's HOD confirms or declines, and
+      // the person receives nothing from that department until they do.
+      //
+      // Still intentionally NOT `addDepartmentMember`, which requires
+      // department authority and an already-verified profile. Neither holds
+      // here: the caller is the member themself, submitting for the first time.
       for (const departmentId of uniqueDepartmentIds) {
+        // One live row per person and department (spec 0012 AC-15). Without
+        // this, a retried submission or a later claim could leave two rows for
+        // one pair, and an HOD confirming one of them would be confirming a
+        // person who is already on the roster.
+        const live = await findLiveMembership(ctx, user._id, departmentId);
+        if (live) {
+          const department = await ctx.db.get(departmentId);
+          const name = department?.name ?? "that area of service";
+          throw new Error(
+            live.status === "active"
+              ? `You already serve in ${name}`
+              : `You have already asked to serve in ${name}`
+          );
+        }
         const membershipId = await ctx.db.insert("departmentMemberships", {
           userId: user._id,
           departmentId,
           addedBy: user._id,
-          status: "active",
+          status: "pending_claim",
+          claimedAt: now,
         });
         await logActivity(ctx, {
           actorUserId: user._id,
-          action: "department.member_added",
+          action: "department.claim_created",
           targetType: "departmentMemberships",
           targetId: membershipId,
+          // Carried at the top level so the claim shows up in that
+          // department's own dashboard feed (AC-35, AC-37).
+          departmentId,
           metadata: { userId: user._id, departmentId, selfService: true },
         });
       }

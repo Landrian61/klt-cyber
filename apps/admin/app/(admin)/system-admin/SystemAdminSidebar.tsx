@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,12 +8,12 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/shadcn/sidebar";
+import { SidebarBrandHeader } from "@/components/brand/SidebarBrandHeader";
 
 // The system_admin rail, built on shadcn's Sidebar (collapsible="icon"): the
 // icon-only rail, mobile drawer, Cmd/Ctrl+B shortcut, and rail-drag toggle all
@@ -87,28 +86,7 @@ export function SystemAdminSidebar() {
 
   return (
     <Sidebar collapsible="icon" className={SIDEBAR_GRADIENT}>
-      <SidebarHeader className="p-3">
-        <Link
-          href="/system-admin"
-          className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
-        >
-          <Image
-            src="/logo-circle-96.png"
-            alt="KLT Cyber Church"
-            width={36}
-            height={36}
-            className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-white/15"
-          />
-          <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-body text-sm font-semibold text-white">
-              KLT Cyber Church
-            </span>
-            <span className="truncate font-body text-[11px] uppercase tracking-[0.16em] text-sidebar-primary">
-              Admin Portal
-            </span>
-          </span>
-        </Link>
-      </SidebarHeader>
+      <SidebarBrandHeader href="/system-admin" caption="Admin Portal" />
 
       <SidebarContent>
         <SidebarGroup>

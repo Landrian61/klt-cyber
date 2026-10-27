@@ -245,9 +245,19 @@ SRS: F3-17, F1-11, A8-04, A8-05 · code: `convex/schema.ts`, `convex/{activity,a
 ### 17. Shared department shell · in-progress · GA
 Track A. Give every in-scope department the same working home (Dashboard, Roster, Activities, Messages, Settings) so each department then only has to add what's genuinely its own.
 **Done when:** S1-01: picking a department from the hub lands on its Dashboard (F3-01). S1-03: a portal user only sees pages/buttons their role allows, enforced on the server. S3-05/S3-06/S3-07/S3-09/S3-10: an HOD confirms or declines claims, adds a verified member, removes a roster member, appoints/removes a delegate — all logged and notified. S4-01/S4-02: an HOD or delegate creates, edits and cancels a department activity with verified members notified and reminded (F4-17). S5-01/S5-04: department messages and HOD-to-HOD notices (F4-20). S1-04: every page works on a phone browser.
-- [ ] Design remaining work (spec): `/architect shared department shell`
-Spec: not yet captured
-SRS: S1-01, S1-02, S1-03, S1-04, S2-01, S2-02, S2-03, S2-04, S3-01, S3-02, S3-03, S3-04, S3-05, S3-06, S3-07, S3-08, S3-09, S3-10, S4-01, S4-02, S4-03, S4-04, S5-01, S5-02, S5-03, S5-04, S5-05, S6-01, S6-02, F4-08, F4-14, F4-15, F4-16, F4-17, F4-18, F4-20 · code: `convex/departmentMemberships.ts` (`addDepartmentMember`, `removeDepartmentMember`, `updateDepartmentMembership` already exist)
+- [x] Design remaining work (spec): `/architect shared department shell`
+Spec: [0012](../specs/_root/0012-shared-department-shell/index.md)
+- [x] Build it: `/develop shared department shell`
+  - [x] Foundation and the claim contract: the additive schema (pending_claim/declined, hodNotices, activityLogs.departmentId, the activity reminder field), the shared contract in `packages/shared`, and the five existing writers and reads taught about pending rows before any claim can exist, satisfies AC-14, AC-15, AC-21, AC-37, AC-39
+  - [x] The shell and its permission matrix: the `[slug]` host with server side slug resolution, `getShellContext` and its `can` object, and the server side assertion helper every shell mutation calls, satisfies AC-1, AC-2, AC-4, AC-5, AC-18
+  - [x] Roster and claims end to end: the two list roster read with its sorts and labels, the sharing bypassed profile, confirm and decline with their notifications, and the existing roster management surfaced, satisfies AC-10, AC-11, AC-12, AC-13, AC-16, AC-17, AC-19, AC-20
+  - [x] Activities, messages and HOD notices: activity create, edit and cancel with church local time, the day before reminder and its guards, the calendar and planner query, department messages with their soft delete split, and the new HOD notice, satisfies AC-22 through AC-32
+  - [x] Dashboard, settings, phone layout and the Media rewire: the six dashboard cards and the per department feed, the description editor and Settings, the tables to cards pass, and pointing Media at the shared pages, satisfies AC-3, AC-6, AC-8, AC-9, AC-33, AC-34, AC-35, AC-36, AC-38
+- [ ] Verify it: `/check verify shared department shell`
+- [ ] Test it: `/test shared department shell`
+- [ ] Review it (fresh model): `/check review shared department shell`
+- [ ] Document it: `/document shared department shell`
+SRS: S1-01, S1-02, S1-03, S1-04, S2-01, S2-02, S2-03, S2-04, S3-01, S3-02, S3-03, S3-04, S3-05, S3-06, S3-07, S3-08, S3-09, S3-10, S4-01, S4-02, S4-03, S4-04, S5-01, S5-02, S5-03, S5-04, S5-05, S6-01, S6-02, F4-08, F4-14, F4-15, F4-16, F4-17, F4-18, F4-20 · code: `convex/schema.ts`, `convex/{departmentShell,departmentActivities,hodNotices}.ts`, `convex/lib/{authz,departmentMembership}.ts`, `convex/{departmentMemberships,groups,memberProfiles,roles,notifications,accountDeletion}.ts`, `packages/shared/src/{enums/departments.ts,constants/departmentShell.ts}`, `apps/admin/components/department/`, `apps/admin/components/{account/AccountPanel.tsx,ui/ResponsiveTable.tsx}`, `apps/admin/lib/{churchTime,departmentIcons,departmentRoutes}.ts`, `apps/admin/app/(admin)/areas-of-service/{[slug],media}/`
 
 ### 10. Notification targeting: appointment audiences, revocation notice, first-publish only, deep links to ended items · in-progress · GA
 Track A. Make sure a notification reaches only the people it actually concerns, and that tapping one never dead-ends on "not found".
