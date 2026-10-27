@@ -33,10 +33,13 @@ interface NavGroup {
   label: string;
   items: NavItem[];
   /**
-   * When true, the whole group is hidden from a caller with no shell access.
-   * Media's own pages (Devotionals, Past events) open for any roster member;
-   * the shared department pages do not, so advertising them to someone the
-   * gate would bounce back to the hub is worse than not showing them.
+   * When true, the whole group is hidden from a caller with no shell access, so
+   * nobody is shown a page the gate would bounce them back from.
+   *
+   * Unreachable in practice today: the Media layout's `hasMediaAccess` gate is
+   * already System Admin or Media's HOD or delegate, which is exactly the set
+   * that gets a shell context. Kept because the two gates are separate rules
+   * that could diverge, and because this rail must not depend on them agreeing.
    */
   requiresShell?: boolean;
 }

@@ -121,7 +121,16 @@ export function DepartmentDashboard({
           />
           <StatCard
             label="Coming up"
-            value={<CountUp value={dashboard.upcoming.length} />}
+            // The real number ahead, not the handful the card below lists.
+            value={
+              dashboard.upcomingCountCapped ? (
+                <span>
+                  <CountUp value={dashboard.upcomingCount} />+
+                </span>
+              ) : (
+                <CountUp value={dashboard.upcomingCount} />
+              )
+            }
             hint="Activities still ahead"
           />
         </Reveal>

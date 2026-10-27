@@ -46,7 +46,7 @@ type Roster = NonNullable<
 
 export function RosterMemberSheet({
   departmentId,
-  row,
+  row: snapshot,
   can,
   onClose,
 }: {
@@ -55,6 +55,22 @@ export function RosterMemberSheet({
   can: DepartmentShellContext["can"];
   onClose: () => void;
 }) {
+  // The row the parent handed over is the snapshot from the click, and the
+  // sheet does not remount while it is open. Reading the live row back out of
+  // the roster keeps the controls honest: without it, appointing a delegate
+  // leaves the button still reading "Make a delegate", and a saved position
+  // title never shows up, until the HOD closes the sheet and opens it again.
+  //
+  // This is the same query the roster page already has mounted, so Convex
+  // serves it from the one subscription rather than opening a second.
+  const roster = useAuthQuery(
+    api.departmentMemberships.listRosterWithClaims,
+    { departmentId },
+  );
+  const row =
+    roster?.active.find((m) => m.membershipId === snapshot.membershipId) ??
+    snapshot;
+
   const detail = useAuthQuery(api.departmentShell.getRosterMemberProfile, {
     departmentId,
     userId: row.userId,
@@ -69,7 +85,7 @@ export function RosterMemberSheet({
   const appointDelegate = useMutation(api.departmentMemberships.appointDelegate);
   const removeDelegate = useMutation(api.departmentMemberships.removeDelegate);
 
-  const [title, setTitle] = useState(row.positionTitle ?? "");
+  const [title, setTitle] = useState(snapshot.positionTitle ?? "");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);

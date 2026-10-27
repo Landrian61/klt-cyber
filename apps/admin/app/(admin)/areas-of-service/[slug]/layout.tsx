@@ -34,7 +34,14 @@ export default async function DepartmentShellLayout({
 
   // A paused department never enters the shell: no chrome, no gate, just its
   // own "Coming soon" page, which does its own access check (AC-1).
-  if (isPausedSlug(slug)) return <>{children}</>;
+  //
+  // Still wrapped in the provider, so a shell sub-route reached by typing its
+  // URL (`/areas-of-service/education/dashboard`) resolves the context to null
+  // and redirects to the hub. Without it the context stays `undefined`, which
+  // means "still loading", and the page would sit on its skeleton for ever.
+  if (isPausedSlug(slug)) {
+    return <DepartmentShellProvider slug={slug}>{children}</DepartmentShellProvider>;
+  }
 
   let shell;
   try {

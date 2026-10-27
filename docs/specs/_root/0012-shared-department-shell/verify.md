@@ -21,11 +21,14 @@ Push the schema first (`pnpm convex`), then seed departments if your deployment 
 - [x] `npx tsc -p convex/tsconfig.json --noEmit` → no output
 - [x] `pnpm --filter admin build` → compiles, and the route list includes `/areas-of-service/[slug]/{dashboard,roster,activities,messages,settings}` plus `/areas-of-service/media/{roster,activities,messages,settings}` → AC-2, AC-3
 - [ ] In the Convex dashboard, `departmentMemberships.status` accepts `pending_claim`, the `hodNotices` table exists, `activityLogs` has a `by_department` index, and `groupActivities` has `dayBeforeReminderJobId` → AC-14, AC-24, AC-37
+- [ ] `npx convex run` each shell QUERY with no session → every one exits 0 and returns null, never throwing, which is what lets a page survive a sign out or a lost role while mounted → AC-38
+- [ ] `npx convex run` each shell MUTATION with no session → every one exits 1 with `Not authenticated`, so the write path fails closed where the read path fails open → AC-5
 
 ## Shell and navigation
 
 - [ ] As Hilda, open `/areas-of-service` → the Finance card shows a wallet icon and its description → click it and land on `/areas-of-service/finance/dashboard`, not "Coming soon" → AC-1, AC-7
 - [ ] Type `/areas-of-service/ushering` (a paused department) → "Coming soon", with no sidebar and no shell chrome → AC-1
+- [ ] Type `/areas-of-service/ushering/dashboard` → you are sent to the hub, not left on a skeleton that never resolves → AC-1
 - [x] Type `/areas-of-service/administration` → you are sent to `/areas-of-service/admin`, so Administration never gets a second thinner portal (handled by `next.config.ts` at the edge, confirmed `308 → /areas-of-service/admin`) → AC-2
 - [ ] As Hilda, confirm the sidebar shows Dashboard, Roster, Activities, Messages, Settings, and its header shows the KLT mark over "KLT Cyber" with "Finance" as the caption → AC-2
 - [ ] The Finance wallet icon appears on the department switcher in the top bar, which is where a department identifies itself inside its portal → AC-7
@@ -51,6 +54,8 @@ Push the schema first (`pnpm convex`), then seed departments if your deployment 
 - [ ] Search a partial name, filter by clan, then by position → the list narrows and "Clear" restores it → AC-12
 - [ ] As Hilda, click a roster row → the full profile opens with phone and email, even for a member whose directory sharing is off → AC-11
 - [ ] As an Administration HOD, call `departmentShell.getRosterMemberProfile` for a Finance member from the Convex dashboard → it throws → AC-11
+- [ ] As Hilda, call `getRosterMemberProfile` with the userId of a PENDING claimant → it resolves null, not their profile: the sharing bypass is for people actually serving, and a claimant may yet be declined → AC-11, AC-13
+- [ ] As Hilda, call `removeDepartmentMember` with a `pending_claim` membershipId → rejected, so a claim is never silently discarded and nobody is told their roster place ended when they never had one → AC-20
 - [ ] As an Administration HOD, call `departmentMemberships.listRosterWithClaims` for Finance → `active` comes back, `pending` is empty → AC-11, AC-13
 - [ ] Submit a mobile profile selecting Finance → as Hilda, the person appears under "Asking to serve here", marked, and the dashboard verified member count does NOT move → AC-13, AC-15, AC-33
 - [ ] Submit a second profile selecting Finance later the same day → the newer claim sorts below the older one → AC-13
@@ -68,6 +73,7 @@ Push the schema first (`pnpm convex`), then seed departments if your deployment 
 - [ ] As Hilda, set a position on a member, then clear it → both save, and an unchanged save writes no audit entry → AC-20
 - [ ] As Hilda, remove a member who holds `department_admin` in Finance → they leave the roster, their Finance role is revoked in the same action, and they are notified privately → AC-20
 - [ ] As Hilda, appoint a verified roster member as delegate, then stand them down → both are logged and show in the feed, and the removal notifies them → AC-20
+- [ ] Do that WITHOUT closing the sheet in between → the button switches to "Stand down as delegate" straight away, and a saved position title shows on the badge, rather than waiting for a reopen → AC-20
 - [ ] Try to appoint a delegate who is not on this roster, or whose profile is unverified → rejected → AC-20
 - [ ] A member with an `active` row but an unverified profile stays on the roster, labelled "Not verified", and is left out of the verified count → AC-33
 - [ ] Delete that account through the mobile delete flow → their `pending_claim` and `declined` rows become `removed`, and no `declineReason` survives → AC-39
@@ -75,6 +81,7 @@ Push the schema first (`pnpm convex`), then seed departments if your deployment 
 ## Activities
 
 - [ ] As Hilda, schedule an activity for 18:00 with your machine set to a non Kampala timezone (try Europe/London) → the stored `startDateTime` is the instant of 18:00 Kampala, and the list and calendar both read 6:00 pm → AC-22
+- [ ] Schedule a vigil running 22:00 to 01:00 on one date → it saves, and reads as ending the next morning rather than being refused → AC-22
 - [ ] Verified roster members are notified about it; a pending claimant is not → AC-23
 - [ ] Edit only the title, the details or the picture → nobody is notified → AC-23
 - [ ] Change the date, the time or the place → the verified roster is notified → AC-23
@@ -104,14 +111,20 @@ Push the schema first (`pnpm convex`), then seed departments if your deployment 
 - [ ] As Dan, call `hodNotices.sendNotice` → rejected → AC-18, AC-31
 - [ ] Hand the Finance HOD seat to someone else, then open Received as the new holder → the earlier notice to Finance is there, because notices address seats rather than people → AC-32
 - [ ] Received and Sent both read newest first, page with "Show older", and still show a notice from months ago → AC-32
+- [ ] Send 25 notices, then page Sent twice → notices 21 to 25 are reachable, and "Back to latest" returns you to the newest → AC-32
+- [ ] As an HOD whose own notices are a small share of a busy church's, page Received → paging keeps going past the first window instead of stopping at the newest twenty → AC-32
+- [ ] Page the department messages list, then use "Back to latest" → the newest messages come back without a reload → AC-29
+- [ ] As Dan, call `deleteDepartmentMessage` with a message id from ANOTHER department → it refuses on authority, so the call cannot be used to discover which ids exist → AC-30
 
 ## Dashboard
 
 - [ ] The verified member count, the requests waiting count and the roster count each reconcile with the roster page, and the hint says why two of them differ → AC-33
 - [ ] The next activities card is judged against the clock the page keeps: leave it open past an activity start and watch the card move on → AC-34
+- [ ] Schedule twelve activities ahead → "Coming up" reads 12 while the card below still lists four; past fifty it reads "50+" → AC-34
 - [ ] The weekly programs card shows what the church office published, with no Administration role needed → AC-34
 - [ ] Do one of each action (confirm a claim, add a member, re-title, appoint a delegate, send a message, schedule an activity, cancel it, edit the description) → each appears in the feed, newest first → AC-35
 - [ ] The feed is empty on a department where nothing has happened since the schema change, rather than showing unrelated church activity → AC-35, AC-37
+- [ ] As a Pastoral HOD, send about fifty notices, then open the dashboard → the feed still shows the department's own history rather than going blank, because entries it does not show no longer crowd the read out → AC-35
 - [ ] The mentorship card counts active members whose status is not `completed` → AC-36
 - [ ] Empty every list (a department with no roster, no activities, no messages) → each card shows its own empty state, never a blank panel → AC-38
 - [ ] Stop the Convex dev server with a shell page open → the page shows the shared `ErrorState` with a retry → AC-38

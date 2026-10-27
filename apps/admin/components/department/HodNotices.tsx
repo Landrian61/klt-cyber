@@ -28,9 +28,19 @@ import { churchDateTimeLabel } from "@/lib/churchTime";
  */
 export function HodNotices() {
   const [tab, setTab] = useState("received");
+  // One cursor per list, never shared: the two queries page on different
+  // cursors (see convex/hodNotices.ts), so handing one list's to the other
+  // would page from a meaningless point.
+  const [receivedBefore, setReceivedBefore] = useState<number | undefined>();
+  const [sentBefore, setSentBefore] = useState<number | undefined>();
+
   const recipients = useAuthQuery(api.hodNotices.listNoticeRecipients);
-  const received = useAuthQuery(api.hodNotices.listReceived, {});
-  const sent = useAuthQuery(api.hodNotices.listSent, {});
+  const received = useAuthQuery(api.hodNotices.listReceived, {
+    ...(receivedBefore !== undefined ? { before: receivedBefore } : {}),
+  });
+  const sent = useAuthQuery(api.hodNotices.listSent, {
+    ...(sentBefore !== undefined ? { before: sentBefore } : {}),
+  });
 
   const sendNotice = useMutation(api.hodNotices.sendNotice);
 
@@ -78,6 +88,9 @@ export function HodNotices() {
   if (received === null && sent === null) return <ErrorState />;
 
   const list = tab === "received" ? received : sent;
+  const listBefore = tab === "received" ? receivedBefore : sentBefore;
+  const setListBefore =
+    tab === "received" ? setReceivedBefore : setSentBefore;
 
   return (
     <div className="space-y-8">
@@ -211,6 +224,30 @@ export function HodNotices() {
               </li>
             ))}
           </Reveal>
+        )}
+
+        {/* Without these, nothing past the first page was reachable at all, so
+            AC-32's promise that a notice stays readable long after it was sent
+            held only for the newest twenty. */}
+        {(list?.nextBefore || listBefore !== undefined) && (
+          <div className="flex justify-center gap-2">
+            {listBefore !== undefined && (
+              <ActionButton
+                variant="neutral"
+                onClick={() => setListBefore(undefined)}
+              >
+                Back to latest
+              </ActionButton>
+            )}
+            {list?.nextBefore && (
+              <ActionButton
+                variant="neutral"
+                onClick={() => setListBefore(list.nextBefore ?? undefined)}
+              >
+                Show older
+              </ActionButton>
+            )}
+          </div>
         )}
       </section>
     </div>

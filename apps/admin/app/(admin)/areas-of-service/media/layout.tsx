@@ -42,10 +42,12 @@ export default async function MediaLayout({
     // Settings) inside its own portal, so it needs the same context those
     // components read their department and capabilities from (spec 0012, AC-3).
     //
-    // The context resolves to null for a plain Media roster member, who has
-    // portal access to Media's own Devotionals and Past events but no shell
-    // pages. Those pages do not read the context, so they keep working; a shell
-    // page reached by typing its URL sends such a caller back to the hub.
+    // The context resolves to null for anyone without a shell role here, and
+    // the shared pages then send them back to the hub. In practice the layout's
+    // own `hasMediaAccess` gate above has already turned such a caller away:
+    // that gate is System Admin or Media's HOD or delegate, so a plain roster
+    // member never reaches any Media page at all. The null branch is the
+    // belt and braces behind it, not a path anyone travels today.
     <DepartmentShellProvider slug="media">
       <SidebarProvider defaultOpen={defaultOpen}>
         <MediaSidebar />

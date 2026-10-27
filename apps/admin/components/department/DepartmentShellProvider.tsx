@@ -60,8 +60,8 @@ export function DepartmentShellProvider({
  * The shell context, or `undefined`/`null` while loading or without access.
  *
  * Most pages want {@link useDepartmentShellOrRedirect} instead. This raw form
- * exists for a bespoke portal's own pages, which render for a plain roster
- * member who has no shell access at all and must not be redirected away.
+ * exists for a bespoke portal's own chrome, which has to render whether or not
+ * the caller holds a shell role and must never redirect on its own.
  */
 export function useDepartmentShell() {
   return useContext(Context).shell;

@@ -241,14 +241,27 @@ function DepartmentThread({
           </Reveal>
         )}
 
-        {data?.nextBefore && (
-          <div className="flex justify-center">
-            <ActionButton
-              variant="neutral"
-              onClick={() => setBefore(data.nextBefore ?? undefined)}
-            >
-              Show older
-            </ActionButton>
+        {/* Paging replaces the list rather than extending it, so without a way
+            back the newest messages would be unreachable until the page
+            remounted. */}
+        {(data?.nextBefore || before !== undefined) && (
+          <div className="flex justify-center gap-2">
+            {before !== undefined && (
+              <ActionButton
+                variant="neutral"
+                onClick={() => setBefore(undefined)}
+              >
+                Back to latest
+              </ActionButton>
+            )}
+            {data?.nextBefore && (
+              <ActionButton
+                variant="neutral"
+                onClick={() => setBefore(data.nextBefore ?? undefined)}
+              >
+                Show older
+              </ActionButton>
+            )}
           </div>
         )}
       </section>
