@@ -8,7 +8,7 @@ import {
   slugifyDepartmentName,
 } from "@klt-cyber/shared";
 import type { QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   departmentCapabilities,
   getCurrentUser,
@@ -106,8 +106,27 @@ async function shellRoleOrNull(ctx: QueryCtx, departmentId: Id<"departments">) {
 /** How many feed entries a dashboard reads. Small: the card shows a glance. */
 const FEED_PAGE_SIZE = 12;
 
-/** How many upcoming activities the dashboard card shows. */
+/**
+ * How many over-read passes the feed makes before giving up.
+ *
+ * Caps the work when a department's history is mostly entries the feed does not
+ * show, so the query stays bounded rather than walking the whole audit trail.
+ */
+const FEED_MAX_PASSES = 5;
+
+/** How many upcoming activities the dashboard card lists. */
 const UPCOMING_CARD_SIZE = 4;
+
+/**
+ * How far the "Coming up" count reads before it stops counting.
+ *
+ * The card lists four, but the number beside it has to be the real total or it
+ * lies: a department with twelve activities ahead would read "4 activities
+ * still ahead". Bounded rather than a full count, because this is a live query
+ * and a department that schedules hundreds should not make the dashboard pay
+ * for all of them; past the cap the card says "50+".
+ */
+const UPCOMING_COUNT_CAP = 50;
 
 /**
  * The department's dashboard numbers (spec 0012, AC-33, AC-34, AC-36).
@@ -163,14 +182,15 @@ export const getDashboard = query({
 
     // One indexed range read from `now` forward, so the work is bounded by what
     // is still to come rather than by everything the department has ever run.
-    const upcoming = await ctx.db
+    const ahead = await ctx.db
       .query("groupActivities")
       .withIndex("by_department_start", (q) =>
         q.eq("owner.departmentId", departmentId).gte("startDateTime", now)
       )
       .filter((q) => q.eq(q.field("cancelledAt"), undefined))
       .order("asc")
-      .take(UPCOMING_CARD_SIZE);
+      .take(UPCOMING_COUNT_CAP);
+    const upcoming = ahead.slice(0, UPCOMING_CARD_SIZE);
 
     return {
       verifiedCount,
@@ -179,6 +199,11 @@ export const getDashboard = query({
       claimsWaitingCount: pendingRows.length,
       rosterCount: activeRows.length,
       mentorshipGapCount,
+      // The real number ahead, which the card shows, separate from the handful
+      // it lists. `true` when the count hit its cap, so the card can say "50+"
+      // rather than claim exactly fifty.
+      upcomingCount: ahead.length,
+      upcomingCountCapped: ahead.length === UPCOMING_COUNT_CAP,
       upcoming: upcoming.map((a) => ({
         _id: a._id,
         title: a.title,
@@ -214,13 +239,33 @@ export const listDepartmentFeed = query({
     // Over-read then filter, because the index is on the department and not on
     // the action: taking `page` rows straight would come back short whenever the
     // department's recent history includes an entry the feed does not show.
-    const rows = await ctx.db
-      .query("activityLogs")
-      .withIndex("by_department", (q) => q.eq("departmentId", departmentId))
-      .order("desc")
-      .take(page * 4);
-
-    const entries = rows.filter((row) => actions.includes(row.action)).slice(0, page);
+    //
+    // And it has to KEEP reading. Entries tagged with this department but absent
+    // from the feed set do exist (`hodNotice.sent` from its own HOD, the
+    // `role.revoked` a roster removal cascades), so a single over-read can come
+    // back with nothing to show while the department has plenty of history. The
+    // walk is bounded two ways: a fixed number of passes, and the index's own
+    // `_creationTime` ordering as the cursor.
+    const entries: Doc<"activityLogs">[] = [];
+    let before: number | undefined = undefined;
+    for (let pass = 0; pass < FEED_MAX_PASSES; pass++) {
+      const rows = await ctx.db
+        .query("activityLogs")
+        .withIndex("by_department", (q) =>
+          before === undefined
+            ? q.eq("departmentId", departmentId)
+            : q.eq("departmentId", departmentId).lt("_creationTime", before)
+        )
+        .order("desc")
+        .take(page * 4);
+      if (rows.length === 0) break;
+      for (const row of rows) {
+        if (actions.includes(row.action)) entries.push(row);
+        if (entries.length === page) break;
+      }
+      if (entries.length === page) break;
+      before = rows[rows.length - 1]._creationTime;
+    }
 
     const actorNames = new Map<Id<"users">, string>();
     for (const entry of entries) {
@@ -274,8 +319,16 @@ export const getRosterMemberProfile = query({
     // Through the roster, not by user id alone: this bypasses a privacy setting,
     // so it may only ever be used on someone actually serving in the department
     // the caller leads.
+    //
+    // ACTIVE only, deliberately. `findLiveMembership` would also return a
+    // `pending_claim` row, which would hand an HOD the phone number, children
+    // and mentorship proof of someone who has merely ASKED to serve and whose
+    // request they may be about to decline. A claimant is never a member
+    // (AC-13), so the NF-02 carve-out does not reach them. Deciding on a claim
+    // needs the name, photo, clan and verification state the roster list
+    // already carries, and nothing more.
     const membership = await findLiveMembership(ctx, userId, departmentId);
-    if (!membership) return null;
+    if (!membership || membership.status !== "active") return null;
 
     const [profile, user] = await Promise.all([
       ctx.db

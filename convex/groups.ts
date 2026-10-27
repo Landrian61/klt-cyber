@@ -321,16 +321,20 @@ export const deleteDepartmentMessage = mutation({
     if (message.owner.type !== "department") {
       throw new Error("That message does not belong to a department");
     }
-    if (message.deletedAt !== undefined) {
-      return { ok: true as const, alreadyDeleted: true as const };
-    }
-
+    // Authorize BEFORE the already-deleted early return, the same ordering
+    // `revokeRoleCore` establishes and for the same reason: otherwise any
+    // authenticated portal user could probe message ids and learn which exist,
+    // which belong to a department, and which have already been taken down.
     const departmentId = message.owner.departmentId;
     const { actor, role } = await requireDepartmentCapability(
       ctx,
       departmentId,
       "deleteOwnMessage"
     );
+
+    if (message.deletedAt !== undefined) {
+      return { ok: true as const, alreadyDeleted: true as const };
+    }
 
     const can = departmentCapabilities(role);
     if (!can.deleteAnyMessage && message.sentBy !== actor._id) {

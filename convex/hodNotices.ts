@@ -28,6 +28,12 @@ import { notificationCommon } from "./lib/reminders";
 /** How many notices one page of either list returns. */
 const NOTICE_PAGE_SIZE = 20;
 
+// The two lists page on DIFFERENT cursors, and a caller must keep them apart:
+// `listReceived` ranges on `sentAt` (its own `by_sentAt` index), `listSent` on
+// `_creationTime` (inside `by_from`, which carries no `sentAt`). Each hands back
+// the cursor it expects to be given, so passing one list's `nextBefore` to the
+// other would page from a meaningless point.
+
 /**
  * Who may send a notice: any department's HOD, and a System Admin.
  *
@@ -250,10 +256,21 @@ export const listReceived = query({
     );
     const items = matching.slice(0, page);
 
+    // The cursor comes from the last row READ, not the last row shown, and is
+    // handed back whenever the over-read came back full. Keying it off how many
+    // MATCHED would stop paging as soon as one window happened to hold fewer
+    // than a page of this caller's notices, stranding everything older behind
+    // it. AC-32 promises a notice stays readable however long ago it was sent.
+    const windowFull = rows.length === page * 4;
+    const lastRead = rows[rows.length - 1];
     return {
       notices: await decorate(ctx, items),
       nextBefore:
-        matching.length > page ? items[items.length - 1]?.sentAt ?? null : null,
+        matching.length > page
+          ? items[items.length - 1]?.sentAt ?? null
+          : windowFull
+            ? lastRead?.sentAt ?? null
+            : null,
     };
   },
 });
@@ -267,20 +284,30 @@ export const listSent = query({
 
     const page = Math.min(limit ?? NOTICE_PAGE_SIZE, NOTICE_PAGE_SIZE);
 
+    // The cursor ranges INSIDE the index, on the `_creationTime` Convex appends
+    // to every one of them. Filtering after `.take()` instead would re-read the
+    // same newest page every time and silently strand everything past the
+    // second page, because `by_from` cannot range on `sentAt`. `sentAt` is set
+    // at insert, so the two orderings agree.
     const rows = await ctx.db
       .query("hodNotices")
-      .withIndex("by_from", (q) => q.eq("fromUserId", user._id))
+      .withIndex("by_from", (q) =>
+        before === undefined
+          ? q.eq("fromUserId", user._id)
+          : q.eq("fromUserId", user._id).lt("_creationTime", before)
+      )
       .order("desc")
       .take(page + 1);
 
-    const items = (
-      before === undefined ? rows : rows.filter((r) => r.sentAt < before)
-    ).slice(0, page);
+    const items = rows.slice(0, page);
 
     return {
       notices: await decorate(ctx, items),
+      // A `_creationTime` cursor, matching the index it ranges on.
       nextBefore:
-        rows.length > page ? items[items.length - 1]?.sentAt ?? null : null,
+        rows.length > page
+          ? items[items.length - 1]?._creationTime ?? null
+          : null,
     };
   },
 });

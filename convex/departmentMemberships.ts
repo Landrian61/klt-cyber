@@ -375,6 +375,16 @@ export const removeDepartmentMember = mutation({
       "removeMember"
     );
 
+    // Only someone actually serving can be removed. Handed a `pending_claim`
+    // row this would otherwise discard the claim, log a removal that never
+    // happened and tell the person their roster place had ended when they never
+    // had one; handed the same row twice it would do it all again. Declining a
+    // claim is `declineClaim`, which is a different decision with its own
+    // notification.
+    if (membership.status !== "active") {
+      throw new Error("Only someone currently serving here can be removed");
+    }
+
     await ctx.db.patch(membershipId, {
       status: "removed",
       removedBy: actor._id,

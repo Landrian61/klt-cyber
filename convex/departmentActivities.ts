@@ -51,6 +51,27 @@ function churchLocalInstant(date: string, time: string): number {
   return occurrenceInstant(year, month - 1, day, time);
 }
 
+/**
+ * The start and end instants for one typed date and a pair of wall-clock times.
+ *
+ * An end time at or before the start time means the activity runs past
+ * midnight, so the end rolls to the next day: a 22:00 vigil ending 01:00 is an
+ * ordinary thing for a church to hold, and the form only asks for one date.
+ * Without this, entering it is impossible — the end would land three hours
+ * before the start and the mutation would refuse it with no way for the HOD to
+ * express what they meant.
+ *
+ * Equal times are treated as crossing rather than as a zero-length activity,
+ * since nobody schedules something that takes no time, and 18:00 to 18:00 far
+ * more likely means a full day.
+ */
+function churchLocalRange(date: string, startTime: string, endTime: string) {
+  const startDateTime = churchLocalInstant(date, startTime);
+  let endDateTime = churchLocalInstant(date, endTime);
+  if (endDateTime <= startDateTime) endDateTime += DAY_MS;
+  return { startDateTime, endDateTime };
+}
+
 /** The Kampala-local date an instant falls on, as "YYYY-MM-DD". */
 function churchLocalDate(ts: number): string {
   const parts = kampalaParts(ts);
@@ -219,11 +240,11 @@ export const createActivity = mutation({
       "description"
     );
 
-    const startDateTime = churchLocalInstant(args.date, args.startTime);
-    const endDateTime = churchLocalInstant(args.date, args.endTime);
-    if (endDateTime < startDateTime) {
-      throw new Error("An activity cannot end before it starts");
-    }
+    const { startDateTime, endDateTime } = churchLocalRange(
+      args.date,
+      args.startTime,
+      args.endTime
+    );
 
     const now = Date.now();
     const activityId = await ctx.db.insert("groupActivities", {
@@ -345,17 +366,11 @@ export const updateActivity = mutation({
         start: churchLocalTime(activity.startDateTime),
         end: churchLocalTime(activity.endDateTime),
       };
-      const startDateTime = churchLocalInstant(
+      const { startDateTime, endDateTime } = churchLocalRange(
         args.date ?? previous.date,
-        args.startTime ?? previous.start
-      );
-      const endDateTime = churchLocalInstant(
-        args.date ?? previous.date,
+        args.startTime ?? previous.start,
         args.endTime ?? previous.end
       );
-      if (endDateTime < startDateTime) {
-        throw new Error("An activity cannot end before it starts");
-      }
       fields.startDateTime = startDateTime;
       fields.endDateTime = endDateTime;
     }
@@ -382,6 +397,26 @@ export const updateActivity = mutation({
     await ctx.db.patch(activity._id, fields);
 
     const title = fields.title ?? activity.title;
+
+    // convex/AGENTS.md asks for an audit row on every consequential state
+    // change, and moving a service's date, time or place is about as
+    // consequential as this department gets. Deliberately NOT in
+    // DEPARTMENT_FEED_ACTIONS: AC-35 fixes what the dashboard feed shows, and
+    // it names created and cancelled only, so this stays audit trail rather
+    // than becoming a feed row.
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "department.activity_updated",
+      targetType: "groupActivities",
+      targetId: activity._id,
+      departmentId,
+      metadata: {
+        title,
+        movedStart: startMoved,
+        movedLocation: locationMoved,
+        ...(startMoved ? { startDateTime: fields.startDateTime } : {}),
+      },
+    });
 
     // Only a change a member has to act on is announced (AC-23).
     if (startMoved || locationMoved) {
