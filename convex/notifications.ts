@@ -119,15 +119,26 @@ async function resolveAllAudience(ctx: QueryCtx | MutationCtx): Promise<Id<"user
 }
 
 /**
- * Approved members of a department. `departmentMemberships.status` is only
- * `"active" | "removed"` — there is no separate pending/approved distinction
- * on the membership itself (verified in convex/departmentMemberships.ts: a
- * membership is written as `status: "active"` immediately on creation,
- * whether self-added via `submitProfile` or admin-added via
- * `addDepartmentMember`; `pending_verification` only ever describes the
- * member's own `memberProfiles.profileStatus`, a different table). So
- * "approved" here means exactly `status === "active"`, same filter every
- * other roster read in that file uses (e.g. `listDepartmentMembersWithProfiles`).
+ * The VERIFIED members of a department's roster (F4-17, N27; spec 0012 AC-23).
+ *
+ * Two filters, and both matter:
+ *
+ * `status === "active"` excludes a pending claimant. Since spec 0012 a
+ * membership can be `pending_claim` — someone who has asked to serve here and
+ * is waiting on the HOD — and such a person is not a member of anything yet, so
+ * they are never told what the department is doing.
+ *
+ * A verified profile excludes a grandfathered row. Rosters written before spec
+ * 0012 could be self-added, so an `active` row may belong to a profile nobody
+ * has checked. This matches the rule `resolveClanAudience` already applies and
+ * the one convex/lib/groupMembership.ts documents as the push rule, which the
+ * earlier version of this resolver did not in fact implement: it reasoned from
+ * `status` being only `active | removed` that "approved" meant active, and that
+ * premise is gone.
+ *
+ * The in-app read rule stays deliberately wider (see `getEligibleGroups`): an
+ * unverified roster member can still READ what their department is told. Only
+ * the push audience is narrowed here.
  */
 async function resolveDepartmentAudience(
   ctx: QueryCtx | MutationCtx,
@@ -139,7 +150,18 @@ async function resolveDepartmentAudience(
       q.eq("departmentId", departmentId).eq("status", "active")
     )
     .collect();
-  return [...new Set(memberships.map((m) => m.userId))];
+
+  const userIds = [...new Set(memberships.map((m) => m.userId))];
+  const verified = await Promise.all(
+    userIds.map(async (userId) => {
+      const profile = await ctx.db
+        .query("memberProfiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .unique();
+      return profile?.profileStatus === "verified" ? userId : null;
+    })
+  );
+  return verified.filter((id): id is Id<"users"> => id !== null);
 }
 
 /** The provided list, as-is — no existence/status check. */

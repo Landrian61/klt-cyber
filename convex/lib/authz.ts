@@ -179,6 +179,137 @@ export async function requireDepartmentHod(
   throw new Error("Only System Admin or this department's HOD is authorized");
 }
 
+// ── Department shell capabilities (spec 0012) ───────────────────────────────
+// SRS 4.7.2 as one table. It is written here exactly once: `departmentShell
+// .getShellContext` returns it to the portal so navigation and buttons render
+// from it, and `requireDepartmentCapability` below enforces the same table in
+// every shell mutation. Copying the matrix per page is how a delegate ends up
+// with HOD powers in one department.
+
+/** Who the caller is *for one department*, as far as the shell is concerned. */
+export type DepartmentShellRole = "hod" | "delegate" | "system_admin";
+
+/**
+ * Every gated action in the shell.
+ *
+ * Deliberately finer-grained than the roles: `deleteOwnMessage` and
+ * `deleteAnyMessage` are separate because a delegate may delete only what they
+ * sent, which no single "can delete messages" flag can express.
+ */
+export const DEPARTMENT_CAPABILITIES = [
+  "viewRoster",
+  "viewPendingClaimants",
+  "viewFullProfiles",
+  "addMember",
+  "createActivity",
+  "editActivity",
+  "cancelActivity",
+  "sendMessage",
+  "viewMessages",
+  "deleteOwnMessage",
+  "deleteAnyMessage",
+  "confirmClaim",
+  "declineClaim",
+  "setPosition",
+  "removeMember",
+  "manageDelegates",
+  "editDescription",
+  "sendHodNotice",
+] as const;
+
+export type DepartmentCapability = (typeof DEPARTMENT_CAPABILITIES)[number];
+
+export type DepartmentCapabilities = Record<DepartmentCapability, boolean>;
+
+/**
+ * The capabilities a delegate (`department_admin`) does NOT hold.
+ *
+ * Stated as the exclusion rather than two full lists, because the interesting
+ * fact about the matrix is precisely this line: a delegate runs the department's
+ * day to day work (activities, messages, adding members) but makes none of the
+ * decisions about who serves in it or what it says about itself (AC-18).
+ */
+const HOD_ONLY_CAPABILITIES = [
+  "deleteAnyMessage",
+  "confirmClaim",
+  "declineClaim",
+  "setPosition",
+  "removeMember",
+  "manageDelegates",
+  "editDescription",
+  "sendHodNotice",
+] as const satisfies readonly DepartmentCapability[];
+
+/** The `can` object for one role. System Admin holds everything. */
+export function departmentCapabilities(
+  role: DepartmentShellRole
+): DepartmentCapabilities {
+  const hodOnly: readonly string[] = HOD_ONLY_CAPABILITIES;
+  const full = role === "hod" || role === "system_admin";
+  return Object.fromEntries(
+    DEPARTMENT_CAPABILITIES.map((capability) => [
+      capability,
+      full || !hodOnly.includes(capability),
+    ])
+  ) as DepartmentCapabilities;
+}
+
+/**
+ * The caller's shell role for one department, or null when they have none.
+ *
+ * Null — not an error — for a plain roster member: SRS 4.9.2 gives a roster
+ * member "No" on roster, claims, positions and delegates, so they get no shell
+ * pages even though `hasPortalAccess` admits them to the portal for their
+ * department's own bespoke pages (Media's Devotionals, Past events). Null too
+ * for Administration authority, which keeps the active-roster read it already
+ * had and gains nothing inside another department's shell.
+ */
+export async function resolveDepartmentShellRole(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  departmentId: Id<"departments">
+): Promise<DepartmentShellRole | null> {
+  if (await isActiveSystemAdmin(ctx, userId)) return "system_admin";
+  if (await hasActiveDepartmentRole(ctx, userId, departmentId, ["hod"])) {
+    return "hod";
+  }
+  if (
+    await hasActiveDepartmentRole(ctx, userId, departmentId, [
+      "department_admin",
+    ])
+  ) {
+    return "delegate";
+  }
+  return null;
+}
+
+/**
+ * The server side half of the matrix: assert the caller may do one named thing
+ * in one named department, and hand back who they turned out to be.
+ *
+ * Every shell mutation calls this. The portal's navigation and buttons are user
+ * experience only; this is the boundary, so forcing a request a hidden button
+ * would have made fails here (AC-5, AC-18).
+ *
+ * Throws rather than resolving null, because a mutation reaching this point is a
+ * real violation and not the reactive teardown that queries have to survive.
+ */
+export async function requireDepartmentCapability(
+  ctx: QueryCtx | MutationCtx,
+  departmentId: Id<"departments">,
+  capability: DepartmentCapability
+): Promise<{ actor: Doc<"users">; role: DepartmentShellRole }> {
+  const actor = await requireUser(ctx);
+  const role = await resolveDepartmentShellRole(ctx, actor._id, departmentId);
+  if (!role || !departmentCapabilities(role)[capability]) {
+    throw new Error(
+      "Not authorized to do that in this department. Only this department's " +
+        "HOD or a System Admin may, and some actions are the HOD's alone."
+    );
+  }
+  return { actor, role };
+}
+
 /**
  * System Admin, or the Administration department's active `hod` /
  * `department_admin`. This is the portal-wide authority gate: content,
@@ -440,7 +571,16 @@ export async function hasPortalAccess(
   return false;
 }
 
-/** Append an audit entry. The single write-point for `activityLogs`. */
+/**
+ * Append an audit entry. The single write-point for `activityLogs`.
+ *
+ * `departmentId` is a real column rather than a `metadata` key (spec 0012
+ * AC-37): `metadata` is `v.any()` and Convex cannot index inside an `any`, so
+ * a department's dashboard feed would have had to scan all church activity.
+ * Every department-scoped mutation passes it; entries written before spec 0012
+ * carry their department only inside `metadata`, which is why the feed starts
+ * from that change forward.
+ */
 export async function logActivity(
   ctx: MutationCtx,
   entry: {
@@ -449,6 +589,7 @@ export async function logActivity(
     targetType?: string;
     targetId?: string;
     metadata?: unknown;
+    departmentId?: Id<"departments">;
   }
 ): Promise<void> {
   await ctx.db.insert("activityLogs", entry);

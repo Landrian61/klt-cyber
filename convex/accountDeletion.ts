@@ -648,12 +648,23 @@ export const performDeletion = internalMutation({
       });
     }
 
-    const memberships = await ctx.db
-      .query("departmentMemberships")
-      .withIndex("by_userId_status", (q) =>
-        q.eq("userId", userId).eq("status", "active")
-      )
-      .collect();
+    // All three statuses that can still carry something about the person, not
+    // only `active` (spec 0012 AC-39): a leaving user's untouched
+    // `pending_claim` row keeps them in an HOD's claims list after they are
+    // gone, and a `declined` row keeps `declineReason`, which is free text
+    // another person wrote about them. An already-`removed` row holds nothing
+    // left to clear.
+    const memberships: Doc<"departmentMemberships">[] = [];
+    for (const status of ["active", "pending_claim", "declined"] as const) {
+      memberships.push(
+        ...(await ctx.db
+          .query("departmentMemberships")
+          .withIndex("by_userId_status", (q) =>
+            q.eq("userId", userId).eq("status", status)
+          )
+          .collect())
+      );
+    }
     for (const membership of memberships) {
       await ctx.db.patch(membership._id, {
         status: "removed",
@@ -661,6 +672,7 @@ export const performDeletion = internalMutation({
         removedBy: userId,
         // Free text again, same reason (AC-20).
         positionTitle: undefined,
+        declineReason: undefined,
       });
     }
 
