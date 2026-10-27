@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export interface WordmarkProps {
   /** Logo diameter in px. */
   size?: number;
-  /** Show the "KLT Cyber Church / Admin Portal" lockup beside the mark. */
+  /** Show the "KLT Cyber / Admin Portal" lockup beside the mark. */
   showText?: boolean;
   className?: string;
   /** Light lockup for dark canvases (default) vs. ink for parchment. */
@@ -14,6 +14,11 @@ export interface WordmarkProps {
 /**
  * The circular KLT logo lockup. On the heaven-blue canvases it carries a soft
  * gold ring and drop shadow so it reads as gilt against the deep navy.
+ *
+ * The lockup reads `KLT Cyber`, which is the platform's name, matching every
+ * sidebar rail. One component serves the Areas of Service hub, its loading
+ * skeleton, the landing page and the auth canvases, so the name is written once
+ * and the hub cannot say one thing while sign in says another.
  */
 export function Wordmark({
   size = 44,
@@ -29,7 +34,7 @@ export function Wordmark({
       >
         <Image
           src="/logo-circle-192.png"
-          alt="KLT Cyber Church"
+          alt="KLT Cyber"
           width={size}
           height={size}
           className="rounded-full object-cover"
@@ -44,7 +49,7 @@ export function Wordmark({
               tone === "light" ? "text-white" : "text-on-surface",
             )}
           >
-            KLT Cyber Church
+            KLT Cyber
           </span>
           <span
             className={cn(

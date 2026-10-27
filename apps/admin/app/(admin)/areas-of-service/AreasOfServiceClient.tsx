@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { authClient } from "@/lib/auth";
+import { departmentIconFor } from "@/lib/departmentIcons";
 import { BrandBackdrop } from "@/components/brand/BrandBackdrop";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Stagger } from "@/components/motion/Stagger";
@@ -20,12 +21,20 @@ export interface DepartmentTile {
   id: string;
   name: string;
   description: string | null;
-  href: string;
+  /**
+   * Where the tile goes, or `null` when this caller has no pages in that
+   * department. Being on its roster is not enough to enter (SRS 4.9.2), and a
+   * link that bounced off the department's layout would land you back on this
+   * page, so such a tile is rendered as a plain card that says so instead.
+   */
+  href: string | null;
+  iconKey: string;
 }
 
 export interface PausedTile {
   id: string;
   name: string;
+  iconKey: string;
 }
 
 export interface ClanTile {
@@ -41,14 +50,82 @@ export interface ClanTile {
 const GLASS_CARD =
   "h-full gap-3 rounded-2xl border-0 bg-white/[0.07] p-4 shadow-none ring-1 ring-white/15 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.12] hover:ring-gold-radiant/40";
 
+const BADGE =
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))] font-display text-lg font-bold text-gold-ink shadow-[0_8px_20px_-6px_rgba(196,127,8,0.7)]";
+
+const BADGE_MUTED =
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.08] text-white/40";
+
 function InitialBadge({ letter }: { letter: string }) {
+  return (
+    <span aria-hidden="true" className={BADGE}>
+      {letter.toUpperCase()}
+    </span>
+  );
+}
+
+// A department's own fixed icon on the same gold badge the clan tiles use for
+// their initial, so the two kinds of tile still read as one family (AC-7).
+function DepartmentBadge({
+  iconKey,
+  muted,
+}: {
+  iconKey: string;
+  muted?: boolean;
+}) {
+  const Icon = departmentIconFor(iconKey);
   return (
     <span
       aria-hidden="true"
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[image:linear-gradient(135deg,var(--color-gold-radiant),var(--color-gold-rich))] font-display text-lg font-bold text-gold-ink shadow-[0_8px_20px_-6px_rgba(196,127,8,0.7)]"
+      className={muted ? BADGE_MUTED : BADGE}
     >
-      {letter.toUpperCase()}
+      <Icon className="h-5 w-5" strokeWidth={2} />
     </span>
+  );
+}
+
+// One Area of Service, as a card. A department this caller can open is a link
+// with an "Enter" affordance; one they are only on the roster of is the same
+// card without it, saying plainly that there is nothing inside for them. The
+// alternative was a link that bounced off the department's layout and landed
+// back on this page, which reads as a broken tile.
+function DepartmentCard({ department }: { department: DepartmentTile }) {
+  const body = (
+    <Card className={department.href ? GLASS_CARD : READ_ONLY_CARD}>
+      <CardHeader className="flex-row items-center gap-3.5 space-y-0">
+        <DepartmentBadge iconKey={department.iconKey} muted={!department.href} />
+        <div className="min-w-0 flex-1">
+          <CardTitle className="truncate font-body text-base font-semibold text-white">
+            {department.name}
+          </CardTitle>
+        </div>
+      </CardHeader>
+      {department.description && (
+        <CardDescription className="font-body text-[13px] leading-relaxed text-white/55">
+          {department.description}
+        </CardDescription>
+      )}
+      <CardFooter className="justify-end">
+        {department.href ? (
+          <span className="font-body text-sm font-semibold text-gold-radiant transition-transform duration-200 group-hover:translate-x-0.5">
+            Enter →
+          </span>
+        ) : (
+          <span className="font-body text-xs text-white/40">
+            You serve here · nothing to manage
+          </span>
+        )}
+      </CardFooter>
+    </Card>
+  );
+
+  if (!department.href) {
+    return <div className="h-full">{body}</div>;
+  }
+  return (
+    <Link href={department.href} className="group block h-full">
+      {body}
+    </Link>
   );
 }
 
@@ -58,6 +135,9 @@ function InitialBadge({ letter }: { letter: string }) {
 // design as the old role picker, restructured for up to 13 tiles instead of
 // 1-3. Deliberately no System Administrator tile here; that portal is
 // reached via the small badge in the header instead.
+const READ_ONLY_CARD =
+  "h-full gap-3 rounded-2xl border-0 bg-white/[0.05] p-4 shadow-none ring-1 ring-white/10 cursor-default";
+
 const PAUSED_CARD =
   "h-full gap-3 rounded-2xl border-0 bg-white/[0.04] p-4 shadow-none ring-1 ring-white/10 cursor-default";
 
@@ -140,28 +220,7 @@ export function AreasOfServiceClient({
                 className="mt-9 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
               >
                 {departments.map((department) => (
-                  <Link key={department.id} href={department.href} className="group block h-full">
-                    <Card className={GLASS_CARD}>
-                      <CardHeader className="flex-row items-center gap-3.5 space-y-0">
-                        <InitialBadge letter={department.name.charAt(0)} />
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="truncate font-body text-base font-semibold text-white">
-                            {department.name}
-                          </CardTitle>
-                        </div>
-                      </CardHeader>
-                      {department.description && (
-                        <CardDescription className="font-body text-[13px] leading-relaxed text-white/55">
-                          {department.description}
-                        </CardDescription>
-                      )}
-                      <CardFooter className="justify-end">
-                        <span className="font-body text-sm font-semibold text-gold-radiant transition-transform duration-200 group-hover:translate-x-0.5">
-                          Enter →
-                        </span>
-                      </CardFooter>
-                    </Card>
-                  </Link>
+                  <DepartmentCard key={department.id} department={department} />
                 ))}
               </Stagger>
             )}
@@ -178,21 +237,24 @@ export function AreasOfServiceClient({
                   gap={50}
                   className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
                 >
-                  {pausedDepartments.map((dept) => (
+                  {pausedDepartments.map((dept) => {
+                    const PausedIcon = departmentIconFor(dept.iconKey);
+                    return (
                     <Card key={dept.id} className={PAUSED_CARD}>
                       <CardHeader className="flex-row items-center gap-3 space-y-0">
                         <span
                           aria-hidden="true"
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] font-display text-sm font-bold text-white/30"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-white/30"
                         >
-                          {dept.name.charAt(0).toUpperCase()}
+                          <PausedIcon className="h-4 w-4" strokeWidth={2} />
                         </span>
                         <CardTitle className="truncate font-body text-sm font-medium text-white/35">
                           {dept.name}
                         </CardTitle>
                       </CardHeader>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </Stagger>
               </div>
             )}

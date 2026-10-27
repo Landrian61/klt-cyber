@@ -21,6 +21,11 @@ import { DepartmentSwitcher } from "@/components/admin/DepartmentSwitcher";
 const MODULE_TITLES: [prefix: string, title: string][] = [
   ["/areas-of-service/media/devotionals", "Devotionals"],
   ["/areas-of-service/media/past-events", "Past events"],
+  // The shared department pages Media mounts (spec 0012, AC-3).
+  ["/areas-of-service/media/roster", "Roster"],
+  ["/areas-of-service/media/activities", "Activities"],
+  ["/areas-of-service/media/messages", "Messages"],
+  ["/areas-of-service/media/settings", "Settings"],
   ["/areas-of-service/media", "Media"],
 ];
 
