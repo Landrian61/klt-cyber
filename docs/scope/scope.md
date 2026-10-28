@@ -262,9 +262,18 @@ SRS: S1-01, S1-02, S1-03, S1-04, S2-01, S2-02, S2-03, S2-04, S3-01, S3-02, S3-03
 ### 10. Notification targeting: appointment audiences, revocation notice, first-publish only, deep links to ended items · in-progress · GA
 Track A. Make sure a notification reaches only the people it actually concerns, and that tapping one never dead-ends on "not found".
 **Done when:** F4-03: a new HOD/delegate/elder and the people they now lead are told — never all users. F4-04/F3-10: a person whose role is removed is told privately. F4-05: Administration is alerted on profile submission/resubmission and mentorship-confirmation requests. F4-06: profile verified/sent-back notices go push, in-app and email, with the reason on send-back. F4-12: tapping a notice about a started event or expired announcement still opens it, marked ended (today shows "not found"). F4-13: profile notices open My Profile; appointment notices explain the role. F4-01: an announcement notifies only on its first publish.
-- [ ] Design remaining work (spec): `/architect notification targeting`
-Spec: not yet captured
-SRS: F4-01, F4-03, F4-04, F4-05, F4-06, F4-07, F4-12, F4-13, F3-10 · code: `convex/notifications.ts`, `convex/lib/reminders.ts`
+- [x] Design remaining work (spec): `/architect notification targeting`
+Spec: [0013](../specs/_root/0013-notification-targeting/index.md)
+- [x] Build it: `/develop notification targeting`
+  - [x] Private appointment notice and the role screen: the shared `NotificationKind`, `ROLE_COPY` and `PORTAL_WORK_COPY` contract, the additive `kind` and `firstPublishedAt` fields, N13 to the appointee only, `getRoleNotice` and `/role-notice`, then the frozen N14 group notice with its member view, the re-appoint no-op and the empty audience skip, satisfies AC-1, AC-2, AC-4, AC-14, AC-15, AC-17, AC-18
+  - [x] Every ended role told once: `endRoleAssignment` on all six revocation writes (account deletion suppressed), the combined roster removal notice, the duplicate in `removeDelegate` removed, satisfies AC-5, AC-6, AC-7
+  - [x] Reviewer and claim alerts: Administration reviewers with the System Admin fallback, the HOD claim alert at verification, the already verified guard, and `/portal-work`, satisfies AC-8, AC-9, AC-10, AC-16
+  - [x] Announcements push once and open after they end, plus ended events and activities: the first publish gate, `getAnnouncement`, the ended banner and markers, and the backfill and retarget migration, satisfies AC-3, AC-11, AC-12, AC-13
+- [ ] Verify it: `/check verify notification targeting`
+- [ ] Test it: `/test notification targeting`
+- [ ] Review it (fresh model): `/check review notification targeting`
+- [ ] Document it: `/document notification targeting`
+SRS: F4-01, F4-03, F4-04, F4-05, F4-06, F4-07, F4-12, F4-13, F3-10, M3-04 · code: `convex/notifications.ts`, `convex/lib/reminders.ts`, `convex/lib/roleNotices.ts`, `convex/lib/reviewerNotices.ts`, `convex/roles.ts`, `convex/departmentMemberships.ts`, `convex/memberProfiles.ts`, `convex/announcements.ts`, `convex/accountDeletion.ts`, `apps/mobile/app/{role-notice,portal-work,announcement-detail,item-detail}.tsx`
 
 ### 9. Profile lifecycle core: pending edits, send-back, edit after verification, clan "I don't know", name and photo sync, spouse search fix, mentorship bug · in-progress · GA
 Track A. Close the biggest gaps in the one path from visitor to member: editable pending submissions, an honest send-back flow, full post-verification editing, and two known bugs (mentorship always showing "Completed", spouse search leaking email).
