@@ -92,6 +92,9 @@ export default function ItemDetailScreen() {
   }
 
   const timeRange = `${formatClockTime(item.startDateTime)} – ${formatClockTime(item.endDateTime)}`;
+  // Cancelled wins: an item that never happened is not also "ended" (spec
+  // 0013, AC-13), so the reader only ever sees one of the two notices.
+  const hasEnded = !item.cancelled && item.endDateTime < Date.now();
 
   const calendarLabel = {
     checking: 'Add to calendar',
@@ -151,6 +154,21 @@ export default function ItemDetailScreen() {
                 {item.cancellationReason}
               </Text>
             )}
+          </Animated.View>
+        )}
+
+        {/* Still readable after it ends, so a late tap on its notice never
+            dead-ends (AC-13). Tonal wash, no border. */}
+        {hasEnded && (
+          <Animated.View
+            entering={FadeInUp.duration(300).delay(90)}
+            style={[styles.endedNote, { backgroundColor: Colors.surfaceLow }]}
+            accessibilityRole="summary"
+          >
+            <Ionicons name="time-outline" size={20} color={Colors.outline} />
+            <Text style={[styles.endedText, { color: Colors.onSurfaceVariant }]}>
+              This has ended
+            </Text>
           </Animated.View>
         )}
 
@@ -298,6 +316,18 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: 13,
     lineHeight: 20,
+  },
+  endedNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+    borderRadius: Radius.lg,
+    padding: Spacing[4],
+  },
+  endedText: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 15,
+    lineHeight: 22,
   },
   detailRow: {
     flexDirection: 'row',

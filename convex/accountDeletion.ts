@@ -23,6 +23,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { authComponent, createAuth } from "./auth";
 import { getCurrentUser, isActiveSystemAdmin, logActivity } from "./lib/authz";
 import { reportError } from "./lib/sentry";
+import { endRoleAssignment } from "./lib/roleNotices";
 
 // Account deletion (SRS F1-06, spec 0008).
 //
@@ -638,13 +639,15 @@ export const performDeletion = internalMutation({
         q.eq("userId", userId).eq("status", "active")
       )
       .collect();
+    // Through the one revoke path (spec 0013, AC-5), silent: a deleted person
+    // is never messaged.
     for (const role of roles) {
-      await ctx.db.patch(role._id, {
-        status: "revoked",
+      await endRoleAssignment(ctx, role, {
+        actorId: userId,
         revokedAt: deletedAt,
-        revokedBy: userId,
         // Free text that can name a person, on a row we are keeping (AC-20).
-        note: undefined,
+        note: null,
+        suppressNotice: true,
       });
     }
 

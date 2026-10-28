@@ -108,7 +108,7 @@ function RootLayoutInner() {
       if (data.notificationId) {
         markNotificationRead({ notificationId: data.notificationId as Id<'notifications'> }).catch(() => {});
       }
-      router.push(resolveDeepLinkHref({ type: data.type, id: data.id }) ?? '/(tabs)');
+      router.push(resolveDeepLinkHref({ type: data.type, id: data.id }, data.notificationId) ?? '/(tabs)');
     };
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
@@ -159,6 +159,8 @@ function RootLayoutInner() {
           <Stack.Screen name="event-detail" />
           <Stack.Screen name="item-detail" />
           <Stack.Screen name="announcement-detail" />
+          <Stack.Screen name="role-notice" />
+          <Stack.Screen name="portal-work" />
           <Stack.Screen name="give" />
         </Stack.Protected>
 

@@ -10,15 +10,26 @@ import type { Href } from 'expo-router';
  * (apps/mobile/app/_layout.tsx) — every `dispatch` call site's `deepLink.type`
  * string (convex/notifications.ts) must have a case here or it silently falls
  * through to Home. Currently: "announcement", "event", "program", "profile"
- * are routed; "profile_review" and "role_assignment" are admin-portal-only
- * concerns with no mobile screen and are expected to fall through.
+ * are routed.
  *
  * Spec 0010 adds "activity" (a department's or clan's dated activity, which
  * shares one detail screen with a church event) and "groupMessage" (a message
  * sent to a group, which has no detail screen of its own and so lands on the
  * Updates tab, where My groups holds it).
+ *
+ * Spec 0013 adds "role_assignment" (the appointee's own notice) and
+ * "new_leader" (the group's notice), which share the role screen. The
+ * notification id rides along because the member view is authorized by it:
+ * the server only shows a new leader notice to someone that notice was sent
+ * to. Pass it whenever you have it. It also adds "profile_review",
+ * "department_claim" and "hod_notice", which open /portal-work: the work they
+ * announce is done on the web portal, so the screen says what is waiting and
+ * links there rather than leaving the tap on Home.
  */
-export function resolveDeepLinkHref(deepLink: { type: string; id: string }): Href | null {
+export function resolveDeepLinkHref(
+  deepLink: { type: string; id: string },
+  notificationId?: string
+): Href | null {
   switch (deepLink.type) {
     case 'announcement':
       return `/announcement-detail?id=${deepLink.id}` as Href;
@@ -36,15 +47,27 @@ export function resolveDeepLinkHref(deepLink: { type: string; id: string }): Hre
       return '/(tabs)/updates' as Href;
     case 'program':
       return `/program-detail?id=${deepLink.id}` as Href;
+    case 'role_assignment':
+    case 'new_leader':
+      return (
+        notificationId
+          ? `/role-notice?id=${deepLink.id}&n=${notificationId}`
+          : `/role-notice?id=${deepLink.id}`
+      ) as Href;
+    case 'profile_review':
+    case 'department_claim':
+    case 'hod_notice':
+      // Work done on the web portal. The screen explains what is waiting and
+      // links there; the id is not needed to say that.
+      return `/portal-work?type=${deepLink.type}` as Href;
     case 'profile':
       // Always the caller's own profile — the screen takes no id param, so
       // `deepLink.id` (the affected user's id, for role-appointment/
       // verification notifications) is carried for completeness but unused.
       return '/profile' as Href;
     default:
-      // No mobile screen owns this type yet (role assignments, pending
-      // profile reviews — both admin-portal concerns). Home is a safe,
-      // always-valid landing spot rather than doing nothing on tap.
+      // No mobile screen owns this type yet. Home is a safe, always-valid
+      // landing spot rather than doing nothing on tap.
       return null;
   }
 }

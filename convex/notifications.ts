@@ -11,6 +11,7 @@ import { getCancellation, parseOccurrenceDate } from "./lib/occurrences";
 import { weeklyProgramOccursOn } from "./lib/recurrence";
 import { kampalaParts, occurrenceInstant } from "./calendar";
 import { notificationAudienceValidator, type NotificationAudience } from "./schema";
+import { vNotificationKind } from "./lib/notificationValidators";
 
 // Thin wrapper around @convex-dev/expo-push-notifications, scoped to the
 // caller's own identity — every registration/status function below resolves
@@ -455,10 +456,13 @@ export const dispatch = internalMutation({
     occurrence: v.optional(
       v.object({ programId: v.id("weeklyPrograms"), date: v.string() })
     ),
+    // The SRS §5 catalogue code (spec 0013, AC-18). Optional until feature 28
+    // makes it universal; call sites this feature did not touch omit it.
+    kind: v.optional(vNotificationKind),
   },
   handler: async (
     ctx,
-    { title, body, audience, deepLink, createdBy, imageUrl, occurrence }
+    { title, body, audience, deepLink, createdBy, imageUrl, occurrence, kind }
   ) => {
     // Unused until the component (or a bespoke rich-notification path)
     // supports an image field — see the doc comment above.
@@ -502,6 +506,7 @@ export const dispatch = internalMutation({
       // so counting the role or department again later would give today's
       // membership, not the membership this notification went to.
       recipientCount: recipients.length,
+      ...(kind ? { kind } : {}),
     });
 
     if (recipients.length === 0) return;

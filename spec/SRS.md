@@ -1225,18 +1225,18 @@ Channels: **P** push, **I** in-app centre, **B** web bell, **E** email, **S** SM
 | N01 | Account created | New user | E | No | F1-10 |
 | N02 | Password reset requested | That user | E | No | F1-03 |
 | N03 | Account deleted | Former user | E | No | F1-06 |
-| N04 | Profile submitted or resubmitted | Administration HOD and delegates | P, B | No | F4-05 |
+| N04 | Profile submitted or resubmitted | Administration HOD and delegates; System Admins when Administration has neither | P, B | No | F4-05 |
 | N05 | Profile verified | Member | P, I, E | No | F4-06 |
 | N06 | Profile sent back (with reason) | Visitor | P, I, E | No | F2-05 |
-| N07 | Mentorship completion awaiting confirmation | Administration HOD and delegates | P, B | No | F4-05 |
+| N07 | Mentorship completion awaiting confirmation | Administration HOD and delegates; System Admins when Administration has neither | P, B | No | F4-05 |
 | N08 | Mentorship completion confirmed or rejected | Member | P, I | No | A2-04 |
 | N09 | Monthly mentorship reminder | Verified members not completed | P, I | Yes | F2-15 |
 | N10 | Department claimed | That HOD | P, B | No | F4-07 |
 | N11 | Claim confirmed or declined (with optional reason) | Member | P, I | No | S3-05, S3-06 |
-| N12 | Added to or removed from a roster | Member | P, I | No | S3-07, S3-09 |
+| N12 | Added to or removed from a roster (a removal that also ends a role there names both, in one notice) | Member | P, I | No | S3-07, S3-09 |
 | N13 | Appointed HOD, delegate or clan elder | Appointee | P, I, B | No | F4-03 |
 | N14 | New leader appointed | That roster or clan | P, I | Yes | F4-03 |
-| N15 | Role removed | Person | P, I | No | F3-10 |
+| N15 | Role removed (not sent when a roster removal already said so in N12, or when the account is deleted) | Person | P, I | No | F3-10 |
 | N16 | Church event created | Event audience | P, I | Yes | F4-01 |
 | N17 | Church event changed or cancelled | Event audience | P, I | Yes | A5-03, A5-04 |
 | N18 | Church event reminders (7 days and 1 day before) | Event audience | P | Yes | F4-02 |

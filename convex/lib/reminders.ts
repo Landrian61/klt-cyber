@@ -2,6 +2,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import type { NotificationAudience } from "../schema";
+import type { NotificationKind } from "@klt-cyber/shared";
 
 // Shared helpers for `internal.notifications.dispatch` call sites — the
 // dispatch-args shape and the time-tiered "schedule a reminder, skip it if
@@ -26,6 +27,8 @@ export function notificationCommon(params: {
    * omits it and behaves exactly as before.
    */
   occurrence?: { programId: Id<"weeklyPrograms">; date: string };
+  /** The SRS §5 catalogue code (spec 0013, AC-18). Omitted by untouched call sites. */
+  kind?: NotificationKind;
 }) {
   return {
     audience: params.audience,
@@ -33,6 +36,7 @@ export function notificationCommon(params: {
     createdBy: params.createdBy,
     ...(params.imageUrl ? { imageUrl: params.imageUrl } : {}),
     ...(params.occurrence ? { occurrence: params.occurrence } : {}),
+    ...(params.kind ? { kind: params.kind } : {}),
   };
 }
 

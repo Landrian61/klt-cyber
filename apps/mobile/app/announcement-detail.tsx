@@ -12,7 +12,7 @@ import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { api } from '@/lib/api';
+import { api, type Id } from '@/lib/api';
 import { formatFullDate } from '@/lib/content-format';
 
 const PRIORITY_BADGE: Record<string, { label: string; variant: 'priority' | 'member' | 'pending' }> = {
@@ -25,10 +25,16 @@ export default function AnnouncementDetailScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const announcements = useQuery(api.announcements.listActiveAnnouncements);
-  const isLoading = announcements === undefined;
-  const announcement = announcements?.find((a) => a._id === id);
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  // A direct read, not a lookup in the active feed: a notice tapped after the
+  // announcement's window has closed must still open it (spec 0013, AC-12).
+  const announcement = useQuery(
+    api.announcements.getAnnouncement,
+    id ? { announcementId: id as Id<'announcements'> } : 'skip',
+  );
+  // Without the `id` check a skipped query never resolves and this spins
+  // forever, the same trap item-detail.tsx guards against.
+  const isLoading = Boolean(id) && announcement === undefined;
 
   if (isLoading) {
     return (
@@ -40,17 +46,22 @@ export default function AnnouncementDetailScreen() {
     );
   }
 
+  // Disabled, archived, deleted or a bad id all read the same: naming the
+  // difference would tell the reader about content they cannot see.
   if (!announcement) {
     return (
       <View style={[styles.container, { backgroundColor: Colors.surface, paddingTop: insets.top }]}>
         <View style={styles.fallback}>
-          <Text style={[styles.fallbackText, { color: Colors.onSurfaceVariant }]}>Announcement not found</Text>
+          <Text style={[styles.fallbackText, { color: Colors.onSurfaceVariant }]}>
+            This announcement is no longer available
+          </Text>
           <Button label="Go back" variant="ghost" onPress={() => router.back()} />
         </View>
       </View>
     );
   }
 
+  const hasEnded = announcement.endDate < Date.now();
   const badge = PRIORITY_BADGE[announcement.priority ?? 'normal'];
   // Same shared rule the Updates list uses, so a member never sees one wording
   // on the card and another on the detail (spec 0010, AC-1).
@@ -70,6 +81,20 @@ export default function AnnouncementDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing[6] }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Ended, but still readable (AC-12). Tonal wash, no border. */}
+        {hasEnded && (
+          <Animated.View
+            entering={FadeInUp.duration(300)}
+            style={[styles.endedNote, { backgroundColor: Colors.surfaceLow }]}
+            accessibilityRole="summary"
+          >
+            <Ionicons name="time-outline" size={20} color={Colors.outline} />
+            <Text style={[styles.endedText, { color: Colors.onSurfaceVariant }]}>
+              This announcement has ended
+            </Text>
+          </Animated.View>
+        )}
+
         {/* Cover image, if the announcement has one */}
         {announcement.coverImageUrl && (
           <Animated.View entering={FadeInUp.duration(300)}>
@@ -132,6 +157,20 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 16,
     lineHeight: 24,
+    textAlign: 'center',
+  },
+  endedNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+    borderRadius: Radius.lg,
+    padding: Spacing[4],
+    marginBottom: Spacing[4],
+  },
+  endedText: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 15,
+    lineHeight: 22,
   },
   header: {
     flexDirection: 'row',
