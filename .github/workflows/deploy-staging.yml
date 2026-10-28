@@ -96,6 +96,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The update's runtime version is a fingerprint that includes the
+      # contents of android.googleServicesFile. Preview APKs are built with the
+      # GOOGLE_SERVICES_JSON EAS file var, so without an identical copy here
+      # the update targets a different runtime and never reaches those APKs.
+      # Same secret and reasoning as build-preview.yml.
+      - name: Write google-services.json
+        working-directory: apps/mobile
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON secret. Add it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+
       # Publishes an OTA update to the "staging" branch, which the staging
       # channel is bound to. EXPO_PUBLIC_* vars are re-inlined into the update
       # bundle at publish time, so they MUST be present here — otherwise the

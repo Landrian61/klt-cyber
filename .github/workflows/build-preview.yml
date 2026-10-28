@@ -87,6 +87,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The CLI precomputes the fingerprint runtime version here and EAS
+      # recomputes it on the worker, where android.googleServicesFile resolves
+      # to the GOOGLE_SERVICES_JSON EAS file var. The file's contents are part
+      # of the fingerprint, so without an identical copy on this runner the two
+      # disagree and the build fails ("Runtime version mismatch"). The secret
+      # must hold the exact bytes of the EAS-hosted file.
+      - name: Write google-services.json
+        working-directory: apps/mobile
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON secret. Add it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+
       # Env (EXPO_PUBLIC_*) comes from the selected eas.json build profile, so
       # unlike `eas update` we do NOT inject it here. --non-interactive lets EAS
       # auto-manage Android credentials in CI.
