@@ -5,6 +5,7 @@ import {
   vCostCurrency,
   vCostServiceKey,
 } from "./lib/costValidators";
+import { vNotificationKind } from "./lib/notificationValidators";
 
 // Shared with convex/notifications.ts (the dispatch action's arg validator)
 // so the audience shape is defined exactly once — duplicating it across the
@@ -454,6 +455,12 @@ export default defineSchema({
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // When this announcement first became `published` (spec 0013, AC-11). Set
+    // once, never changed or cleared: its presence means N21 has already been
+    // pushed, so disabling and publishing again stays silent. Optional because
+    // rows written before this feature have none until
+    // convex/notificationTargetingMigration.ts backfills them.
+    firstPublishedAt: v.optional(v.number()),
   }).index("by_status_startDate", ["status", "startDate"]),
 
   // Scoped administrative role grants. A user may hold any number of these.
@@ -663,6 +670,11 @@ export default defineSchema({
     // fan-out size, and the page's label says the figure counts only rows that
     // record one rather than quietly treating an absent field as zero.
     recipientCount: v.optional(v.number()),
+    // The SRS §5 catalogue code (spec 0013, AC-18), e.g. "N13". Optional
+    // because rows written before this feature, and call sites it did not
+    // touch, carry none. Feature 28 makes it universal and maps codes to mute
+    // categories.
+    kind: v.optional(vNotificationKind),
   }).index("by_audience_type", ["audience.type"]),
 
   // One row per (user, notification) once read. No row = unread — same

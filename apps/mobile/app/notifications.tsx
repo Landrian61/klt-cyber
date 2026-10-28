@@ -46,7 +46,7 @@ export default function NotificationsScreen() {
     if (!item.read) markRead({ notificationId: item._id }).catch(() => {});
     // Falls back to Home rather than doing nothing when the type has no
     // mobile screen yet — see resolveDeepLinkHref's default case.
-    router.push(resolveDeepLinkHref(item.deepLink) ?? '/(tabs)');
+    router.push(resolveDeepLinkHref(item.deepLink, item._id) ?? '/(tabs)');
   };
 
   const handleMarkAllRead = () => {

@@ -54,20 +54,25 @@ function excerpt(text: string, maxLength: number): string {
 }
 
 /**
- * Schedules the "announcement published" push (Increment 6). Shared by both
- * ways an announcement reaches "published": `publishAnnouncement` (draft →
- * published) and `createAnnouncement` when called with `status: "published"`
- * directly — the admin dialog's one-step "create and publish" action, which
- * skips `publishAnnouncement` entirely. Originally this was only wired into
- * `publishAnnouncement`, which silently missed that second path.
+ * Pushes N21 the first time an announcement is published, and never again
+ * (spec 0013, AC-11). Shared by both ways an announcement reaches "published":
+ * `publishAnnouncement` (draft → published) and `createAnnouncement` when
+ * called with `status: "published"` directly — the admin dialog's one-step
+ * "create and publish" action, which skips `publishAnnouncement` entirely.
+ *
+ * Call it after the status write. `firstPublishedAt` is the gate: it is only
+ * ever written here, and only when unset, so disabling and publishing again
+ * stays silent. Returns whether a push was scheduled.
  */
-function schedulePublishNotification(
+export async function pushOnFirstPublish(
   ctx: MutationCtx,
   announcementId: Id<"announcements">,
-  announcement: { title: string; body: string; coverImageUrl?: string },
   actorId: Id<"users">
-) {
-  return ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+): Promise<boolean> {
+  const announcement = await ctx.db.get(announcementId);
+  if (!announcement || announcement.firstPublishedAt !== undefined) return false;
+  await ctx.db.patch(announcementId, { firstPublishedAt: Date.now() });
+  await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
     title: announcement.title,
     body: excerpt(announcement.body, PUSH_BODY_EXCERPT_LENGTH),
     ...notificationCommon({
@@ -75,8 +80,10 @@ function schedulePublishNotification(
       deepLink: { type: "announcement", id: announcementId },
       createdBy: actorId,
       imageUrl: announcement.coverImageUrl,
+      kind: "N21",
     }),
   });
+  return true;
 }
 
 // Announcements. The lifecycle draft → published → active → expired/disabled →
@@ -126,6 +133,25 @@ export const listActiveAnnouncements = query({
             b.startDate - a.startDate
         )
     );
+  },
+});
+
+/**
+ * One announcement by id, for the detail screen a notice opens (spec 0013,
+ * AC-12). A `published` row comes back whatever its window, so a tap on the
+ * notice for an announcement that has since ended still opens it; the screen
+ * marks it ended. A `draft` (disabled), `archived` or missing row returns
+ * `null`, keeping an admin's takedown in force even for an old link, and the
+ * two read the same so the caller learns nothing about hidden rows.
+ */
+export const getAnnouncement = query({
+  args: { announcementId: v.id("announcements") },
+  handler: async (ctx, { announcementId }) => {
+    if (!(await getCurrentUser(ctx))) return null;
+    const row = await ctx.db.get(announcementId);
+    if (!row || row.status !== "published") return null;
+    const [resolved] = await resolveCoverUrls([row]);
+    return resolved;
   },
 });
 
@@ -184,12 +210,7 @@ export const createAnnouncement = mutation({
       metadata: { title: args.title, status: args.status ?? "draft" },
     });
     if (args.status === "published") {
-      await schedulePublishNotification(
-        ctx,
-        announcementId,
-        { title: args.title, body: args.body, coverImageUrl: args.coverImageUrl },
-        actor._id
-      );
+      await pushOnFirstPublish(ctx, announcementId, actor._id);
     }
     return { announcementId };
   },
@@ -264,12 +285,11 @@ async function setStatus(
 }
 
 /**
- * Make an announcement live (draft → published), and fire the first
- * real end-to-end notification trigger: schedule
- * `internal.notifications.dispatch` to fan the announcement out to
- * everyone. Scheduled (not awaited inline) so a slow/failed push dispatch
- * never blocks or fails the publish itself — publishing is the source of
- * truth; the notification is a best-effort side effect of it.
+ * Make an announcement live (draft → published). On its first publish only,
+ * schedule `internal.notifications.dispatch` to fan it out to everyone
+ * (`pushOnFirstPublish`). Scheduled (not awaited inline) so a slow/failed push
+ * dispatch never blocks or fails the publish itself — publishing is the source
+ * of truth; the notification is a best-effort side effect of it.
  */
 export const publishAnnouncement = mutation({
   args: { announcementId: v.id("announcements") },
@@ -283,12 +303,7 @@ export const publishAnnouncement = mutation({
     // `createdBy` on the notification event is whoever published it (the
     // resolved actor), not necessarily the announcement's original author —
     // same "actor, not content owner" convention as activityLogs.actorUserId.
-    await schedulePublishNotification(
-      ctx,
-      announcementId,
-      result.announcement,
-      result.actorId
-    );
+    await pushOnFirstPublish(ctx, announcementId, result.actorId);
     return result;
   },
 });

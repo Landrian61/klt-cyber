@@ -7,6 +7,7 @@ import {
   CLAIM_DECLINE_REASON_MAX_LENGTH,
   MAX_ACTIVE_DEPARTMENTS,
   PAUSED_DEPARTMENTS,
+  ROLE_COPY,
 } from "@klt-cyber/shared";
 import {
   requireUser,
@@ -30,6 +31,7 @@ import {
   placeOnRoster,
 } from "./lib/departmentMembership";
 import { assignRoleCore, revokeRoleCore } from "./roles";
+import { endRoleAssignment } from "./lib/roleNotices";
 
 // Department roster. Membership is separate
 // from `roleAssignments`: being on a department's roster doesn't imply any
@@ -413,33 +415,36 @@ export const removeDepartmentMember = mutation({
         )
       )
       .collect();
+    // Each ended role is silent here (`suppressNotice`): the N12 below names
+    // them, so the person hears about losing the place and the roles once, not
+    // once per row (spec 0013, AC-6).
+    const endedLabels: string[] = [];
     for (const role of roleRows) {
-      await ctx.db.patch(role._id, {
-        status: "revoked",
-        revokedBy: actor._id,
-        revokedAt: Date.now(),
+      const ended = await endRoleAssignment(ctx, role, {
+        actorId: actor._id,
+        reason: "roster_removal",
         note: "Revoked via department roster removal",
+        suppressNotice: true,
       });
-      await logActivity(ctx, {
-        actorUserId: actor._id,
-        action: "role.revoked",
-        targetType: "roleAssignments",
-        targetId: role._id,
-        departmentId: membership.departmentId,
-        metadata: { reason: "roster_removal", userId: membership.userId },
-      });
+      if (ended) endedLabels.push(ROLE_COPY[role.roleType].label);
     }
 
     // N12, privately to the person who was removed (AC-20). Not an
     // announcement: leaving a roster is nobody else's business.
     const department = await ctx.db.get(membership.departmentId);
+    const departmentName = department?.name ?? "department";
+    const rolesLine =
+      endedLabels.length > 0
+        ? ` Your role as ${endedLabels.join(" and ")} there has ended too.`
+        : "";
     await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
-      title: `Your ${department?.name ?? "department"} roster place has ended`,
-      body: `You are no longer on the ${department?.name ?? "department"} roster. Speak to its head if this looks wrong.`,
+      title: `Your ${departmentName} roster place has ended`,
+      body: `You are no longer on the ${departmentName} roster.${rolesLine} Speak to its head if this looks wrong.`,
       ...notificationCommon({
         audience: { type: "users", userIds: [membership.userId] },
         deepLink: { type: "profile", id: membership.userId },
         createdBy: actor._id,
+        kind: "N12",
       }),
     });
 
@@ -519,10 +524,9 @@ export const appointDelegate = mutation({
  * Stand a delegate down (AC-20). The roster place is untouched: they stop being
  * a delegate, they do not stop serving.
  *
- * N15 is sent from here rather than from `revokeRoleCore`, which deliberately
- * notifies nobody for the general case. Losing authority you were given is
- * worth telling someone about, and privately: the shell is the one place that
- * knows the removal was a department decision rather than an audit cleanup.
+ * N15 comes from `revokeRoleCore`, which tells every person whose role ends
+ * (spec 0013, AC-5), so nothing is sent from here: a second copy would reach
+ * them twice.
  */
 export const removeDelegate = mutation({
   args: { departmentId: v.id("departments"), userId: v.id("users") },
@@ -550,7 +554,6 @@ export const removeDelegate = mutation({
 
     await revokeRoleCore(ctx, { roleAssignmentId: assignment._id });
 
-    const department = await ctx.db.get(departmentId);
     await logActivity(ctx, {
       actorUserId: actor._id,
       action: "department.delegate_removed",
@@ -558,17 +561,6 @@ export const removeDelegate = mutation({
       targetId: assignment._id,
       departmentId,
       metadata: { userId },
-    });
-
-    // N15.
-    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
-      title: `Your ${department?.name ?? "department"} delegate role has ended`,
-      body: `You are no longer a delegate for ${department?.name ?? "the department"}. You are still on its roster.`,
-      ...notificationCommon({
-        audience: { type: "users", userIds: [userId] },
-        deepLink: { type: "profile", id: userId },
-        createdBy: actor._id,
-      }),
     });
 
     return { ok: true as const, changed: true as const };

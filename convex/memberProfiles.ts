@@ -7,12 +7,16 @@ import { internal } from "./_generated/api";
 import {
   canManageChurchAdmin,
   getAdministrationAuthorityOrNull,
-  getAdministrationAuthorityUserIds,
   logActivity,
   requireUser,
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
 import { notificationCommon } from "./lib/reminders";
+import { displayName } from "./lib/roleNotices";
+import {
+  notifyClaimActionable,
+  resolveAdministrationReviewerIds,
+} from "./lib/reviewerNotices";
 import {
   findLiveMembership,
   findLiveMemberships,
@@ -326,31 +330,22 @@ export const submitProfile = mutation({
       }
     }
 
-    // Notify whoever can review this. NOT `audience: { type: "role",
-    // roleType: ... }` as a literal reading of "the role that verifies
-    // profiles" might suggest — canManageChurchAdmin (convex/lib/authz.ts)
-    // is system_admin OR the Administration department's hod/
-    // department_admin specifically, and the "role" audience variant has no
-    // department scoping, so `roleType: "hod"` would reach every
-    // department's HOD, not just Administration's. Resolving the actual
-    // recipient set and dispatching to `{ type: "users", userIds }` is the
-    // precise equivalent — see getAdministrationAuthorityUserIds's doc
-    // comment.
-    const reviewerIds = await getAdministrationAuthorityUserIds(ctx);
+    // N04 to the Administration reviewers, or the System Admins when
+    // Administration has nobody (spec 0013, AC-8). A resolved `users` list,
+    // not a `role` audience, which has no department scoping and would reach
+    // every department's HOD. Skipped when nobody is left (AC-17).
+    const reviewerIds = await resolveAdministrationReviewerIds(ctx);
     if (reviewerIds.length > 0) {
-      const submitterName =
-        [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-        user.email;
       await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
         title: "New profile pending review",
-        body: `${submitterName} submitted a member profile for verification.`,
+        body: `${displayName(user)} submitted a member profile for verification.`,
         ...notificationCommon({
           audience: { type: "users", userIds: reviewerIds },
-          // No mobile screen for the review queue (admin-portal concern) —
-          // an unrecognized type; the notification center falls back to
-          // Home rather than doing nothing (apps/mobile/app/notifications.tsx).
+          // Opens /portal-work on mobile: the review itself happens on the
+          // web portal.
           deepLink: { type: "profile_review", id: profileId },
           createdBy: user._id,
+          kind: "N04",
         }),
       });
     }
@@ -375,6 +370,9 @@ export const verifyProfile = mutation({
 
     const profile = await ctx.db.get(profileId);
     if (!profile) throw new Error("Profile not found");
+    // Verifying twice is a no op (spec 0013, AC-10): no write, no log, and
+    // above all no second N05, verified email or N10 claim alert.
+    if (profile.profileStatus === "verified") return { ok: true as const };
 
     if (edits) {
       await ctx.db.patch(profileId, { ...edits, updatedAt: Date.now() });
@@ -420,8 +418,18 @@ export const verifyProfile = mutation({
         // is just the affected user, carried for completeness).
         deepLink: { type: "profile", id: profile.userId },
         createdBy: actor._id,
+        kind: "N05",
       }),
     });
+
+    // The person's claims became actionable just now: an HOD only hears about
+    // a request once the claimant is verified (spec 0013, AC-9).
+    const liveMemberships = await findLiveMemberships(ctx, profile.userId);
+    for (const membership of liveMemberships) {
+      if (membership.status === "pending_claim") {
+        await notifyClaimActionable(ctx, membership, actor._id);
+      }
+    }
 
     // The same news by email (AC-13), beside the push notice rather than
     // instead of it. Its wording deliberately matches the copy above: verified,

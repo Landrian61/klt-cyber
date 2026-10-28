@@ -2,25 +2,24 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 import {
   getActiveRoles,
   getAdministrationDepartmentId,
+  getCurrentUser,
   hasActiveDepartmentRole,
   isActiveSystemAdmin,
   logActivity,
   requireDepartmentHod,
   requireUser,
 } from "./lib/authz";
-import { notificationCommon } from "./lib/reminders";
 import { placeOnRoster } from "./lib/departmentMembership";
-
-const ROLE_LABEL: Record<AssignRoleArgs["roleType"], string> = {
-  system_admin: "System Admin",
-  clan_elder: "Clan Elder",
-  hod: "HOD",
-  department_admin: "Department Admin",
-};
+import {
+  displayName,
+  endRoleAssignment,
+  findIdenticalActiveAssignment,
+  notifyAppointment,
+  roleScopeName,
+} from "./lib/roleNotices";
 
 type AssignRoleArgs = {
   roleType: "system_admin" | "clan_elder" | "hod" | "department_admin";
@@ -54,37 +53,18 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
     throw new Error("Target user must complete their profile first");
   }
 
+  // Each role carries only its own scope. A stray id is refused rather than
+  // stored, because the notices read the scope off the row: a clan elder
+  // carrying a departmentId would announce itself to that department's roster.
   if (args.roleType === "clan_elder") {
     if (!args.clanId) throw new Error("clan_elder requires a clanId");
-    const clanId = args.clanId;
-
-    // Revoke-and-replace any sitting elder of this clan (one elder per clan).
-    const sittingElder = await ctx.db
-      .query("roleAssignments")
-      .withIndex("by_clanId", (q) => q.eq("clanId", clanId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("roleType"), "clan_elder"),
-          q.eq(q.field("status"), "active")
-        )
-      )
-      .collect();
-    for (const row of sittingElder) {
-      await ctx.db.patch(row._id, {
-        status: "revoked",
-        revokedBy: actor._id,
-        revokedAt: Date.now(),
-      });
-      await logActivity(ctx, {
-        actorUserId: actor._id,
-        action: "role.revoked",
-        targetType: "roleAssignments",
-        targetId: row._id,
-        metadata: { reason: "replaced_clan_elder", userId: row.userId, clanId },
-      });
+    if (args.departmentId) throw new Error("clan_elder must not carry a departmentId");
+  } else if (args.roleType === "system_admin") {
+    if (args.clanId || args.departmentId) {
+      throw new Error("system_admin must not carry a clanId or departmentId");
     }
-  } else if (args.roleType === "system_admin" && args.clanId) {
-    throw new Error("system_admin must not carry a clanId");
+  } else if (args.clanId) {
+    throw new Error(`${args.roleType} must not carry a clanId`);
   }
 
   if (args.roleType === "hod") {
@@ -113,6 +93,41 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
     if (!callerIsSystemAdmin) throw new Error("Not authorized");
   }
 
+  // Re-appointing someone to a seat they already hold is a no op (spec 0013,
+  // AC-4). Checked after authorization, so it reveals nothing to a caller who
+  // could not make the appointment, and before both cardinality rules below,
+  // which would otherwise revoke the sitting HOD or elder (the same person) and
+  // insert a copy, logging and notifying a change that did not happen.
+  const identical = await findIdenticalActiveAssignment(ctx, {
+    userId: args.userId,
+    roleType: args.roleType,
+    departmentId: args.departmentId,
+    clanId: args.clanId,
+  });
+  if (identical) return { roleAssignmentId: identical._id };
+
+  if (args.roleType === "clan_elder" && args.clanId) {
+    const clanId = args.clanId;
+
+    // Revoke-and-replace any sitting elder of this clan (one elder per clan).
+    const sittingElder = await ctx.db
+      .query("roleAssignments")
+      .withIndex("by_clanId", (q) => q.eq("clanId", clanId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("roleType"), "clan_elder"),
+          q.eq(q.field("status"), "active")
+        )
+      )
+      .collect();
+    for (const row of sittingElder) {
+      await endRoleAssignment(ctx, row, {
+        actorId: actor._id,
+        reason: "replaced_clan_elder",
+      });
+    }
+  }
+
   if (args.roleType === "hod" && args.departmentId) {
     const departmentId = args.departmentId;
 
@@ -128,21 +143,9 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
       )
       .collect();
     for (const row of existingForDept) {
-      await ctx.db.patch(row._id, {
-        status: "revoked",
-        revokedBy: actor._id,
-        revokedAt: Date.now(),
-      });
-      await logActivity(ctx, {
-        actorUserId: actor._id,
-        action: "role.revoked",
-        targetType: "roleAssignments",
-        targetId: row._id,
-        metadata: {
-          reason: "replaced_department_hod",
-          userId: row.userId,
-          departmentId,
-        },
+      await endRoleAssignment(ctx, row, {
+        actorId: actor._id,
+        reason: "replaced_department_hod",
       });
     }
 
@@ -155,17 +158,9 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
       .filter((q) => q.eq(q.field("roleType"), "hod"))
       .collect();
     for (const row of existingForUser) {
-      await ctx.db.patch(row._id, {
-        status: "revoked",
-        revokedBy: actor._id,
-        revokedAt: Date.now(),
-      });
-      await logActivity(ctx, {
-        actorUserId: actor._id,
-        action: "role.revoked",
-        targetType: "roleAssignments",
-        targetId: row._id,
-        metadata: { reason: "replaced_person_hod", userId: row.userId },
+      await endRoleAssignment(ctx, row, {
+        actorId: actor._id,
+        reason: "replaced_person_hod",
       });
     }
   }
@@ -209,34 +204,12 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
     });
   }
 
-  // Broadcast the appointment. Scheduled after everything above has
-  // succeeded, same "notification is a best-effort side effect, not part of
-  // the transaction" convention as publishAnnouncement.
-  const targetName =
-    [target.firstName, target.lastName].filter(Boolean).join(" ") ||
-    target.email;
-  const roleLabel = ROLE_LABEL[args.roleType];
-  let scopeName: string | undefined;
-  if (args.departmentId) {
-    scopeName = (await ctx.db.get(args.departmentId))?.name;
-  } else if (args.clanId) {
-    scopeName = (await ctx.db.get(args.clanId))?.name;
-  }
-  await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
-    title: scopeName ? `New ${scopeName} ${roleLabel} appointed` : `New ${roleLabel} appointed`,
-    body: scopeName
-      ? `${targetName} is now the ${roleLabel} for ${scopeName}.`
-      : `${targetName} was appointed ${roleLabel}.`,
-    ...notificationCommon({
-      audience: { type: "all" },
-      // No mobile screen owns role management (that's an admin-portal
-      // concern) — an unrecognized type, which the notification center
-      // falls back to Home for rather than doing nothing (apps/mobile/app/
-      // notifications.tsx).
-      deepLink: { type: "role_assignment", id: roleAssignmentId },
-      createdBy: actor._id,
-    }),
-  });
+  // N13 to the appointee and, for a scoped role, N14 to the group they now
+  // lead (spec 0013, AC-1, AC-2). Never to everyone (AC-3). Scheduled after
+  // everything above has succeeded, same "notification is a best-effort side
+  // effect, not part of the transaction" convention as publishAnnouncement.
+  const assignment = await ctx.db.get(roleAssignmentId);
+  if (assignment) await notifyAppointment(ctx, assignment, actor._id);
 
   return { roleAssignmentId };
 }
@@ -284,31 +257,11 @@ export async function revokeRoleCore(
     if (!callerIsSystemAdmin) throw new Error("Not authorized");
   }
 
-  await ctx.db.patch(args.roleAssignmentId, {
-    status: "revoked",
-    revokedBy: actor._id,
-    revokedAt: Date.now(),
+  // N15 to the holder, privately (spec 0013, AC-5). `removeDelegate` reaches
+  // this too and no longer sends its own copy.
+  await endRoleAssignment(ctx, assignment, {
+    actorId: actor._id,
     ...(args.note ? { note: args.note } : {}),
-  });
-
-  // Deliberately NOT wired to notifications.dispatch, unlike assignRoleCore
-  // above — a revocation is not something to broadcast church-wide, and a
-  // scoped/private notice to just the revoked person wasn't asked for
-  // either. Not an oversight; revisit only if a real notification need for
-  // this shows up.
-  await logActivity(ctx, {
-    actorUserId: actor._id,
-    action: "role.revoked",
-    targetType: "roleAssignments",
-    targetId: args.roleAssignmentId,
-    metadata: {
-      roleType: assignment.roleType,
-      userId: assignment.userId,
-      ...(assignment.clanId ? { clanId: assignment.clanId } : {}),
-      ...(assignment.departmentId
-        ? { departmentId: assignment.departmentId }
-        : {}),
-    },
   });
 
   return { ok: true as const };
@@ -347,6 +300,64 @@ export const revokeRole = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => await revokeRoleCore(ctx, args),
+});
+
+/**
+ * What the mobile role screen shows for a `role_assignment` or `new_leader`
+ * notice (spec 0013, AC-14, AC-15).
+ *
+ * Two readers. The appointee gets the appointee view, from the assignment
+ * alone. Anyone else gets the member view only by naming the notification they
+ * opened it from, and only when that row is a `new_leader` notice for this
+ * assignment addressed to a `users` list they are on: so a member reads exactly
+ * what they were already told in the push, and nobody can enumerate who holds
+ * which role by guessing ids.
+ *
+ * Every refusal is `null`, whether the assignment is missing or simply not the
+ * caller's, so the answer never confirms that an id exists.
+ */
+export const getRoleNotice = query({
+  args: {
+    roleAssignmentId: v.id("roleAssignments"),
+    notificationId: v.optional(v.id("notifications")),
+  },
+  handler: async (ctx, { roleAssignmentId, notificationId }) => {
+    const caller = await getCurrentUser(ctx);
+    if (!caller) return null;
+    const assignment = await ctx.db.get(roleAssignmentId);
+    if (!assignment) return null;
+
+    let view: "appointee" | "member";
+    if (assignment.userId === caller._id) {
+      view = "appointee";
+    } else {
+      if (!notificationId) return null;
+      const notification = await ctx.db.get(notificationId);
+      if (
+        !notification ||
+        notification.deepLink.type !== "new_leader" ||
+        notification.deepLink.id !== roleAssignmentId ||
+        notification.audience.type !== "users" ||
+        !notification.audience.userIds.includes(caller._id)
+      ) {
+        return null;
+      }
+      view = "member";
+    }
+
+    const holder = await ctx.db.get(assignment.userId);
+    // A deleted holder is never named to anyone else (spec 0008), so the member
+    // view reads as no longer available.
+    if (!holder || (view === "member" && holder.deletedAt !== undefined)) return null;
+
+    return {
+      view,
+      roleType: assignment.roleType,
+      scopeName: await roleScopeName(ctx, assignment),
+      holderName: displayName(holder),
+      active: assignment.status === "active",
+    };
+  },
 });
 
 /** The caller's own active role assignments. */
