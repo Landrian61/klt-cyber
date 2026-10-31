@@ -234,7 +234,7 @@ export function AnalyticsClient() {
           <dl className="mt-5 space-y-2.5">
             <MiniRow
               icon={UserCheck}
-              label="Waiting on verification"
+              label="Not yet verified"
               value={people.pendingVerification}
             />
             <MiniRow
@@ -624,7 +624,7 @@ function attentionItems({
   health,
   charts,
 }: {
-  people: { pendingVerification: number };
+  people: { pendingVerification: number; sentBackVerification: number };
   notifications: { emailsSentThisMonth: number; emailAllowance: number | null };
   health: {
     failedEmailsLast7Days: number;
@@ -637,11 +637,20 @@ function attentionItems({
   const items: AttentionItem[] = [];
 
   if (people.pendingVerification > 0) {
+    // `pendingVerification` covers both unverified states (spec 0014, AC-31),
+    // so the sentence names the split: a sent-back profile is waiting on its
+    // owner, not on a reviewer, and "waiting on verification" alone would
+    // send somebody looking for work that is not theirs to do.
+    const sentBack = people.sentBackVerification;
     items.push({
       key: "pending",
       icon: UserCheck,
       tone: "gold",
-      text: `${people.pendingVerification} profile${people.pendingVerification === 1 ? " is" : "s are"} waiting on verification.`,
+      text:
+        `${people.pendingVerification} profile${people.pendingVerification === 1 ? " is" : "s are"} not yet verified` +
+        (sentBack > 0
+          ? `, ${sentBack} of them sent back and waiting on their owner.`
+          : "."),
       href: "/areas-of-service/admin/verification",
       linkLabel: "Open verification",
     });

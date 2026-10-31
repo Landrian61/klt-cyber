@@ -4,6 +4,8 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { PROFILE_LIFECYCLE_COPY } from '@klt-cyber/shared';
+
 import { FontFamily, Spacing, Radius, AmbientShadow } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useMyAccount } from '@/hooks/use-my-account';
@@ -15,16 +17,21 @@ export interface ProfileCompletionBannerProps {
 
 /**
  * Home / inline invitation to join the KLT Church family. Self-contained: reads
- * membership state itself and renders one of three things —
- *   - visitor (no profile) → a gold hero inviting them into the 7-step wizard
- *   - pending verification  → a soft "under review" status card
+ * membership state itself and renders one of four things —
+ *   - visitor (no profile)  → a gold hero inviting them into the 7-step wizard
+ *   - pending verification  → a soft "with Administration" status card
+ *   - sent back             → the same card, asking them to make the change
  *   - member / still loading → nothing
  * so it can be dropped onto any screen without the host needing to branch.
+ *
+ * The sent-back card is deliberately the status card rather than the gold
+ * hero: this person has already submitted, so inviting them to "become a
+ * member" would be telling them to start again (spec 0014, AC-31).
  */
 export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBannerProps) {
   const Colors = useThemeColors();
   const router = useRouter();
-  const { isLoading, isMember, isPending } = useMyAccount();
+  const { isLoading, isMember, isPending, isSentBack } = useMyAccount();
 
   if (isLoading || isMember) return null;
 
@@ -33,24 +40,39 @@ export function ProfileCompletionBanner({ delay = 120 }: ProfileCompletionBanner
   const go = () => router.push('/profile-completion');
   const viewProfile = () => router.push('/profile');
 
-  if (isPending) {
+  if (isPending || isSentBack) {
+    // Sent back opens the flow (there is something to do); pending opens the
+    // read-only profile preview, not the post-submit dead end.
+    const sentBack = isSentBack;
     return (
       <Animated.View entering={FadeInUp.duration(400).delay(delay)} style={styles.section}>
         <Pressable
-          onPress={viewProfile}
+          onPress={sentBack ? go : viewProfile}
           style={[styles.pendingCard, { backgroundColor: Colors.surfaceLowest }]}
           accessibilityRole="button"
-          accessibilityLabel="View your submitted profile"
+          accessibilityLabel={
+            sentBack
+              ? 'Open your submission and make the change asked for'
+              : 'View your submitted profile'
+          }
         >
           <View style={[styles.pendingIcon, { backgroundColor: Colors.primaryLight }]}>
-            <Ionicons name="hourglass-outline" size={20} color={Colors.primary} />
+            <Ionicons
+              name={sentBack ? 'create-outline' : 'hourglass-outline'}
+              size={20}
+              color={Colors.primary}
+            />
           </View>
           <View style={styles.pendingText}>
             <Text style={[styles.pendingTitle, { color: Colors.onSurface }]}>
-              Your profile is under review
+              {sentBack
+                ? PROFILE_LIFECYCLE_COPY.sentBack.title
+                : PROFILE_LIFECYCLE_COPY.pending.title}
             </Text>
             <Text style={[styles.pendingBody, { color: Colors.onSurfaceVariant }]}>
-              A church admin is verifying your details. You&apos;ll join the family once approved.
+              {sentBack
+                ? PROFILE_LIFECYCLE_COPY.sentBack.footer
+                : PROFILE_LIFECYCLE_COPY.pending.body}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={Colors.outline} />

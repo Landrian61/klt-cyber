@@ -3,6 +3,7 @@ import type { QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getSystemAdminOrNull } from "./lib/authz";
+import { resolvePhotoUrlForUser } from "./lib/identity";
 
 // ── Dashboard read queries (system_admin only) ───────────────────────────────
 // Pure reads powering the /system-admin dashboard. All direct-count / in-memory
@@ -11,14 +12,30 @@ import { getSystemAdminOrNull } from "./lib/authz";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Public user fields safe to denormalize into admin views. */
-function publicUser(user: Doc<"users">) {
+/**
+ * Public user fields safe to denormalize into admin views.
+ *
+ * Returns ONE already-resolved `photoUrl` rather than the raw
+ * `users.profilePictureUrl` it used to (spec 0014, AC-14). The profile's own
+ * upload wins, the account picture is the fallback, and the signing happens
+ * here because `resolveMediaUrl` returns a URL that expires and so cannot be
+ * stored anywhere. No client reads the raw field any more.
+ *
+ * Async for that reason, and it takes the profile when the caller already has
+ * it so the lookup is not done twice.
+ */
+async function publicUser(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  profile?: Doc<"memberProfiles"> | null
+) {
   return {
     _id: user._id,
     email: user.email,
     firstName: user.firstName,
     lastName: user.lastName,
-    profilePictureUrl: user.profilePictureUrl,
+    photoUrl:
+      (await resolvePhotoUrlForUser(ctx, user._id, profile)) ?? null,
     role: user.role,
   };
 }
@@ -52,13 +69,15 @@ async function hydrateActivity(ctx: QueryCtx, logs: Doc<"activityLogs">[]) {
   const clanNames = await clanNameMap(ctx);
   const userCache = new Map<
     Id<"users">,
-    ReturnType<typeof publicUser> | null
+    Awaited<ReturnType<typeof publicUser>> | null
   >();
 
   async function getUser(userId: Id<"users">) {
     if (!userCache.has(userId)) {
       const user = await ctx.db.get(userId);
-      userCache.set(userId, user ? publicUser(user) : null);
+      // Cached per distinct person, not per log row: a feed of 50 entries by
+      // three people resolves three photos, not fifty.
+      userCache.set(userId, user ? await publicUser(ctx, user) : null);
     }
     return userCache.get(userId) ?? null;
   }
@@ -198,7 +217,7 @@ export const listUsers = query({
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
         .unique();
       results.push({
-        user: publicUser(user),
+        user: await publicUser(ctx, user, profile),
         profile: profile ?? null,
         memberSince: profile?._creationTime ?? null,
         signedUpAt: user._creationTime,
@@ -249,8 +268,8 @@ export const getUserDetail = query({
         : null;
       detailedRoles.push({
         ...assignment,
-        assignedByUser: assignedBy ? publicUser(assignedBy) : null,
-        revokedByUser: revokedBy ? publicUser(revokedBy) : null,
+        assignedByUser: assignedBy ? await publicUser(ctx, assignedBy) : null,
+        revokedByUser: revokedBy ? await publicUser(ctx, revokedBy) : null,
       });
     }
     const activeRoles = detailedRoles.filter(
@@ -278,7 +297,10 @@ export const getUserDetail = query({
 
     const clanNames = await clanNameMap(ctx);
     return {
-      user: { ...publicUser(user), profileCompleted: user.profileCompleted },
+      user: {
+        ...(await publicUser(ctx, user, profile)),
+        profileCompleted: user.profileCompleted,
+      },
       signedUpAt: user._creationTime,
       profile: profile
         ? {
@@ -338,8 +360,17 @@ export const getDashboardStats = query({
       profileCompletionsLast7Days: profiles.filter(
         (profile) => profile._creationTime >= now - 7 * DAY_MS
       ).length,
+      // Both unverified states, not just `pending_verification` (spec 0014,
+      // AC-31). A profile a reviewer handed back is still unverified work in
+      // the building, and counting only one of the two states would quietly
+      // shrink Administration's own figure every time somebody sent one back.
+      // `sentBackVerifications` carries the split so the dashboard can show
+      // what is waiting on a reviewer against what is waiting on its owner.
       pendingVerifications: profiles.filter(
-        (profile) => profile.profileStatus === "pending_verification"
+        (profile) => profile.profileStatus !== "verified"
+      ).length,
+      sentBackVerifications: profiles.filter(
+        (profile) => profile.profileStatus === "sent_back"
       ).length,
     };
   },

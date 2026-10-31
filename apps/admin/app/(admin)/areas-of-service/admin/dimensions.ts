@@ -1,5 +1,12 @@
 import type { Id } from "@/lib/api";
-import { AGE_BUCKETS, ageBucketLabel, type AnalyticsProfile } from "./demographicsUtils";
+import {
+  AGE_BUCKETS,
+  ageBucketLabel,
+  isNotYetVerified,
+  NOT_YET_VERIFIED_LABEL,
+  VERIFIED_LABEL,
+  type AnalyticsProfile,
+} from "./demographicsUtils";
 
 // A generic cross-tab engine: one description per filterable attribute
 // ("dimension"), plus a single `crossTab` function that combines any two of
@@ -99,8 +106,14 @@ const departmentDimension: Dimension = {
 const verificationStatusDimension: Dimension = {
   key: "verificationStatus",
   label: "Verification status",
-  values: () => ["Pending", "Verified"],
-  bucketsFor: (p) => [p.profileStatus === "verified" ? "Verified" : "Pending"],
+  // Two buckets, not three: `sent_back` belongs with `pending_verification`
+  // under one "Not yet verified" label (spec 0014, AC-31). Splitting it out
+  // here would put a third series on every cross-tab for a state that is a
+  // few hours long in practice.
+  values: () => [NOT_YET_VERIFIED_LABEL, VERIFIED_LABEL],
+  bucketsFor: (p) => [
+    isNotYetVerified(p) ? NOT_YET_VERIFIED_LABEL : VERIFIED_LABEL,
+  ],
 };
 
 const mentorshipStatusDimension: Dimension = {

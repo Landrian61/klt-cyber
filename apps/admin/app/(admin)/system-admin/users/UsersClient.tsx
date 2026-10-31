@@ -115,7 +115,7 @@ export function UsersClient() {
           <Avatar
             name={nameOf(row.user)}
             email={row.user.email}
-            src={row.user.profilePictureUrl}
+            src={row.user.photoUrl ?? undefined}
             size="md"
           />
           <span className="font-medium text-on-surface">

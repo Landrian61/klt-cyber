@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { PROFILE_LIFECYCLE_COPY } from '@klt-cyber/shared';
+
 import { FontFamily, Spacing } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
@@ -20,11 +22,17 @@ export interface MemberGateProps {
  *
  * The nudge lives at the screen level, not the navigation level — visitors keep
  * seeing the tab labels (what they're missing) without being funnelled.
+ *
+ * Four states, not three (spec 0014, AC-31): a sent-back profile is waiting on
+ * its owner and gets its own copy asking them to act, where a pending one is
+ * waiting on Administration and asks nothing. Before the split a sent-back
+ * person matched neither branch and was told to "Complete your profile" —
+ * about a profile they had already submitted.
  */
 export function MemberGate({ children, featureLabel }: MemberGateProps) {
   const Colors = useThemeColors();
   const router = useRouter();
-  const { isLoading, isMember, isPending } = useMyAccount();
+  const { isLoading, isMember, isPending, isSentBack } = useMyAccount();
 
   // Subtle, branded hold while the reactive query first resolves — no flash.
   if (isLoading) {
@@ -37,6 +45,32 @@ export function MemberGate({ children, featureLabel }: MemberGateProps) {
 
   if (isMember) return <>{children}</>;
 
+  // Handed back: the one unverified state that asks the person to do
+  // something, so it leads with that rather than with reassurance.
+  if (isSentBack) {
+    return (
+      <View style={[styles.gate, { backgroundColor: Colors.surface }]}>
+        <View style={[styles.iconCircle, { backgroundColor: Colors.primaryLight }]}>
+          <Ionicons name="create-outline" size={34} color={Colors.primary} />
+        </View>
+        <Text style={[styles.title, { color: Colors.onSurface }]}>
+          {PROFILE_LIFECYCLE_COPY.sentBack.title}
+        </Text>
+        <Text style={[styles.body, { color: Colors.onSurfaceVariant }]}>
+          {PROFILE_LIFECYCLE_COPY.gate.sentBack(featureLabel ?? 'this space')}
+        </Text>
+        <View style={styles.cta}>
+          <Button
+            label={PROFILE_LIFECYCLE_COPY.sentBack.editAction}
+            variant="primary"
+            fullWidth
+            onPress={() => router.push('/profile-completion' as any)}
+          />
+        </View>
+      </View>
+    );
+  }
+
   // Submitted-but-unverified: reassure rather than re-prompt to "complete".
   if (isPending) {
     return (
@@ -44,10 +78,9 @@ export function MemberGate({ children, featureLabel }: MemberGateProps) {
         <View style={[styles.iconCircle, { backgroundColor: Colors.primaryLight }]}>
           <Ionicons name="hourglass-outline" size={34} color={Colors.primary} />
         </View>
-        <Text style={[styles.title, { color: Colors.onSurface }]}>Almost home</Text>
+        <Text style={[styles.title, { color: Colors.onSurface }]}>Almost there</Text>
         <Text style={[styles.body, { color: Colors.onSurfaceVariant }]}>
-          Your profile is with the elders for verification. You&apos;ll unlock{' '}
-          {featureLabel ?? 'this space'} the moment it&apos;s approved. Stay blessed.
+          {PROFILE_LIFECYCLE_COPY.gate.pending(featureLabel ?? 'this space')}
         </Text>
         <View style={styles.cta}>
           <Button

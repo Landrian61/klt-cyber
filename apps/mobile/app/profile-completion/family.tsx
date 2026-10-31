@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeIn,
@@ -41,13 +42,14 @@ function newKey(): string {
 const SpouseResultRow = memo(function SpouseResultRow({
   id,
   name,
-  email,
+  photoUrl,
   index,
   onSelect,
 }: {
   id: Id<'users'>;
   name: string;
-  email: string;
+  /** Resolved by the server; absent falls back to initials. */
+  photoUrl?: string;
   index: number;
   onSelect: (id: Id<'users'>, name: string) => void;
 }) {
@@ -72,8 +74,20 @@ const SpouseResultRow = memo(function SpouseResultRow({
       style={[animatedStyle, styles.resultRow, { backgroundColor: Colors.surfaceLowest }]}
       accessibilityRole="button"
     >
+      {photoUrl ? (
+        <Image source={{ uri: photoUrl }} style={styles.resultPhoto} contentFit="cover" />
+      ) : (
+        <View style={[styles.resultPhoto, { backgroundColor: Colors.primaryLight }]}>
+          <Text style={[styles.resultInitial, { color: Colors.primary }]}>
+            {name.trim().charAt(0).toUpperCase() || '?'}
+          </Text>
+        </View>
+      )}
+      {/* Name and photo, and NOTHING else. The email used to be the second
+          line here, which meant a visitor typing two letters into a spouse
+          picker was shown other people's addresses (spec 0014, AC-29). The
+          field no longer leaves the server at all. */}
       <Text style={[styles.resultName, { color: Colors.onSurface }]}>{name}</Text>
-      <Text style={[styles.resultEmail, { color: Colors.onSurfaceVariant }]}>{email}</Text>
     </AnimatedPressable>
   );
 });
@@ -243,7 +257,7 @@ export default function FamilyStep() {
                   value={spouseQuery}
                   onChangeText={setSpouseQuery}
                   icon="search-outline"
-                  placeholder="Search by name or email"
+                  placeholder="Search by name"
                   autoCapitalize="none"
                 />
                 {results && results.length > 0 && (
@@ -252,8 +266,8 @@ export default function FamilyStep() {
                       <SpouseResultRow
                         key={u._id}
                         id={u._id as Id<'users'>}
-                        name={getDisplayName(u) || u.email}
-                        email={u.email}
+                        name={getDisplayName(u)}
+                        photoUrl={u.photoUrl ?? undefined}
                         index={idx}
                         onSelect={selectSpouse}
                       />
@@ -261,7 +275,10 @@ export default function FamilyStep() {
                   </View>
                 )}
                 {results && results.length === 0 && trimmedQuery.length >= 2 && (
-                  <Hint>No match found.</Hint>
+                  <Hint>
+                    No verified member by that name. Use the link below to record
+                    their name instead.
+                  </Hint>
                 )}
                 {trimmedQuery.length >= 2 && (
                   <View style={styles.unlinked}>
@@ -368,20 +385,30 @@ const styles = StyleSheet.create({
     gap: Spacing[1],
   },
   resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
     borderRadius: Radius.md,
     paddingHorizontal: Spacing[4],
     paddingVertical: Spacing[3],
   },
+  resultPhoto: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultInitial: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 15,
+    lineHeight: 20,
+  },
   resultName: {
+    flex: 1,
     fontFamily: FontFamily.bodyMedium,
     fontSize: 14,
     lineHeight: 20,
-  },
-  resultEmail: {
-    fontFamily: FontFamily.body,
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 1,
   },
   unlinked: { marginTop: Spacing[3] },
   childList: { gap: Spacing[3] },

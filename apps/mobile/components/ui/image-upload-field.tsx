@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery } from 'convex/react';
 import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useR2Upload } from '@/lib/r2-upload';
+import { api } from '@/lib/api';
 
 export interface ImageUploadFieldProps {
   label: string;
@@ -29,6 +31,11 @@ export interface ImageUploadFieldProps {
  *
  * The parent stores only the returned key; the local preview URI lives here so
  * the user sees their image immediately without a getFileUrl round trip.
+ *
+ * A value the parent ALREADY HELD is resolved and shown too. Without that, a
+ * member reopening a sent-back submission saw the empty person icon beside
+ * "Change / Remove", concluded their photo had been lost, and re-uploaded it,
+ * orphaning the original object in the bucket.
  */
 export function ImageUploadField({
   label,
@@ -43,6 +50,18 @@ export function ImageUploadField({
   const [previewUri, setPreviewUri] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+
+  // A stored value is an R2 KEY and needs resolving before it can render; an
+  // absolute URL (a Google account photo) is already displayable and must not
+  // be sent to the resolver. Skipped entirely once there is a local preview,
+  // which is always the fresher of the two.
+  const storedIsKey = !!value && !/^https?:\/\//i.test(value);
+  const resolvedStored = useQuery(
+    api.uploads.getFileUrl,
+    storedIsKey && !previewUri ? { key: value! } : 'skip',
+  );
+  const shownUri =
+    previewUri ?? (storedIsKey ? (resolvedStored ?? undefined) : value);
 
   const runUpload = async (asset: ImagePicker.ImagePickerAsset) => {
     setError(undefined);
@@ -116,8 +135,8 @@ export function ImageUploadField({
           accessibilityRole="button"
           accessibilityLabel={hasImage ? `Change ${label}` : `Add ${label}`}
         >
-          {previewUri ? (
-            <Image source={{ uri: previewUri }} style={shape} contentFit="cover" />
+          {shownUri ? (
+            <Image source={{ uri: shownUri }} style={shape} contentFit="cover" />
           ) : (
             <View style={styles.empty}>
               <Ionicons

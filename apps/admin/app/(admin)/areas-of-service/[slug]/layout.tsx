@@ -90,7 +90,7 @@ export default async function DepartmentShellLayout({
             role={shell.role}
             name={fullName}
             email={user.email}
-            avatarUrl={user.profilePictureUrl ?? null}
+            avatarUrl={account.photoUrl}
           />
           <div className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
             {children}

@@ -55,7 +55,7 @@ export default async function SystemAdminLayout({
         <SystemAdminTopBar
           name={fullName}
           email={user.email}
-          avatarUrl={user.profilePictureUrl ?? null}
+          avatarUrl={account.photoUrl}
         />
         <div className="w-full min-w-0 flex-1 px-6 py-8 lg:px-10">
           {children}

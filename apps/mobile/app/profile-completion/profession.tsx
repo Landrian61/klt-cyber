@@ -16,6 +16,7 @@ import Animated, {
 import { FontFamily, Spacing, Radius, Duration } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Input } from '@/components/ui/input';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { StepScaffold, WizardField, FieldLabel, Hint } from '@/components/profile-wizard/step-scaffold';
 import { useWizardDraft } from './_layout';
 
@@ -163,6 +164,26 @@ export default function ProfessionStep() {
           <Hint>None added.</Hint>
         )}
       </WizardField>
+
+      {/* The directory question rides on this LAST EXISTING STEP rather than
+          getting one of its own, because F2-01 fixes the wizard at seven
+          steps (spec 0014, AC-17). Asked as a plain Yes or No rather than a
+          switch: a switch pre-answers it, and this is a disclosure decision
+          that should be a choice somebody actually made. */}
+      <WizardField>
+        <FieldLabel>Can other members find you in the directory?</FieldLabel>
+        <Hint>
+          Your name, photo and areas of service would show. Your phone number,
+          address and family details never do. You can change this any time.
+        </Hint>
+        <View style={styles.sharingControl}>
+          <SegmentedControl
+            options={['No, keep me private', 'Yes, list me']}
+            selectedIndex={draft.directorySharing ? 1 : 0}
+            onChange={(index) => patch({ directorySharing: index === 1 })}
+          />
+        </View>
+      </WizardField>
     </StepScaffold>
   );
 }
@@ -201,4 +222,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  sharingControl: { marginTop: Spacing[3] },
 });
