@@ -23,6 +23,9 @@ import { cn } from "@/lib/utils";
 import {
   AGE_BUCKETS,
   NO_DEPARTMENT_FILTER,
+  NOT_YET_VERIFIED_FILTER,
+  NOT_YET_VERIFIED_LABEL,
+  VERIFIED_LABEL,
   type DashboardFilters,
 } from "./demographicsUtils";
 import { LEADERSHIP_LABEL, MARITAL_LABEL, MENTORSHIP_LABEL } from "./dimensions";
@@ -32,9 +35,12 @@ const ALL = "all";
 type Ref = { _id: string; name: string };
 
 const SEX_LABEL: Record<string, string> = { male: "Male", female: "Female" };
+// Keyed by the FILTER value, not by `profileStatus`: the unverified side of
+// this filter is one sentinel covering both unverified states (spec 0014,
+// AC-31), so the chip reads the same way the filter behaves.
 const VERIFICATION_LABEL: Record<string, string> = {
-  pending_verification: "Pending",
-  verified: "Verified",
+  [NOT_YET_VERIFIED_FILTER]: NOT_YET_VERIFIED_LABEL,
+  verified: VERIFIED_LABEL,
 };
 
 // Shared compact treatment for every Select trigger in this bar — Select
@@ -343,8 +349,11 @@ export function DashboardFilterBar({
                     onChange={(v) => onFilterChange("verificationStatus", v)}
                     options={[
                       { value: ALL, label: "All" },
-                      { value: "pending_verification", label: "Pending" },
-                      { value: "verified", label: "Verified" },
+                      {
+                        value: NOT_YET_VERIFIED_FILTER,
+                        label: NOT_YET_VERIFIED_LABEL,
+                      },
+                      { value: "verified", label: VERIFIED_LABEL },
                     ]}
                   />
                 </FilterField>

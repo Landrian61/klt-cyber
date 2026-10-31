@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import * as Sentry from "@sentry/nextjs";
-import { PhoneCall } from "lucide-react";
+import { PhoneCall, Undo2 } from "lucide-react";
+import {
+  profileLifecycleErrorCode,
+  profileLifecycleErrorMessage,
+  profileStaleCause,
+} from "@klt-cyber/shared";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
@@ -34,9 +39,14 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { fullName, toFormState, type EditableFields } from "./shared";
 import { ProfileDetails } from "./ProfileDetails";
 
-// No "send back" action here by design — convex/schema.ts documents that
-// memberProfiles has no rejected/sent-back status; admins correct fields in
-// place and approve, same as the detail page. Review mode is Approve / Skip.
+// Review mode is Approve / Skip, deliberately: it is the fast walk through the
+// queue, and sending a profile back needs a written reason, which belongs on
+// the detail page where there is room to type one. A reviewer who wants to
+// send this one back opens it there.
+//
+// It does show what it needs to decide: the "Resubmitted" marker and the
+// reason from the last round. The old comment here said memberProfiles has no
+// sent-back status, which spec 0014 made false.
 export function ReviewMode({
   profileIds,
   onExit,
@@ -57,10 +67,31 @@ export function ReviewMode({
   const [form, setForm] = useState<EditableFields | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profile) setForm(toFormState(profile));
-  }, [profile]);
+    if (!profile || !currentId) return;
+    // Once per profile in the queue, so a push from the owner neither moves
+    // the baseline nor discards the reviewer's typing.
+    if (seenRef.current?.id !== currentId) {
+      seenRef.current = { id: currentId, updatedAt: profile.updatedAt };
+      setForm(toFormState(profile));
+    }
+  }, [profile, currentId]);
+
+  /**
+   * The row version this reviewer started from, frozen per profile.
+   *
+   * Same reason as `ProfileReviewClient`: the query is live, so reading
+   * `updatedAt` at click time always matches the stored row and the guard
+   * never fires. Keyed by id because review mode walks a queue and each
+   * profile needs its own baseline.
+   */
+  const seenRef = useRef<{ id: string; updatedAt: number } | null>(null);
+  const seenUpdatedAt =
+    seenRef.current && currentId && seenRef.current.id === currentId
+      ? seenRef.current.updatedAt
+      : profile?.updatedAt;
 
   useEffect(() => {
     // Profile already handled elsewhere mid-session (e.g. reviewed on
@@ -78,6 +109,7 @@ export function ReviewMode({
   function advance() {
     setForm(null);
     setError(false);
+    setRefusal(null);
     if (index + 1 >= total) {
       onExit();
     } else {
@@ -96,10 +128,16 @@ export function ReviewMode({
     if (!currentId || !form || !profile) return;
     setBusy(true);
     setError(false);
+    setRefusal(null);
     const dirty = JSON.stringify(form) !== JSON.stringify(toFormState(profile));
     try {
       await verifyProfile({
         profileId: currentId,
+        // The frozen version this reviewer started from (spec 0014, AC-7).
+        // Review mode moves fast through a queue, so it is exactly where a
+        // reviewer is most likely to be holding a version the owner has since
+        // edited.
+        seenUpdatedAt: seenUpdatedAt ?? profile.updatedAt,
         edits: dirty
           ? {
               firstName: form.firstName,
@@ -117,10 +155,23 @@ export function ReviewMode({
       });
       advance();
     } catch (err) {
-      // A rejected mutation in an event handler never reaches a React error
-      // boundary — reported directly from the catch that already exists here.
-      Sentry.captureException(err);
-      setError(true);
+      const code = profileLifecycleErrorCode(err);
+      if (code) {
+        // A rule the server applied on purpose. The reactive query means the
+        // screen is already showing the new state by the time the reviewer
+        // reads this, so it stays on this profile rather than advancing.
+        setRefusal(
+          profileLifecycleErrorMessage(
+            err,
+            profileStaleCause(profile.sentBackAt, seenUpdatedAt ?? profile.updatedAt),
+          ),
+        );
+      } else {
+        // A rejected mutation in an event handler never reaches a React error
+        // boundary — reported directly from the catch that already exists here.
+        Sentry.captureException(err);
+        setError(true);
+      }
     } finally {
       setBusy(false);
     }
@@ -149,14 +200,40 @@ export function ReviewMode({
                     {index + 1} of {total}
                   </p>
                 </div>
+                {profile.isResubmission && (
+                  <Badge variant="neutral" className="ml-auto">
+                    <Undo2 className="mr-1 size-3" aria-hidden="true" />
+                    Resubmitted
+                  </Badge>
+                )}
                 {!profile.mentorshipProofUrl && (
-                  <Badge variant="pending" className="ml-auto">
+                  <Badge
+                    variant="pending"
+                    className={profile.isResubmission ? undefined : "ml-auto"}
+                  >
                     <PhoneCall className="mr-1 size-3" aria-hidden="true" />
                     Needs follow-up call
                   </Badge>
                 )}
               </CardHeader>
             </Card>
+            {/* What was asked for last time (AC-5), in review mode too: a
+                reviewer deciding fast is the one most likely to re-send the
+                same note they already sent. */}
+            {profile.sentBackReason && (
+              <Card className="gap-2 border-primary/40 bg-primary-light p-5">
+                <CardHeader className="p-0">
+                  <CardTitle className="font-body text-sm font-semibold text-primary">
+                    What you asked for last time
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <p className="font-body text-base text-on-surface">
+                    {profile.sentBackReason}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
             <ProfileDetails profile={profile} />
           </div>
 
@@ -272,6 +349,14 @@ export function ReviewMode({
                   </Field>
                 </div>
 
+                {refusal && (
+                  <p
+                    role="status"
+                    className="rounded-md bg-warning-light p-3 font-body text-sm text-on-surface"
+                  >
+                    {refusal}
+                  </p>
+                )}
                 {error && <ErrorState cause="generic" retry={handleApprove} />}
               </CardContent>
               <CardFooter className="flex flex-col gap-3 p-0 pt-2">

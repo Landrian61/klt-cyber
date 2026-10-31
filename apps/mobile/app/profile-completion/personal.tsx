@@ -54,6 +54,14 @@ export default function PersonalStep() {
     !!draft.maritalStatus &&
     !addressPartial;
 
+  // The one deliberate read of the raw `users.profilePictureUrl` left in any
+  // client (spec 0014, AC-14). Everywhere else that field is replaced by a
+  // server-resolved `photoUrl`, because a resolved R2 URL expires and must not
+  // be stored. Here the value is not being RENDERED as this person's avatar —
+  // it is being offered for them to COPY into their profile, so it has to be
+  // the durable account URL rather than a display URL that dies in a week.
+  // The invariant makes that safe: `users.profilePictureUrl` never holds an R2
+  // key, only an absolute URL from social sign in.
   const accountPhoto = user?.profilePictureUrl;
   const usingAccountPhoto = draft.photoFromAccount && !!draft.photoValue;
 

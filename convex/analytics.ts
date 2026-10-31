@@ -54,12 +54,25 @@ export const getPlatformAnalytics = query({
       (user) => user.deletedAt === undefined
     );
 
-    const pendingVerification = await ctx.db
-      .query("memberProfiles")
-      .withIndex("by_profileStatus", (q) =>
-        q.eq("profileStatus", "pending_verification")
-      )
-      .collect();
+    // Both unverified states (spec 0014, AC-31). Two index reads rather than
+    // one, because `by_profileStatus` takes a single value: cheaper than
+    // collecting the whole table, and it keeps the split available so the
+    // analytics page can say how much is waiting on a reviewer and how much
+    // is waiting on its owner.
+    const [awaitingReview, sentBack] = await Promise.all([
+      ctx.db
+        .query("memberProfiles")
+        .withIndex("by_profileStatus", (q) =>
+          q.eq("profileStatus", "pending_verification")
+        )
+        .collect(),
+      ctx.db
+        .query("memberProfiles")
+        .withIndex("by_profileStatus", (q) =>
+          q.eq("profileStatus", "sent_back")
+        )
+        .collect(),
+    ]);
 
     // Unranged on purpose, and the one unranged activityLogs read in this
     // feature: the figure is "to date", and it is bounded by how many people
@@ -74,7 +87,8 @@ export const getPlatformAnalytics = query({
       totalAccounts: users.length,
       visitors: users.filter((user) => user.role === "visitor").length,
       verifiedMembers: users.filter((user) => user.role === "member").length,
-      pendingVerification: pendingVerification.length,
+      pendingVerification: awaitingReview.length + sentBack.length,
+      sentBackVerification: sentBack.length,
       signupsLast7Days: users.filter(
         (user) => user._creationTime >= sevenDaysAgo
       ).length,

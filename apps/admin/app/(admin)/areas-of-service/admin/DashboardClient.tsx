@@ -57,6 +57,8 @@ import {
   leadershipCompletionRate,
   mentorshipCompletionRate,
   matchesDashboardFilters,
+  isNotYetVerified,
+  NOT_YET_VERIFIED_LABEL,
 } from "./demographicsUtils";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -483,13 +485,26 @@ export function AdminDashboardClient() {
               }
             />
             <StatCard
-              label="Pending"
+              label={NOT_YET_VERIFIED_LABEL}
               value={
                 filteredAnalytics === undefined
                   ? "—"
-                  : filteredAnalytics.filter(
-                      (p) => p.profileStatus === "pending_verification",
-                    ).length
+                  : filteredAnalytics.filter(isNotYetVerified).length
+              }
+              // Both unverified states, counted together (spec 0014, AC-31).
+              // Counting only `pending_verification` would drop everybody a
+              // reviewer had handed back out of Administration's own figure.
+              hint={
+                filteredAnalytics === undefined
+                  ? undefined
+                  : (() => {
+                      const sentBack = filteredAnalytics.filter(
+                        (p) => p.profileStatus === "sent_back",
+                      ).length;
+                      return sentBack === 0
+                        ? undefined
+                        : `${sentBack} sent back, waiting on their owner`;
+                    })()
               }
             />
             <StatCard

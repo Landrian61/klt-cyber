@@ -23,6 +23,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { authComponent, createAuth } from "./auth";
 import { getCurrentUser, isActiveSystemAdmin, logActivity } from "./lib/authz";
 import { reportError } from "./lib/sentry";
+import { toR2Key } from "./lib/media";
 import { endRoleAssignment } from "./lib/roleNotices";
 
 // Account deletion (SRS F1-06, spec 0008).
@@ -115,21 +116,6 @@ function normalizeEmail(email: string): string {
  */
 function anonymizedEmail(userId: Id<"users">): string {
   return `deleted-${userId}@deleted.invalid`;
-}
-
-/**
- * The R2 object key behind a stored media value, or null when there is none.
- *
- * Uploaded files are stored as object KEYS, not URLs (convex/uploads.ts,
- * spec/STORAGE.md), but the same fields can also hold an absolute URL for
- * media we do not own: a Google avatar from social sign in, a seeded Unsplash
- * cover. Those are not ours to delete, and trying would fail, so an absolute
- * URL resolves to null and only real keys reach the bucket.
- */
-function toR2Key(value?: string): string | null {
-  if (!value) return null;
-  if (/^https?:\/\//i.test(value)) return null;
-  return value;
 }
 
 /**

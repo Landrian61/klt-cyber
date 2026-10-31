@@ -10,7 +10,10 @@ export interface ActivityUser {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
-  profilePictureUrl?: string | null;
+  /** One already-resolved photo from the server (spec 0014, AC-14): the
+   * profile's own upload where there is one, else the account picture. The
+   * raw `users.profilePictureUrl` is no longer sent to any client. */
+  photoUrl?: string | null;
   role: "visitor" | "member";
 }
 

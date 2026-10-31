@@ -1,6 +1,6 @@
-import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useState, type ReactNode } from 'react';
 import {
-  View, Text, StyleSheet, ActivityIndicator, Pressable,
+  View, Text, StyleSheet, ActivityIndicator, Pressable, Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,15 +13,24 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
 
 import {
+  CLAN_UNASSIGNED_COPY,
+  MENTORSHIP_STATUS_LABEL,
+  PROFILE_LIFECYCLE_COPY,
+  profileLifecycleErrorMessage,
+} from '@klt-cyber/shared';
+
+import {
   FontFamily, Spacing, Radius, GoldGradient, HeavenGradient, ShadowE1, ShadowE2,
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { authClient } from '@/lib/auth';
-import { api } from '@/lib/api';
+import { api, type Id } from '@/lib/api';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getDisplayName, getInitials } from '@/lib/user-display';
 import { NotificationPermissionRow } from '@/components/notification-permission-row';
+import { MyAreasOfService } from '@/components/my-areas-of-service';
+import { SelectList } from '@/components/ui/select-list';
 
 const SEX_LABEL: Record<string, string> = { male: 'Male', female: 'Female' };
 const MARITAL_LABEL: Record<string, string> = {
@@ -101,12 +110,54 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { user, profile, isMember, isVisitor, isPending, isLoading } = useMyAccount();
+  const { account, user, profile, isMember, isVisitor, isPending, isSentBack, isLoading } =
+    useMyAccount();
+  const photoUrl = account?.photoUrl ?? undefined;
   const myProfile = useQuery(api.profile.getMyProfile);
   const clans = useQuery(api.clans.listClans);
   const reduceMotion = useReducedMotion();
 
   const unregisterPushToken = useMutation(api.notifications.unregisterMyPushNotificationToken);
+  const setDirectorySharing = useMutation(api.profile.setDirectorySharing);
+  const changeMyClan = useMutation(api.profile.changeMyClan);
+  const [clanPickerOpen, setClanPickerOpen] = useState(false);
+  const [clanBusy, setClanBusy] = useState(false);
+  const [clanError, setClanError] = useState<string | null>(null);
+
+  const onClanSelect = async (nextClanId: string | undefined) => {
+    setClanBusy(true);
+    setClanError(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      // `changeMyClan` is the ONE writer of `clanId` (spec 0014), which is why
+      // this does not go through the general profile save: both elders have to
+      // be told, and a general field save knows nothing about them.
+      await changeMyClan(
+        nextClanId ? { clanId: nextClanId as Id<'clans'> } : {},
+      );
+      setClanPickerOpen(false);
+    } catch (err) {
+      setClanError(profileLifecycleErrorMessage(err));
+    } finally {
+      setClanBusy(false);
+    }
+  };
+  const [sharingBusy, setSharingBusy] = useState(false);
+
+  const onSharingChange = async (next: boolean) => {
+    // Optimistic feels wrong for a disclosure choice: the switch waits for the
+    // server, so what it shows is always what is actually stored.
+    setSharingBusy(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await setDirectorySharing({ directorySharing: next });
+    } catch {
+      // The reactive query still holds the stored value, so the switch springs
+      // back on its own and nothing needs undoing here.
+    } finally {
+      setSharingBusy(false);
+    }
+  };
 
   const signOut = async () => {
     // Best-effort — a failed unregister shouldn't block sign-out. Without
@@ -133,11 +184,16 @@ export default function ProfileScreen() {
 
   const displayName = getDisplayName(user) || 'Welcome';
   const initials = getInitials(user);
+  // Four states, not three (spec 0014, AC-31): a sent-back person is neither
+  // "PENDING REVIEW" (nothing is with a reviewer) nor a plain "VISITOR" (they
+  // have submitted twice over), so they get their own pill.
   const rolePill: { label: string; tone: 'gold' | 'light' } = isMember
     ? { label: 'MEMBER', tone: 'gold' }
     : isPending
       ? { label: 'PENDING REVIEW', tone: 'gold' }
-      : { label: 'VISITOR', tone: 'light' };
+      : isSentBack
+        ? { label: 'NEEDS A CHANGE', tone: 'gold' }
+        : { label: 'VISITOR', tone: 'light' };
 
   const clanName = clans?.find((c) => c._id === profile?.clanId)?.name;
   const hasProfession =
@@ -196,8 +252,13 @@ export default function ProfileScreen() {
 
           <View style={styles.heroCenter}>
             <View style={styles.avatarWrap}>
-              {user?.profilePictureUrl ? (
-                <Image source={{ uri: user.profilePictureUrl }} style={styles.avatar} contentFit="cover" />
+              {/* The server's one resolved photo (spec 0014, AC-14): this
+                  person's own uploaded profile photo where there is one, and
+                  the account picture only as the fallback. It used to render
+                  `users.profilePictureUrl` directly, so somebody who uploaded
+                  a photo in the wizard never saw it on their own profile. */}
+              {photoUrl ? (
+                <Image source={{ uri: photoUrl }} style={styles.avatar} contentFit="cover" />
               ) : (
                 <LinearGradient
                   colors={[...GoldGradient.colors]}
@@ -243,7 +304,7 @@ export default function ProfileScreen() {
 
         <View style={styles.body}>
           {/* Visitor: prompt to complete profile */}
-          {isVisitor && !isPending && (
+          {isVisitor && !isPending && !isSentBack && (
             <View style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}>
               <Text style={[styles.cardLabel, { color: Colors.primary }]}>MEMBER PROFILE</Text>
               <Text style={[styles.bodyText, { color: Colors.onSurfaceVariant }]}>
@@ -266,10 +327,36 @@ export default function ProfileScreen() {
             <View style={[styles.pendingBanner, { backgroundColor: Colors.blueTint }]}>
               <Ionicons name="hourglass-outline" size={20} color={Colors.tertiaryDeep} />
               <Text style={[styles.pendingText, { color: Colors.tertiaryDeep }]}>
-                Your profile is under review. Here&apos;s everything you submitted — a church admin
-                will verify it, and you&apos;ll gain full member access once it&apos;s approved.
+                {PROFILE_LIFECYCLE_COPY.pending.body}
               </Text>
             </View>
+          )}
+
+          {/* Sent back: the reviewer's own words, then the way to act on them */}
+          {isSentBack && (
+            <Pressable
+              onPress={() => router.push('/profile-completion' as any)}
+              style={[styles.pendingBanner, { backgroundColor: Colors.primaryLight }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open your submission and make the change asked for"
+            >
+              <Ionicons name="create-outline" size={20} color={Colors.primary} />
+              <View style={styles.sentBackText}>
+                <Text style={[styles.pendingText, { color: Colors.primary }]}>
+                  {PROFILE_LIFECYCLE_COPY.sentBack.body}
+                </Text>
+                {/* The reviewer's own words, rendered as given rather than
+                    rephrased — it is a quotation, not our copy. */}
+                {profile?.sentBackReason ? (
+                  <Text style={[styles.sentBackReason, { color: Colors.onSurface }]}>
+                    {profile.sentBackReason}
+                  </Text>
+                ) : null}
+                <Text style={[styles.pendingText, { color: Colors.primary }]}>
+                  {PROFILE_LIFECYCLE_COPY.sentBack.footer}
+                </Text>
+              </View>
+            </Pressable>
           )}
 
           {/* Read-only preview — shown to pending and verified members alike */}
@@ -308,9 +395,92 @@ export default function ProfileScreen() {
               )}
 
               <DetailCard title="CLAN" delay={160}>
-                <DetailRow label="Clan" value={clanName ?? 'Not set'} muted={!clanName} />
-                <DetailRow label="Mentorship" value="Completed" />
+                {/* A verified member with no clan is waiting on Hospitality,
+                    not on themselves, so "Not set" would read as a field they
+                    forgot to fill in (spec 0014, AC-24). */}
+                <DetailRow
+                  label="Clan"
+                  value={clanName ?? (isMember ? CLAN_UNASSIGNED_COPY : 'Not set')}
+                  muted={!clanName}
+                />
+                {/* The real stored value. This read a hardcoded "Completed"
+                    for everybody, whatever they had actually entered
+                    (spec 0014, AC-28). */}
+                <DetailRow
+                  label="Mentorship"
+                  value={
+                    MENTORSHIP_STATUS_LABEL[profile.mentorshipStatus] ??
+                    profile.mentorshipStatus
+                  }
+                />
               </DetailCard>
+
+              {/* A verified member changes their own clan whenever they like
+                  (F2-08). The churn that allows is deliberate: both elders are
+                  told, which is the mitigation rather than a prevention. */}
+              {isMember && (
+                <View
+                  style={[
+                    styles.card,
+                    ShadowE1,
+                    { backgroundColor: Colors.surfaceLowest },
+                  ]}
+                >
+                  <Text style={[styles.cardLabel, { color: Colors.primary }]}>
+                    CHANGE YOUR CLAN
+                  </Text>
+                  {clanPickerOpen ? (
+                    <View style={styles.clanPicker}>
+                      <SelectList
+                        options={(clans ?? []).map((c) => ({
+                          id: c._id,
+                          label: c.name,
+                        }))}
+                        selectedId={profile.clanId}
+                        onSelect={onClanSelect}
+                        emptyText="Clans aren't available right now."
+                      />
+                      <Button
+                        label="Done"
+                        variant="textLink"
+                        disabled={clanBusy}
+                        onPress={() => setClanPickerOpen(false)}
+                      />
+                    </View>
+                  ) : (
+                    <>
+                      <Text
+                        style={[styles.bodyText, { color: Colors.onSurfaceVariant }]}
+                      >
+                        Your clan elder is told when you join, and your old one
+                        is told when you leave.
+                      </Text>
+                      <View style={styles.cta}>
+                        <Button
+                          label={clanName ? 'Change my clan' : 'Choose my clan'}
+                          variant="ghost"
+                          fullWidth
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setClanError(null);
+                            setClanPickerOpen(true);
+                          }}
+                        />
+                      </View>
+                    </>
+                  )}
+                  {clanError ? (
+                    <Text style={[styles.clanError, { color: Colors.secondary }]}>
+                      {clanError}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+
+              {/* Areas of Service, with its own add, withdraw and leave
+                  (F2-07). Member only: a request to serve is only actionable
+                  once the person asking has been verified. */}
+              {isMember && <MyAreasOfService />}
 
               {leadership.length > 0 && (
                 <DetailCard title="LEADERSHIP" delay={200}>
@@ -342,6 +512,44 @@ export default function ProfileScreen() {
             <Text style={[styles.cardLabel, { color: Colors.primary }]}>NOTIFICATIONS</Text>
             <NotificationPermissionRow />
           </Animated.View>
+
+          {/* The member-facing directory toggle (spec 0014, AC-17). It has to
+              live here as well as on the portal Settings page, because the
+              portal is for role holders: a plain member can only reach this
+              choice on their phone. Saves on the switch, not behind a button
+              — it is one decision, not a form. */}
+          {isMember && profile && (
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(320)}
+              style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}
+            >
+              <Text style={[styles.cardLabel, { color: Colors.primary }]}>
+                MEMBER DIRECTORY
+              </Text>
+              <View style={styles.sharingRow}>
+                <View style={styles.sharingText}>
+                  <Text style={[styles.sharingTitle, { color: Colors.onSurface }]}>
+                    Let other members find me
+                  </Text>
+                  <Text style={[styles.sharingBody, { color: Colors.onSurfaceVariant }]}>
+                    Your name, photo and areas of service show in the church
+                    directory. Your phone number, address and family details
+                    never do.
+                  </Text>
+                </View>
+                <Switch
+                  value={profile.directorySharing === true}
+                  disabled={sharingBusy}
+                  onValueChange={onSharingChange}
+                  trackColor={{ false: Colors.surfaceHigh, true: Colors.primaryFixedDim }}
+                  thumbColor={
+                    profile.directorySharing === true ? Colors.primary : Colors.outline
+                  }
+                  accessibilityLabel="Let other members find me in the directory"
+                />
+              </View>
+            </Animated.View>
+          )}
 
           {/* Actions */}
           <View style={styles.actions}>
@@ -512,7 +720,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
+  sentBackText: {
+    flex: 1,
+    gap: Spacing[2],
+  },
+  sentBackReason: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: 14,
+    lineHeight: 22,
+  },
   actions: {
     marginTop: Spacing[2],
+  },
+  sharingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[4],
+    marginTop: Spacing[2],
+  },
+  sharingText: { flex: 1 },
+  clanPicker: { gap: Spacing[2] },
+  clanError: {
+    fontFamily: FontFamily.body,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: Spacing[3],
+  },
+  sharingTitle: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  sharingBody: {
+    fontFamily: FontFamily.body,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 2,
   },
 });

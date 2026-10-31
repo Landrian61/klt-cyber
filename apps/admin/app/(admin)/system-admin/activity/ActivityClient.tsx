@@ -98,7 +98,7 @@ export function ActivityClient() {
           <Avatar
             name={nameOf(row.actor)}
             email={row.actor?.email}
-            src={row.actor?.profilePictureUrl}
+            src={row.actor?.photoUrl ?? undefined}
             size="sm"
           />
           <span className="whitespace-nowrap">{displayName(row.actor)}</span>
