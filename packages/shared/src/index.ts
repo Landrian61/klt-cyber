@@ -7,6 +7,7 @@ export * from './constants/groupContent';
 export * from './constants/costRegister';
 export * from './constants/departmentShell';
 export * from './constants/notifications';
+export * from './constants/profileLifecycle';
 export * from './enums/user';
 export * from './enums/roles';
 export * from './enums/departments';

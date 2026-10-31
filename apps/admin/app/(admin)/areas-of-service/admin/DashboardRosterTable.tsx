@@ -14,6 +14,11 @@ import {
 } from "@/components/shadcn/card";
 import { Badge } from "@/components/shadcn/badge";
 import { Button } from "@/components/shadcn/button";
+import {
+  isNotYetVerified,
+  NOT_YET_VERIFIED_LABEL,
+  VERIFIED_LABEL,
+} from "./demographicsUtils";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
@@ -44,7 +49,8 @@ export type RosterProfile = {
   firstName: string;
   middleName?: string;
   lastName: string;
-  profileStatus: "pending_verification" | "verified";
+  // Three values since spec 0014, AC-31 — see `AnalyticsProfile`.
+  profileStatus: "pending_verification" | "sent_back" | "verified";
   sex: Sex;
   maritalStatus: MaritalStatus;
   clanId?: Id<"clans">;
@@ -114,7 +120,12 @@ export function DashboardRosterTable({
         case "clan":
           return entry.clanId ? clanNameById.get(entry.clanId) ?? "" : "";
         case "status":
-          return entry.profileStatus;
+          // The displayed label, not the raw status: the column shows two
+          // values while `profileStatus` now holds three (spec 0014), and a
+          // column should sort by what the reader can see in it.
+          return isNotYetVerified(entry)
+            ? NOT_YET_VERIFIED_LABEL
+            : VERIFIED_LABEL;
       }
     };
     return [...filtered].sort((a, b) => withKey(a).localeCompare(withKey(b)) * dir);
@@ -161,7 +172,7 @@ export function DashboardRosterTable({
         p.maritalStatus,
         p.clanId ? clanNameById.get(p.clanId) ?? "" : "",
         p.departmentIds.map((id) => departmentNameById.get(id) ?? "").join("; "),
-        p.profileStatus === "verified" ? "Verified" : "Pending",
+        isNotYetVerified(p) ? NOT_YET_VERIFIED_LABEL : VERIFIED_LABEL,
         p.mentorshipStatus,
         LEADERSHIP_STAGE_LABEL[p.leadershipStage] ?? p.leadershipStage,
       ]),
@@ -222,8 +233,8 @@ export function DashboardRosterTable({
       header: "Verification",
       sortable: true,
       render: (p) => (
-        <Badge variant={p.profileStatus === "verified" ? "verified" : "pending"}>
-          {p.profileStatus === "verified" ? "Verified" : "Pending"}
+        <Badge variant={isNotYetVerified(p) ? "pending" : "verified"}>
+          {isNotYetVerified(p) ? NOT_YET_VERIFIED_LABEL : VERIFIED_LABEL}
         </Badge>
       ),
     },

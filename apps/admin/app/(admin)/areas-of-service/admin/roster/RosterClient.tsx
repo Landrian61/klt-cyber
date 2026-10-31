@@ -257,14 +257,14 @@ export function RosterClient() {
     {
       key: "name",
       header: "Name",
-      render: ({ profile, user, membership }) => {
+      render: ({ profile, photoUrl, membership }) => {
         const name = profile ? fullName(profile) : "Unknown member";
         const selfAdded = membership.addedBy === membership.userId;
         return (
           <div className="flex items-center gap-2.5">
             <Avatar
               name={name}
-              src={profile?.photoUrl ?? user?.profilePictureUrl}
+              src={photoUrl ?? undefined}
               size="md"
             />
             <div className="flex items-center gap-2">
@@ -424,7 +424,7 @@ export function RosterClient() {
                 >
                   <Avatar
                     name={fullName(entry.profile)}
-                    src={entry.profilePictureUrl ?? undefined}
+                    src={entry.photoUrl ?? undefined}
                     size="sm"
                   />
                   {fullName(entry.profile)}

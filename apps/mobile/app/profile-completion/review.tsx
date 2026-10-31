@@ -1,5 +1,5 @@
 import { useMemo, useState, Children, cloneElement, isValidElement, type ReactNode } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation } from 'convex/react';
 import { Ionicons } from '@expo/vector-icons';
@@ -145,6 +145,11 @@ function buildSubmitArgs(draft: WizardDraft) {
     ...(draft.employer.trim() ? { employer: draft.employer.trim() } : {}),
     ...(draft.skills.length ? { skills: draft.skills } : {}),
 
+    // Always sent, never conditional: `false` is a real answer ("do not list
+    // me"), and omitting it would make an explicit no indistinguishable from
+    // never having been asked.
+    directorySharing: draft.directorySharing,
+
     // Arrays — only complete rows
     children: draft.children
       .filter((c) => c.name.trim() && c.sex)
@@ -162,6 +167,55 @@ function buildSubmitArgs(draft: WizardDraft) {
       level,
       status: draft.leadership[level] as 'enrolled' | 'completed',
     })),
+  };
+}
+
+/**
+ * The same arguments plus the stored row ids, for `resubmitProfile`.
+ *
+ * The ids are the only difference, and they are the whole point: carrying them
+ * lets the server PATCH a row the person edited instead of deleting and
+ * recreating it, so an id stays stable across a resubmission (spec 0014,
+ * AC-13). Built on top of `buildSubmitArgs` rather than beside it, so the two
+ * payloads cannot drift as fields are added.
+ */
+function buildResubmitArgs(draft: WizardDraft) {
+  const base = buildSubmitArgs(draft);
+  return {
+    ...base,
+    // Built from the DRAFT ROWS, each carrying its own `_id`, never matched
+    // back by name. Matching by name lost data two ways: two children called
+    // the same thing collapsed onto one id, so the server patched that row
+    // twice and deleted the other child; and correcting a typo in a name found
+    // no id, so the row was deleted and re-inserted with a fresh `_id`,
+    // defeating the whole point of sending ids (AC-13).
+    children: draft.children
+      .filter((c) => c.name.trim() && c.sex)
+      .map((c) => ({
+        name: c.name.trim(),
+        sex: c.sex!,
+        ...(isoToMs(c.dobISO) !== undefined
+          ? { dateOfBirth: isoToMs(c.dobISO) }
+          : {}),
+        ...(c._id ? { _id: c._id } : {}),
+      })),
+    leadershipEntries: base.leadershipEntries.map((entry) => {
+      const id = draft.leadershipIds[entry.level];
+      return id ? { ...entry, _id: id } : entry;
+    }),
+    // Always sent, even when empty: `undefined` means "this section was not
+    // sent" to the reconcile, where `[]` means "I want none of these". A
+    // person removing their last area of service has to be able to say so.
+    departmentIds: draft.departmentIds,
+    // Same reasoning for the media fields. `buildSubmitArgs` omits them when
+    // empty, which is right for a FIRST submission (there is nothing to
+    // remove) and wrong for a resubmission: omitting them would silently keep
+    // the old photo for somebody who had just deleted it, and would leave the
+    // replaced object orphaned in the bucket.
+    // The wizard carries no mentorship certificate of its own, so that field
+    // is deliberately NOT sent here: sending it as `undefined` would read as
+    // "clear it" and would wipe a certificate a reviewer had attached.
+    photoUrl: draft.photoValue,
   };
 }
 
@@ -254,9 +308,10 @@ export default function ReviewStep() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
-  const { draft } = useWizardDraft();
+  const { draft, seeded, isResubmission } = useWizardDraft();
 
   const submitProfile = useMutation(api.memberProfiles.submitProfile);
+  const resubmitProfile = useMutation(api.memberProfiles.resubmitProfile);
   const clans = useQuery(api.clans.listClans);
   const departments = useQuery(api.departments.listDepartments);
 
@@ -272,7 +327,15 @@ export default function ReviewStep() {
     !!draft.maritalStatus &&
     !!draft.mentorshipStatus;
 
-  const args = useMemo(() => (ready ? buildSubmitArgs(draft) : null), [draft, ready]);
+  const args = useMemo(
+    () =>
+      ready
+        ? isResubmission
+          ? buildResubmitArgs(draft)
+          : buildSubmitArgs(draft)
+        : null,
+    [draft, ready, isResubmission],
+  );
 
   const clanName = clans?.find((c) => c._id === draft.clanId)?.name;
   const departmentNames = (departments ?? []).filter((d) => draft.departmentIds.includes(d._id));
@@ -282,7 +345,14 @@ export default function ReviewStep() {
     setError(false);
     setSubmitting(true);
     try {
-      await submitProfile(args);
+      if (isResubmission) {
+        // Same form, same payload shape, different mutation: this profile
+        // already exists, so it is edited and (if it had been sent back) put
+        // back in the queue rather than created.
+        await resubmitProfile(args as ReturnType<typeof buildResubmitArgs>);
+      } else {
+        await submitProfile(args);
+      }
       // The pending screen reads getMyProfileStatus, now pending_verification.
       router.replace('/profile-completion/pending');
     } catch (err) {
@@ -293,6 +363,17 @@ export default function ReviewStep() {
       setError(true);
     }
   };
+
+  // Wait for the seed before judging the form incomplete: a profile that is
+  // about to arrive would otherwise flash "a few details are missing" at
+  // somebody whose details are all on file.
+  if (!seeded) {
+    return (
+      <View style={[styles.guard, { backgroundColor: Colors.surface }]}>
+        <ActivityIndicator size="small" color={Colors.primary} />
+      </View>
+    );
+  }
 
   if (!ready) {
     return (
@@ -331,8 +412,9 @@ export default function ReviewStep() {
         <Animated.View entering={reduceMotion ? undefined : FadeInDown.duration(360)}>
           <Text style={[styles.title, { color: Colors.onSurface }]}>Your profile</Text>
           <Text style={[styles.subtitle, { color: Colors.onSurfaceVariant }]}>
-            A preview of what the church family will see. Tap Edit on any section to change it, then
-            submit for verification.
+            {isResubmission
+              ? 'Everything you had is still here. Tap Edit on any section to change it, then send it for review again.'
+              : 'A preview of what the church family will see. Tap Edit on any section to change it, then submit for verification.'}
           </Text>
         </Animated.View>
 

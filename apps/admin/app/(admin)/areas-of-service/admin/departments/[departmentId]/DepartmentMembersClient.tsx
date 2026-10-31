@@ -128,11 +128,11 @@ export function DepartmentMembersClient({
     {
       key: "name",
       header: "Name",
-      render: ({ profile, user }) => (
+      render: ({ profile, photoUrl }) => (
         <div className="flex items-center gap-2.5">
           <Avatar
             name={fullName(profile)}
-            src={profile.photoUrl ?? user?.profilePictureUrl}
+            src={photoUrl ?? undefined}
             size="md"
           />
           <span className="font-medium text-on-surface">

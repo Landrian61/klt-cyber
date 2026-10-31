@@ -15,6 +15,7 @@ import type { EmailTemplate } from "@klt-cyber/shared";
 import {
   accountDeletionExpiryLabel,
   passwordResetExpiryLabel,
+  REVIEWER_NAME,
 } from "@klt-cyber/shared";
 import {
   CHURCH_NAME,
@@ -106,7 +107,7 @@ function profileVerified(data: ProfileVerifiedData): RenderedEmail {
     heading: "Your profile has been verified",
     paragraphs: [
       greeting(data.firstName),
-      "Good news: the Administration team has reviewed and verified your member profile.",
+      `Good news: ${REVIEWER_NAME} has reviewed and verified your member profile.`,
       "You can see the full details, and anything still in progress, in the app under My Profile.",
     ],
   });
@@ -120,7 +121,7 @@ function profileSentBack(data: ProfileSentBackData): RenderedEmail {
     heading: "Your profile needs a few changes",
     paragraphs: [
       greeting(data.firstName),
-      "The Administration team looked at your member profile and would like a few things adjusted before verifying it. Here is what they wrote:",
+      `${REVIEWER_NAME} looked at your member profile and would like a few things adjusted before verifying it. Here is what they wrote:`,
     ],
     quote: data.reason,
     footnote:

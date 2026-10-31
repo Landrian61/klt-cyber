@@ -161,8 +161,15 @@ export function DashboardClient() {
                 <AttentionCard
                   href="/system-admin/users"
                   count={stats.pendingVerifications}
-                  label="Pending verifications"
-                  caption="Member profiles awaiting review"
+                  label="Profiles not yet verified"
+                  caption={
+                    // The count covers both unverified states (spec 0014,
+                    // AC-31), so the caption says so rather than claiming
+                    // every one of them is sitting with a reviewer.
+                    stats.sentBackVerifications > 0
+                      ? `Awaiting review, including ${stats.sentBackVerifications} sent back to their owner`
+                      : "Member profiles awaiting review"
+                  }
                   cardClass="bg-warning-light"
                   countClass="text-warning"
                 />
@@ -195,7 +202,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
       <Avatar
         name={displayName(entry.actor)}
         email={entry.actor?.email}
-        src={entry.actor?.profilePictureUrl}
+        src={entry.actor?.photoUrl ?? undefined}
         size="sm"
       />
       <span className="min-w-0 flex-1 truncate font-body text-sm text-on-surface">

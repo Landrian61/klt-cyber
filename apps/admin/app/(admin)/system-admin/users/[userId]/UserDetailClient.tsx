@@ -91,7 +91,7 @@ function HeaderCard({ detail }: { detail: UserDetail }) {
         size="xl"
         name={name}
         email={user.email}
-        src={user.profilePictureUrl}
+        src={user.photoUrl ?? undefined}
       />
       <div className="min-w-0 flex-1 space-y-2">
         <Heading as="h1" size="xl">
@@ -146,9 +146,13 @@ function BioCard({ detail }: { detail: UserDetail }) {
                   profile.profileStatus === "verified" ? "verified" : "pending"
                 }
               >
+                {/* One label for both unverified states (spec 0014, AC-31):
+                    "Pending verification" would be false for a profile a
+                    reviewer has handed back, which is waiting on its owner
+                    rather than on Administration. */}
                 {profile.profileStatus === "verified"
                   ? "Verified"
-                  : "Pending verification"}
+                  : "Not yet verified"}
               </Badge>
             }
           />

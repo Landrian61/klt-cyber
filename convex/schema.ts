@@ -189,14 +189,39 @@ export default defineSchema({
     employer: v.optional(v.string()),
     skills: v.optional(v.array(v.string())),
 
-    // Verification. No "rejected" status — admin edits fields in place and
-    // moves straight to verified rather than bouncing the submission back.
+    // Verification — a three-state machine (spec 0014, AC-1):
+    //
+    //   pending_verification  waiting on an Administration reviewer
+    //   sent_back             handed back to its owner with a written reason
+    //   verified              reviewed and accepted; terminal
+    //
+    // There is no "rejected" status: `sent_back` is a request for changes, not
+    // a refusal, and the person edits and resubmits through `resubmitProfile`.
+    // A resubmission is DERIVED, never stored: `pending_verification` with
+    // `sentBackAt` set means the row has been round the loop at least once.
+    // Nothing demotes a `verified` row.
     profileStatus: v.union(
       v.literal("pending_verification"),
+      v.literal("sent_back"),
       v.literal("verified")
     ),
     verifiedBy: v.optional(v.id("users")),
     verifiedAt: v.optional(v.number()),
+    // The latest send-back round only, deliberately surviving resubmission so
+    // a reviewer can see what they asked for last time (A2-03). `sentBackBy`
+    // is audit detail shown to reviewers, never to the member — members read
+    // REVIEWER_NAME ("the Administration team") instead, per A2-05.
+    sentBackReason: v.optional(v.string()),
+    sentBackBy: v.optional(v.id("users")),
+    sentBackAt: v.optional(v.number()),
+
+    // Whether this member agrees to appear in the member directory (F2-13,
+    // spec 0014 AC-17). ABSENT READS AS PRIVATE, deliberately: a default of
+    // "shared" would disclose everybody who submitted before the question
+    // existed, so nothing is disclosed by a missing value. Written only by
+    // `profile.setDirectorySharing` and by the wizard's last step. Nothing
+    // reads it yet — feature 13 builds the directory.
+    directorySharing: v.optional(v.boolean()),
 
     createdAt: v.number(),
     updatedAt: v.number(),

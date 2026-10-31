@@ -13,7 +13,12 @@ export type DemographicProfile = {
 // of DemographicProfile so the age/marital/clan bucketers above accept it
 // unchanged.
 export type AnalyticsProfile = DemographicProfile & {
-  profileStatus: "pending_verification" | "verified";
+  // Three values since spec 0014, AC-31. `sent_back` is an UNVERIFIED state:
+  // anything here that buckets or filters must treat it alongside
+  // `pending_verification`, or sent-back people vanish from a chart without
+  // anybody noticing. Use `isNotYetVerified` below rather than comparing to
+  // `pending_verification`.
+  profileStatus: "pending_verification" | "sent_back" | "verified";
   _creationTime: number;
   verifiedAt?: number;
   mentorshipStatus: "not_enrolled" | "enrolled" | "completed";
@@ -25,6 +30,26 @@ export type AnalyticsProfile = DemographicProfile & {
     | "completed";
   departmentIds: Id<"departments">[];
 };
+
+/**
+ * True for any profile that has not been verified — `pending_verification`
+ * and `sent_back` alike (spec 0014, AC-31).
+ *
+ * Every portal bucket, label and count that used to read
+ * `=== "pending_verification"` goes through this instead. The point is not
+ * tidiness: a direct comparison against one unverified value drops sent-back
+ * people out of charts, filters and Administration's own figures silently,
+ * with no error anywhere to say it happened.
+ */
+export function isNotYetVerified(p: {
+  profileStatus: AnalyticsProfile["profileStatus"];
+}): boolean {
+  return p.profileStatus !== "verified";
+}
+
+/** The one label for both unverified states, so the two never read differently. */
+export const NOT_YET_VERIFIED_LABEL = "Not yet verified";
+export const VERIFIED_LABEL = "Verified";
 
 export const AGE_BUCKETS = [
   { label: "Youth", min: 0, max: 17 },
@@ -305,6 +330,15 @@ const FILTER_ALL = "all";
  * real `Id<"departments">`, which Convex IDs never collide with. */
 export const NO_DEPARTMENT_FILTER = "none";
 
+/**
+ * Verification-filter sentinel covering both unverified states (spec 0014,
+ * AC-31). A sentinel rather than the two `profileStatus` literals because the
+ * filter is a two-way question — verified or not — and offering
+ * `pending_verification` on its own would quietly hide every sent-back person
+ * from the result.
+ */
+export const NOT_YET_VERIFIED_FILTER = "not_verified";
+
 export type DashboardFilters = {
   sex: string;
   maritalStatus: string;
@@ -356,8 +390,14 @@ export function matchesDashboardFilters(
   ) {
     return false;
   }
-  if (f.verificationStatus !== FILTER_ALL && p.profileStatus !== f.verificationStatus)
+  if (f.verificationStatus === NOT_YET_VERIFIED_FILTER) {
+    if (!isNotYetVerified(p)) return false;
+  } else if (
+    f.verificationStatus !== FILTER_ALL &&
+    p.profileStatus !== f.verificationStatus
+  ) {
     return false;
+  }
   if (f.mentorshipStatus !== FILTER_ALL && p.mentorshipStatus !== f.mentorshipStatus)
     return false;
   if (f.leadershipStage !== FILTER_ALL && p.leadershipStage !== f.leadershipStage)

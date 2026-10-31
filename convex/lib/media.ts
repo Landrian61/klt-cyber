@@ -19,6 +19,24 @@ const r2 = new R2(components.r2);
 // api.uploads.getFileUrl.)
 const CONTENT_URL_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days — R2's max
 
+/**
+ * The R2 object key behind a stored media value, or null when there is none.
+ *
+ * Uploaded files are stored as object KEYS, not URLs (convex/uploads.ts,
+ * spec/STORAGE.md), but the same fields can also hold an absolute URL for
+ * media we do not own: a Google avatar from social sign in, a seeded Unsplash
+ * cover. Those are not ours to delete, and trying would fail, so an absolute
+ * URL resolves to null and only real keys reach the bucket.
+ *
+ * Shared by account deletion and by the replaced-file cleanup in
+ * convex/mediaCleanup.ts, which both have to make the same distinction.
+ */
+export function toR2Key(value?: string): string | null {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return null;
+  return value;
+}
+
 /** Resolve a stored media value (R2 key or absolute URL) to a display URL. */
 export async function resolveMediaUrl(value?: string): Promise<string | undefined> {
   if (!value) return undefined;

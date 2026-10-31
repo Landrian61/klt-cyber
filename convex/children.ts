@@ -1,9 +1,19 @@
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
-import { childInputSchema } from "@klt-cyber/shared";
+import { ConvexError, v } from "convex/values";
+import { childInputSchema, PROFILE_LIFECYCLE_ERRORS } from "@klt-cyber/shared";
 import { logActivity, requireUser } from "./lib/authz";
+import { touchMyProfile } from "./lib/identity";
 
 // Children of members — data records, not user accounts.
+//
+// Row scoped and member owned (spec 0014, AC-13): each mutation checks the row
+// belongs to the caller, and ids stay stable across an edit because a change
+// is a patch rather than a delete and re-insert.
+//
+// Each of the three also bumps `memberProfiles.updatedAt`, even though none of
+// them writes that table. A reviewer's stale guard reads one timestamp for the
+// whole submission, so without this a reviewer could verify straight over a
+// child row the person had just changed (AC-7).
 
 const sexValidator = v.union(v.literal("male"), v.literal("female"));
 
@@ -32,6 +42,8 @@ export const addChild = mutation({
       updatedAt: now,
     });
 
+    await touchMyProfile(ctx, user._id, now);
+
     await logActivity(ctx, {
       actorUserId: user._id,
       action: "child.added",
@@ -57,7 +69,7 @@ export const updateChild = mutation({
     const child = await ctx.db.get(childId);
     if (!child) throw new Error("Child not found");
     if (child.parentUserId !== user._id) {
-      throw new Error("Not your child record");
+      throw new ConvexError({ code: PROFILE_LIFECYCLE_ERRORS.NOT_YOUR_ROW });
     }
 
     await ctx.db.patch(childId, {
@@ -66,6 +78,8 @@ export const updateChild = mutation({
       dateOfBirth: input.dateOfBirth,
       updatedAt: Date.now(),
     });
+
+    await touchMyProfile(ctx, user._id);
 
     await logActivity(ctx, {
       actorUserId: user._id,
@@ -86,10 +100,12 @@ export const removeChild = mutation({
     const child = await ctx.db.get(args.childId);
     if (!child) throw new Error("Child not found");
     if (child.parentUserId !== user._id) {
-      throw new Error("Not your child record");
+      throw new ConvexError({ code: PROFILE_LIFECYCLE_ERRORS.NOT_YOUR_ROW });
     }
 
     await ctx.db.delete(args.childId);
+
+    await touchMyProfile(ctx, user._id);
 
     await logActivity(ctx, {
       actorUserId: user._id,

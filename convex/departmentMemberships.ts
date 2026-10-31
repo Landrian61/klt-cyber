@@ -1,12 +1,14 @@
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
   CLAIM_DECLINE_REASON_MAX_LENGTH,
   MAX_ACTIVE_DEPARTMENTS,
   PAUSED_DEPARTMENTS,
+  PROFILE_LIFECYCLE_ERRORS,
+  PROFILE_LIFECYCLE_NOTICES,
   ROLE_COPY,
 } from "@klt-cyber/shared";
 import {
@@ -24,14 +26,24 @@ import {
   resolveDepartmentShellRole,
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
+import {
+  resolvePhotoUrl,
+  resolvePhotoUrlForUser,
+  touchMyProfile,
+} from "./lib/identity";
+import {
+  assertDepartureAllowed,
+  assertUnderDepartmentCap,
+} from "./lib/profileLifecycle";
 import { notificationCommon } from "./lib/reminders";
 import {
   findLiveMembership,
+  findLiveMemberships,
   listActiveMemberships,
   placeOnRoster,
 } from "./lib/departmentMembership";
 import { assignRoleCore, revokeRoleCore } from "./roles";
-import { endRoleAssignment } from "./lib/roleNotices";
+import { displayName, endRoleAssignment } from "./lib/roleNotices";
 
 // Department roster. Membership is separate
 // from `roleAssignments`: being on a department's roster doesn't imply any
@@ -363,6 +375,120 @@ export const updateDepartmentMembership = mutation({
   },
 });
 
+/**
+ * End an active roster membership: the patch, the role cascade, the audit
+ * entry, and optionally the notice to the person who lost the place.
+ *
+ * ONE removal path, two callers with different authorization and different
+ * audiences (spec 0014, AC-21):
+ *
+ *   `removeDepartmentMember` below  — an HOD removing somebody else. Gated by
+ *   `requireDepartmentCapability`, and `notifyMember: true`, because the
+ *   person needs telling.
+ *
+ *   `leaveMyAreaOfService` — the member removing themselves. A plain member
+ *   does not satisfy that capability gate, and `notifyMember: false`, because
+ *   telling somebody what they just did themselves is noise.
+ *
+ * That is why the existing mutation could not simply be called and a helper
+ * had to come out of it. The authorization stays in each mutation, where it
+ * belongs; the removal itself happens in exactly one place.
+ *
+ * Returns the labels of any roles the removal revoked, so a caller that is
+ * composing its own message can name them.
+ */
+async function endDepartmentMembership(
+  ctx: MutationCtx,
+  {
+    membership,
+    actorUserId,
+    notifyMember,
+    reason,
+  }: {
+    membership: Doc<"departmentMemberships">;
+    actorUserId: Id<"users">;
+    notifyMember: boolean;
+    reason: "roster_removal" | "self_departure";
+  }
+): Promise<{ endedRoleLabels: string[] }> {
+  await ctx.db.patch(membership._id, {
+    status: "removed",
+    removedBy: actorUserId,
+    removedAt: Date.now(),
+  });
+  await logActivity(ctx, {
+    actorUserId,
+    action:
+      reason === "self_departure"
+        ? "department.member_left"
+        : "department.member_removed",
+    targetType: "departmentMemberships",
+    targetId: membership._id,
+    departmentId: membership.departmentId,
+    metadata: {
+      userId: membership.userId,
+      departmentId: membership.departmentId,
+      ...(reason === "self_departure" ? { selfService: true } : {}),
+    },
+  });
+
+  // Cascade: revoke any hod/department_admin role they held in this specific
+  // department. For a self departure this is belt and braces — the caller
+  // blocks a departure by a role holder before getting here — but the helper
+  // must not depend on which caller it is serving.
+  const roleRows = await ctx.db
+    .query("roleAssignments")
+    .withIndex("by_departmentId", (q) =>
+      q.eq("departmentId", membership.departmentId)
+    )
+    .filter((q) =>
+      q.and(
+        q.eq(q.field("userId"), membership.userId),
+        q.eq(q.field("status"), "active")
+      )
+    )
+    .collect();
+  // Each ended role is silent here (`suppressNotice`): the N12 below names
+  // them, so the person hears about losing the place and the roles once, not
+  // once per row (spec 0013, AC-6).
+  const endedRoleLabels: string[] = [];
+  for (const role of roleRows) {
+    const ended = await endRoleAssignment(ctx, role, {
+      actorId: actorUserId,
+      reason: "roster_removal",
+      note:
+        reason === "self_departure"
+          ? "Revoked when the member left the roster"
+          : "Revoked via department roster removal",
+      suppressNotice: true,
+    });
+    if (ended) endedRoleLabels.push(ROLE_COPY[role.roleType].label);
+  }
+
+  if (notifyMember) {
+    // N12, privately to the person who was removed (spec 0012, AC-20). Not an
+    // announcement: leaving a roster is nobody else's business.
+    const department = await ctx.db.get(membership.departmentId);
+    const departmentName = department?.name ?? "department";
+    const rolesLine =
+      endedRoleLabels.length > 0
+        ? ` Your role as ${endedRoleLabels.join(" and ")} there has ended too.`
+        : "";
+    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+      title: `Your ${departmentName} roster place has ended`,
+      body: `You are no longer on the ${departmentName} roster.${rolesLine} Speak to its head if this looks wrong.`,
+      ...notificationCommon({
+        audience: { type: "users", userIds: [membership.userId] },
+        deepLink: { type: "profile", id: membership.userId },
+        createdBy: actorUserId,
+        kind: "N12",
+      }),
+    });
+  }
+
+  return { endedRoleLabels };
+}
+
 export const removeDepartmentMember = mutation({
   args: { membershipId: v.id("departmentMemberships") },
   handler: async (ctx, { membershipId }) => {
@@ -387,65 +513,11 @@ export const removeDepartmentMember = mutation({
       throw new Error("Only someone currently serving here can be removed");
     }
 
-    await ctx.db.patch(membershipId, {
-      status: "removed",
-      removedBy: actor._id,
-      removedAt: Date.now(),
-    });
-    await logActivity(ctx, {
+    await endDepartmentMembership(ctx, {
+      membership,
       actorUserId: actor._id,
-      action: "department.member_removed",
-      targetType: "departmentMemberships",
-      targetId: membershipId,
-      departmentId: membership.departmentId,
-      metadata: { userId: membership.userId, departmentId: membership.departmentId },
-    });
-
-    // Cascade: revoke any hod/department_admin role they held in this
-    // specific department.
-    const roleRows = await ctx.db
-      .query("roleAssignments")
-      .withIndex("by_departmentId", (q) =>
-        q.eq("departmentId", membership.departmentId)
-      )
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("userId"), membership.userId),
-          q.eq(q.field("status"), "active")
-        )
-      )
-      .collect();
-    // Each ended role is silent here (`suppressNotice`): the N12 below names
-    // them, so the person hears about losing the place and the roles once, not
-    // once per row (spec 0013, AC-6).
-    const endedLabels: string[] = [];
-    for (const role of roleRows) {
-      const ended = await endRoleAssignment(ctx, role, {
-        actorId: actor._id,
-        reason: "roster_removal",
-        note: "Revoked via department roster removal",
-        suppressNotice: true,
-      });
-      if (ended) endedLabels.push(ROLE_COPY[role.roleType].label);
-    }
-
-    // N12, privately to the person who was removed (AC-20). Not an
-    // announcement: leaving a roster is nobody else's business.
-    const department = await ctx.db.get(membership.departmentId);
-    const departmentName = department?.name ?? "department";
-    const rolesLine =
-      endedLabels.length > 0
-        ? ` Your role as ${endedLabels.join(" and ")} there has ended too.`
-        : "";
-    await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
-      title: `Your ${departmentName} roster place has ended`,
-      body: `You are no longer on the ${departmentName} roster.${rolesLine} Speak to its head if this looks wrong.`,
-      ...notificationCommon({
-        audience: { type: "users", userIds: [membership.userId] },
-        deepLink: { type: "profile", id: membership.userId },
-        createdBy: actor._id,
-        kind: "N12",
-      }),
+      notifyMember: true,
+      reason: "roster_removal",
     });
 
     return { ok: true as const };
@@ -694,6 +766,14 @@ export const listDepartmentMembersWithProfiles = query({
         ]);
         return {
           membership,
+          // One resolved photo for the row, preferring the profile's own
+          // upload and falling back to the account picture (spec 0014, AC-14).
+          // It sits beside `profile` rather than inside it because the row has
+          // to render an avatar even for somebody with no profile at all, and
+          // because no client reads the raw `users.profilePictureUrl` now.
+          photoUrl:
+            (await resolvePhotoUrl(profile?.photoUrl, user?.profilePictureUrl)) ??
+            null,
           profile: profile
             ? { ...profile, photoUrl: await resolveMediaUrl(profile.photoUrl) }
             : null,
@@ -828,9 +908,13 @@ export const listRosterWithClaims = query({
         displayName: user
           ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email
           : "A former member",
-        // May be an R2 key or a Google account URL, which is why it goes
-        // through resolveMediaUrl rather than straight out.
-        photoUrl: await resolveMediaUrl(profile?.photoUrl),
+        // One resolved photo (spec 0014, AC-14): the profile's own upload
+        // where there is one, else the account picture. Either value may be an
+        // R2 key or an absolute URL, which is why it goes through the resolver
+        // rather than straight out.
+        photoUrl:
+          (await resolvePhotoUrl(profile?.photoUrl, user?.profilePictureUrl)) ??
+          null,
         clanName: clan?.name ?? null,
         // Read live, never hardcoded: a hardcoded mentorship value is exactly
         // the bug F2-11 records on the mobile side.
@@ -951,7 +1035,10 @@ export const listAddableMembers = query({
         displayName: [profile.firstName, profile.middleName, profile.lastName]
           .filter(Boolean)
           .join(" "),
-        photoUrl: await resolveMediaUrl(profile.photoUrl),
+        // The profile's own upload, else the account picture (spec 0014,
+        // AC-14), already resolved.
+        photoUrl:
+          (await resolvePhotoUrlForUser(ctx, profile.userId, profile)) ?? null,
         clanName: profile.clanId ? clanNameById.get(profile.clanId) ?? null : null,
       }))
     );
@@ -962,17 +1049,60 @@ export const listAddableMembers = query({
 const ADDABLE_PAGE_SIZE = 20;
 
 /** The caller's own active department memberships. Null when unauthenticated. */
+/**
+ * The caller's own Areas of Service: confirmed seats and requests still
+ * waiting, with the department named and each row's own actions worked out
+ * (spec 0014, AC-19 to AC-21).
+ *
+ * Both LIVE statuses, not just `active`. An active-only read would hide the
+ * very rows a person needs to see to withdraw a request, which is the one
+ * thing they can do about a claim nobody has decided yet.
+ *
+ * `blockedByRole` is resolved here rather than on the client, because the rule
+ * is a server rule: a member may not leave a roster they lead. Sending the
+ * reason means the interface can explain instead of hiding the button, and
+ * cannot disagree with what `leaveMyAreaOfService` will actually do.
+ */
 export const getMyDepartmentMemberships = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getCurrentUser(ctx);
     if (!actor) return null;
-    return await ctx.db
-      .query("departmentMemberships")
+
+    const live = await findLiveMemberships(ctx, actor._id);
+
+    const heldRoles = await ctx.db
+      .query("roleAssignments")
       .withIndex("by_userId_status", (q) =>
         q.eq("userId", actor._id).eq("status", "active")
       )
       .collect();
+
+    return await Promise.all(
+      live.map(async (membership) => {
+        const department = await ctx.db.get(membership.departmentId);
+        const blocking = heldRoles.filter(
+          (role) =>
+            role.departmentId === membership.departmentId &&
+            (role.roleType === "hod" || role.roleType === "department_admin")
+        );
+        return {
+          _id: membership._id,
+          departmentId: membership.departmentId,
+          departmentName: department?.name ?? "An area of service",
+          status: membership.status,
+          since: membership.claimedAt ?? membership._creationTime,
+          // The role label when one blocks a departure, else null. Named so
+          // the person knows who to ask rather than retrying.
+          blockedByRole:
+            blocking.length > 0
+              ? blocking
+                  .map((role) => ROLE_COPY[role.roleType].label)
+                  .join(" and ")
+              : null,
+        };
+      })
+    );
   },
 });
 
@@ -1206,5 +1336,288 @@ export const listMyDepartmentsForHub = query({
         })),
       paused: paused.map((d) => ({ department: d })),
     };
+  },
+});
+
+// ── Self service: a member's own Areas of Service (spec 0014, AC-19 to AC-21)
+//
+// A person used to pick their Areas of Service once, in the wizard, and after
+// that only a leader could change them. These three hand that back:
+//
+//   `addMyAreaOfService`   ask to serve somewhere new
+//   `withdrawMyClaim`      take that request back before it is decided
+//   `leaveMyAreaOfService` step off a roster you are already on
+//
+// None of them is new machinery. Spec 0012 built the claim lifecycle, the live
+// row helpers and the one-live-row-per-pair invariant; these are the member
+// facing entry points to it. Each resolves the caller through `requireUser`
+// and reads its row from the caller's own id, so there is no "whose
+// membership" argument to forge.
+
+/**
+ * The department's active HOD and delegate, to tell about a roster change.
+ *
+ * Returns an empty list when the department has neither, and never includes
+ * the person who acted: telling somebody what they just did themselves is
+ * noise, and an HOD who leaves their own department would otherwise get a
+ * notice about it.
+ */
+async function departmentLeaderIds(
+  ctx: MutationCtx,
+  departmentId: Id<"departments">,
+  exceptUserId: Id<"users">
+): Promise<Id<"users">[]> {
+  const leaders = await ctx.db
+    .query("roleAssignments")
+    .withIndex("by_departmentId", (q) => q.eq("departmentId", departmentId))
+    .filter((q) =>
+      q.and(
+        q.eq(q.field("status"), "active"),
+        q.or(
+          q.eq(q.field("roleType"), "hod"),
+          q.eq(q.field("roleType"), "department_admin")
+        )
+      )
+    )
+    .collect();
+  return [
+    ...new Set(
+      leaders.map((row) => row.userId).filter((id) => id !== exceptUserId)
+    ),
+  ];
+}
+
+/** The caller's own verified profile, or a coded refusal. */
+async function requireMyVerifiedProfile(
+  ctx: MutationCtx,
+  userId: Id<"users">
+): Promise<Doc<"memberProfiles">> {
+  const profile = await ctx.db
+    .query("memberProfiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+  if (!profile || profile.profileStatus !== "verified") {
+    throw new ConvexError({
+      code: PROFILE_LIFECYCLE_ERRORS.PROFILE_NOT_VERIFIED,
+    });
+  }
+  return profile;
+}
+
+/**
+ * A verified member asks to serve in a department (F2-07, AC-19).
+ *
+ * Creates exactly one `pending_claim` row and tells that department's HOD.
+ * Unlike a claim made during submission, this claimant is ALREADY VERIFIED, so
+ * the request is actionable immediately — spec 0013's reason for holding the
+ * alert back (an unverified claimant gives the HOD nothing to act on) does not
+ * apply here.
+ *
+ * The cap counts LIVE rows, `active` and `pending_claim` together. Counting
+ * only active seats would let somebody queue ten requests and land on ten
+ * rosters once each HOD said yes, with no single mutation ever seeing a
+ * violation — confirmations are independent of one another.
+ */
+export const addMyAreaOfService = mutation({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, { departmentId }) => {
+    const user = await requireUser(ctx);
+    await requireMyVerifiedProfile(ctx, user._id);
+
+    const live = await findLiveMemberships(ctx, user._id);
+    assertUnderDepartmentCap(live.length);
+
+    const department = await ctx.db.get(departmentId);
+    if (!department) throw new Error("Department not found");
+
+    const existing = await findLiveMembership(ctx, user._id, departmentId);
+    if (existing) {
+      // The department is named in the data rather than only in a message, so
+      // the client can say "you already serve in Hospitality" without having
+      // to parse a sentence.
+      throw new ConvexError({
+        code: PROFILE_LIFECYCLE_ERRORS.DEPARTMENT_ALREADY_LIVE,
+        departmentName: department.name,
+        alreadyActive: existing.status === "active",
+      });
+    }
+
+    const now = Date.now();
+    const membershipId = await ctx.db.insert("departmentMemberships", {
+      userId: user._id,
+      departmentId,
+      addedBy: user._id,
+      status: "pending_claim",
+      claimedAt: now,
+    });
+
+    await logActivity(ctx, {
+      actorUserId: user._id,
+      action: "department.claim_created",
+      targetType: "departmentMemberships",
+      targetId: membershipId,
+      // At the top level so the claim reaches that department's own dashboard
+      // feed, matching what `submitProfile` already writes.
+      departmentId,
+      metadata: { userId: user._id, departmentId, selfService: true },
+    });
+
+    await touchMyProfile(ctx, user._id, now);
+
+    const leaderIds = await departmentLeaderIds(ctx, departmentId, user._id);
+    if (leaderIds.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+        ...PROFILE_LIFECYCLE_NOTICES.claimCreated(
+          displayName(user),
+          department.name
+        ),
+        ...notificationCommon({
+          audience: { type: "users", userIds: leaderIds },
+          deepLink: { type: "department_claim", id: departmentId },
+          createdBy: user._id,
+          kind: "N10",
+        }),
+      });
+    }
+
+    return { membershipId };
+  },
+});
+
+/**
+ * A member takes back a request to serve, before it has been decided (AC-20).
+ *
+ * Always allowed. The department's leaders are told, so a request they were
+ * about to confirm does not simply vanish from their screen.
+ *
+ * Stored as `declined` with `decidedBy` set to the member THEMSELF, rather
+ * than adding a fourth status value: spec 0012 already treats `declined` as
+ * terminal, and `decidedBy` distinguishes a withdrawal from an HOD's decline
+ * for anybody reading the row. If that distinction ever has to be visible in
+ * an interface, that is the moment to add a status value, not now.
+ */
+export const withdrawMyClaim = mutation({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, { departmentId }) => {
+    const user = await requireUser(ctx);
+
+    const live = await findLiveMembership(ctx, user._id, departmentId);
+    if (!live || live.status !== "pending_claim") {
+      throw new Error("You have no request waiting for this area of service");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(live._id, {
+      status: "declined",
+      decidedBy: user._id,
+      decidedAt: now,
+    });
+
+    await logActivity(ctx, {
+      actorUserId: user._id,
+      action: "department.claim_withdrawn",
+      targetType: "departmentMemberships",
+      targetId: live._id,
+      departmentId,
+      metadata: { userId: user._id, departmentId, selfService: true },
+    });
+
+    await touchMyProfile(ctx, user._id, now);
+
+    const department = await ctx.db.get(departmentId);
+    const leaderIds = await departmentLeaderIds(ctx, departmentId, user._id);
+    if (department && leaderIds.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+        ...PROFILE_LIFECYCLE_NOTICES.claimWithdrawn(
+          displayName(user),
+          department.name
+        ),
+        ...notificationCommon({
+          audience: { type: "users", userIds: leaderIds },
+          deepLink: { type: "department_claim", id: departmentId },
+          createdBy: user._id,
+          kind: "N10",
+        }),
+      });
+    }
+
+    return { ok: true as const };
+  },
+});
+
+/**
+ * A member steps off a roster they are on (AC-21).
+ *
+ * Blocked while they hold `hod` or `department_admin` there: a department
+ * cannot be left headless by the head walking off its roster. The refusal
+ * NAMES the role, so the person knows who to ask instead of retrying.
+ *
+ * Shares `endDepartmentMembership` with `removeDepartmentMember`, so there is
+ * one removal path with one role cascade and one audit shape — see that
+ * helper for why the existing mutation could not simply be called.
+ *
+ * No confirmation step lives in the mutation: the app and the portal ask
+ * first, because rejoining means a fresh claim and another wait.
+ */
+export const leaveMyAreaOfService = mutation({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, { departmentId }) => {
+    const user = await requireUser(ctx);
+
+    const live = await findLiveMembership(ctx, user._id, departmentId);
+    if (!live || live.status !== "active") {
+      throw new Error("You are not on this roster");
+    }
+
+    const heldRoles = await ctx.db
+      .query("roleAssignments")
+      .withIndex("by_userId_status", (q) =>
+        q.eq("userId", user._id).eq("status", "active")
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("departmentId"), departmentId),
+          q.or(
+            q.eq(q.field("roleType"), "hod"),
+            q.eq(q.field("roleType"), "department_admin")
+          )
+        )
+      )
+      .collect();
+    assertDepartureAllowed(
+      heldRoles.map((role) => ROLE_COPY[role.roleType].label)
+    );
+
+    const department = await ctx.db.get(departmentId);
+    // The leaders are read BEFORE the removal, because the role cascade inside
+    // the helper could end a row the lookup depends on.
+    const leaderIds = await departmentLeaderIds(ctx, departmentId, user._id);
+
+    await endDepartmentMembership(ctx, {
+      membership: live,
+      actorUserId: user._id,
+      // The person who acted already knows; a notice would be noise.
+      notifyMember: false,
+      reason: "self_departure",
+    });
+
+    await touchMyProfile(ctx, user._id);
+
+    if (department && leaderIds.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.notifications.dispatch, {
+        ...PROFILE_LIFECYCLE_NOTICES.memberLeft(
+          displayName(user),
+          department.name
+        ),
+        ...notificationCommon({
+          audience: { type: "users", userIds: leaderIds },
+          deepLink: { type: "department_claim", id: departmentId },
+          createdBy: user._id,
+          kind: "N10",
+        }),
+      });
+    }
+
+    return { ok: true as const };
   },
 });

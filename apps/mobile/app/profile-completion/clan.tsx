@@ -1,13 +1,21 @@
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
 
+import { CLAN_UNKNOWN_OPTION_LABEL } from '@klt-cyber/shared';
+
 import { SelectList } from '@/components/ui/select-list';
 import { StepScaffold, WizardField } from '@/components/profile-wizard/step-scaffold';
 import { api, type Id } from '@/lib/api';
 import { useWizardDraft } from './_layout';
 
-// Sentinel id for the explicit "None" row — some members don't yet belong to
-// a clan. Never sent to the backend: it just maps to `clanId: undefined`.
+// Sentinel id for the "I don't know my clan" row. Never sent to the backend:
+// it maps to `clanId: undefined`.
+//
+// The label used to read "None", which asked the wrong question (spec 0014,
+// AC-23): almost nobody belongs to no clan, they just do not know which one.
+// No field records the difference between declining to answer and not
+// knowing, because nothing acts on it — Hospitality finds people to place by
+// looking for a verified profile with no `clanId`, which both cases produce.
 const NONE_ID = '__none__';
 
 export default function ClanStep() {
@@ -16,14 +24,14 @@ export default function ClanStep() {
   const clans = useQuery(api.clans.listClans);
 
   const options = [
-    { id: NONE_ID, label: 'None' },
+    { id: NONE_ID, label: CLAN_UNKNOWN_OPTION_LABEL },
     ...(clans ?? []).map((c) => ({ id: c._id, label: c.name })),
   ];
 
   return (
     <StepScaffold
       title="Your clan"
-      subtitle="Optional. Choose the clan you belong to."
+      subtitle="Optional. Choose the clan you belong to, or say you don't know and the Hospitality team will place you."
       onPrimary={() => router.push('/profile-completion/departments')}
     >
       <WizardField>

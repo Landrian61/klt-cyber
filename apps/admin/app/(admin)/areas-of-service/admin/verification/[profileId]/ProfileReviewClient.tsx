@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import * as Sentry from "@sentry/nextjs";
-import { PhoneCall } from "lucide-react";
+import { PhoneCall, Undo2 } from "lucide-react";
+import {
+  REVIEWER_NAME,
+  SENT_BACK_REASON_MAX_LENGTH,
+  SENT_BACK_REASON_MIN_LENGTH,
+  profileLifecycleErrorCode,
+  profileLifecycleErrorMessage,
+  profileStaleCause,
+} from "@klt-cyber/shared";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
 import type { Id } from "@/lib/api";
@@ -51,14 +59,46 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
     profileId: id,
   });
   const verifyProfile = useMutation(api.memberProfiles.verifyProfile);
+  const sendProfileBack = useMutation(api.memberProfiles.sendProfileBack);
 
   const [form, setForm] = useState<EditableFields | null>(null);
+  /**
+   * The row version this reviewer STARTED from, frozen on first load.
+   *
+   * It cannot come from `profile.updatedAt`, because `useAuthQuery` is a live
+   * subscription: when the owner edits mid review, this component re-renders
+   * with the owner's NEW `updatedAt`, so the value sent to the server would
+   * always match the stored row and the guard would never fire. Freezing it is
+   * what makes AC-7's check real rather than decoration.
+   */
+  const seenRef = useRef<number | null>(null);
+  /** The form as it was seeded, so `dirty` means "the reviewer typed", not "the owner wrote". */
+  const baselineRef = useRef<EditableFields | null>(null);
+  /** Set once the owner has written while this screen was open. */
+  const [ownerMovedIt, setOwnerMovedIt] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  // A coded refusal gets its own sentence; `error` stays for the generic
+  // ErrorState, because an unrecognised failure is a different thing from a
+  // rule the server applied on purpose.
+  const [refusal, setRefusal] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sendBackOpen, setSendBackOpen] = useState(false);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
-    if (profile) setForm(toFormState(profile));
+    if (!profile) return;
+    // Seed the form ONCE. Re-seeding on every push threw away whatever the
+    // reviewer had typed, with nothing on screen to say it had happened.
+    if (seenRef.current === null) {
+      seenRef.current = profile.updatedAt;
+      baselineRef.current = toFormState(profile);
+      setForm(toFormState(profile));
+      return;
+    }
+    // A later push means somebody else wrote. Keep the reviewer's typing and
+    // warn them instead, so they can decide what to do with it.
+    if (profile.updatedAt > seenRef.current) setOwnerMovedIt(true);
   }, [profile]);
 
   // `null` = no such profile (or the query resolved unauthenticated during
@@ -82,7 +122,20 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
   }
 
   const needsFollowUp = !profile.mentorshipProofUrl;
-  const dirty = JSON.stringify(form) !== JSON.stringify(toFormState(profile));
+  // Both compared against the FROZEN baseline, not the live row: once the
+  // owner edits, `toFormState(profile)` is their new text, so comparing
+  // against it would report the reviewer as having typed changes they never
+  // made, and would send those stale values as `edits`.
+  const dirty =
+    baselineRef.current !== null &&
+    JSON.stringify(form) !== JSON.stringify(baselineRef.current);
+  // The version this reviewer started from. Both reviewer mutations carry it
+  // so the server can refuse an action built on text the owner has since
+  // changed.
+  const seenUpdatedAt = seenRef.current ?? profile.updatedAt;
+  const trimmedReason = reason.trim();
+  const reasonTooShort = trimmedReason.length < SENT_BACK_REASON_MIN_LENGTH;
+  const reasonTooLong = trimmedReason.length > SENT_BACK_REASON_MAX_LENGTH;
 
   function set<K extends keyof EditableFields>(
     key: K,
@@ -91,13 +144,36 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
+  function handleFailure(err: unknown) {
+    const code = profileLifecycleErrorCode(err);
+    if (code) {
+      // A rule the server applied on purpose: show its sentence, and do not
+      // report it to Sentry as a fault.
+      setRefusal(
+        profileLifecycleErrorMessage(
+          err,
+          profileStaleCause(profile?.sentBackAt, seenUpdatedAt),
+        ),
+      );
+      return;
+    }
+    // A rejected mutation in an event handler never reaches a React error
+    // boundary — reported directly from the catch that already exists here.
+    Sentry.captureException(err);
+    setError(true);
+  }
+
   async function handleVerify() {
     if (!form) return;
     setBusy(true);
     setError(false);
+    setRefusal(null);
     try {
       await verifyProfile({
         profileId: id,
+        // The `updatedAt` this screen actually rendered, never a fresh read:
+        // a fresh read would always match and the guard would be decoration.
+        seenUpdatedAt,
         edits: dirty
           ? {
               firstName: form.firstName,
@@ -116,10 +192,25 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
       setConfirmOpen(false);
       router.push("/areas-of-service/admin/verification");
     } catch (err) {
-      // A rejected mutation in an event handler never reaches a React error
-      // boundary — reported directly from the catch that already exists here.
-      Sentry.captureException(err);
-      setError(true);
+      setConfirmOpen(false);
+      handleFailure(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSendBack() {
+    setBusy(true);
+    setError(false);
+    setRefusal(null);
+    try {
+      await sendProfileBack({ profileId: id, reason, seenUpdatedAt });
+      setSendBackOpen(false);
+      setReason("");
+      router.push("/areas-of-service/admin/verification");
+    } catch (err) {
+      setSendBackOpen(false);
+      handleFailure(err);
     } finally {
       setBusy(false);
     }
@@ -134,6 +225,12 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
         <Heading as="h1" size="2xl">
           {fullName(profile)}
         </Heading>
+        {profile.isResubmission && (
+          <Badge variant="neutral">
+            <Undo2 className="mr-1 size-3" aria-hidden="true" />
+            Resubmitted
+          </Badge>
+        )}
         {needsFollowUp && (
           <Badge variant="pending">
             <PhoneCall className="mr-1 size-3" aria-hidden="true" />
@@ -141,6 +238,32 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
           </Badge>
         )}
       </header>
+
+      {/* What was asked for last time, above the fields, so a reviewer sees it
+          before deciding again (AC-5). The reason survives resubmission on
+          purpose, which is what makes this possible at all. */}
+      {profile.sentBackReason && (
+        <Card className="gap-2 border-primary/40 bg-primary-light p-5">
+          <CardHeader className="p-0">
+            <CardTitle className="font-body text-sm font-semibold text-primary">
+              {profile.isResubmission
+                ? "What you asked for last time"
+                : "Sent back and waiting on its owner"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 p-0">
+            <p className="font-body text-base text-on-surface">
+              {profile.sentBackReason}
+            </p>
+            <p className="font-body text-xs text-on-surface-variant">
+              {profile.sentBackByName ?? "A reviewer"}
+              {profile.sentBackAt
+                ? ` · ${new Date(profile.sentBackAt).toLocaleDateString()}`
+                : ""}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         {/* Left: full submitted profile, read-only */}
@@ -261,18 +384,53 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
           </Card>
 
           <Card className="gap-4 p-6">
+            {ownerMovedIt && !refusal && (
+              <CardContent className="p-0">
+                <p
+                  role="status"
+                  className="rounded-md bg-royal-light p-3 font-body text-sm text-on-surface"
+                >
+                  This person has edited their profile since you opened it. The
+                  details on the left are their latest; anything you have typed
+                  on the right is still yours. Reload before saving if you want
+                  to start from their new version.
+                </p>
+              </CardContent>
+            )}
+            {refusal && (
+              <CardContent className="p-0">
+                <p
+                  role="status"
+                  className="rounded-md bg-warning-light p-3 font-body text-sm text-on-surface"
+                >
+                  {refusal}
+                </p>
+              </CardContent>
+            )}
             {error && (
               <CardContent className="p-0">
                 <ErrorState cause="generic" retry={handleVerify} />
               </CardContent>
             )}
-            <CardFooter className="p-0">
+            <CardFooter className="flex-col gap-2 p-0">
               <Button
                 className="w-full"
                 disabled={busy}
                 onClick={() => setConfirmOpen(true)}
               >
                 Verify &amp; Approve
+              </Button>
+              {/* The other half of the review conversation (F2-05): refuse
+                  honestly, in writing, instead of correcting it silently or
+                  verifying something you do not believe. */}
+              <Button
+                variant="ghost"
+                className="w-full"
+                disabled={busy}
+                onClick={() => setSendBackOpen(true)}
+              >
+                <Undo2 aria-hidden="true" />
+                Send back for changes
               </Button>
             </CardFooter>
           </Card>
@@ -308,6 +466,66 @@ export function ProfileReviewClient({ profileId }: { profileId: string }) {
             </Button>
             <Button size="sm" loading={busy} onClick={handleVerify}>
               Confirm approval
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send back: the reason is required and the confirm stays disabled
+          until the shared minimum is met, so the person on the other end
+          never receives a one-word note they cannot act on. */}
+      <Dialog
+        open={sendBackOpen}
+        onOpenChange={(next) => {
+          if (!next && !busy) setSendBackOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send this profile back?</DialogTitle>
+            <DialogDescription>
+              {fullName(profile)} will be told what to change and can edit and
+              resubmit. They read your words as given, signed {REVIEWER_NAME} —
+              your own name is never shown to them.
+            </DialogDescription>
+          </DialogHeader>
+          <Field label="What needs to change?" htmlFor="send-back-reason">
+            <Textarea
+              id="send-back-reason"
+              rows={4}
+              value={reason}
+              placeholder="Your photo is hard to make out — please upload a clearer one."
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </Field>
+          <p
+            className={
+              reasonTooLong
+                ? "font-mono text-xs text-error"
+                : "font-mono text-xs text-on-surface-variant"
+            }
+          >
+            {trimmedReason.length} / {SENT_BACK_REASON_MAX_LENGTH}
+            {reasonTooShort
+              ? ` · at least ${SENT_BACK_REASON_MIN_LENGTH} characters`
+              : ""}
+          </p>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSendBackOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              loading={busy}
+              disabled={reasonTooShort || reasonTooLong}
+              onClick={handleSendBack}
+            >
+              Send it back
             </Button>
           </DialogFooter>
         </DialogContent>

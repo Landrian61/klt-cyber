@@ -1,49 +1,70 @@
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInUp, ZoomIn, useReducedMotion } from 'react-native-reanimated';
+import { PROFILE_LIFECYCLE_COPY } from '@klt-cyber/shared';
 
-import { FontFamily, Spacing, GoldGradient, GoldGlow } from '@/constants/theme';
+import { FontFamily, Spacing, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 
 /**
  * Shown when the caller already has a `pending_verification` profile — on a
- * fresh app open (via the gate) and right after a successful submission. A
- * celebratory "welcome home" moment; the profile is with the elders for review.
+ * fresh app open (via the gate) and right after a successful submission.
+ *
+ * Deliberately NOT a celebration any more (F2-02, spec 0014 AC-27). It used to
+ * greet somebody with a gold check mark, "You're in the family!" and "Welcome
+ * home" the moment they pressed submit, which promised them a membership
+ * nobody had yet agreed to — and then left them stuck, because the screen had
+ * no way back into the submission they had just made.
+ *
+ * What it says now: where the profile is, who has it, and that they can still
+ * change anything while they wait (F2-03).
  */
 export default function PendingReviewScreen() {
   const Colors = useThemeColors();
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: Colors.surface }]}>
       <View style={styles.center}>
-        <Animated.View entering={ZoomIn.duration(500).springify()}>
-          <LinearGradient
-            colors={[...GoldGradient.colors]}
-            start={GoldGradient.start}
-            end={GoldGradient.end}
-            style={[styles.checkCircle, GoldGlow]}
-          >
-            <Ionicons name="checkmark" size={44} color={Colors.onPrimary} />
-          </LinearGradient>
+        <Animated.View entering={reduceMotion ? undefined : ZoomIn.duration(400)}>
+          <View style={[styles.iconCircle, { backgroundColor: Colors.primaryLight }]}>
+            <Ionicons name="hourglass-outline" size={40} color={Colors.primary} />
+          </View>
         </Animated.View>
 
-        <Animated.Text entering={FadeInUp.duration(400).delay(250)} style={[styles.title, { color: Colors.onSurface }]}>
-          You&apos;re in the family!
+        <Animated.Text
+          entering={reduceMotion ? undefined : FadeInUp.duration(400).delay(200)}
+          style={[styles.title, { color: Colors.onSurface }]}
+        >
+          {PROFILE_LIFECYCLE_COPY.pending.title}
         </Animated.Text>
-        <Animated.Text entering={FadeInUp.duration(400).delay(400)} style={[styles.body, { color: Colors.onSurfaceVariant }]}>
-          Thank you, Saint — your profile is with the elders for review. You&apos;ll gain full
-          member access once it&apos;s approved. Welcome home.
+        <Animated.Text
+          entering={reduceMotion ? undefined : FadeInUp.duration(400).delay(320)}
+          style={[styles.body, { color: Colors.onSurfaceVariant }]}
+        >
+          {PROFILE_LIFECYCLE_COPY.pending.body}
         </Animated.Text>
       </View>
-      <Animated.View entering={FadeInUp.duration(400).delay(550)} style={styles.footer}>
+      <Animated.View
+        entering={reduceMotion ? undefined : FadeInUp.duration(400).delay(440)}
+        style={styles.footer}
+      >
+        {/* The way back in (F2-03). Reopens the same seven-step wizard,
+            pre-filled, and saves through `resubmitProfile` — there is no
+            second copy of the form. */}
+        <Button
+          label={PROFILE_LIFECYCLE_COPY.pending.editAction}
+          variant="primary"
+          fullWidth
+          onPress={() => router.push('/profile-completion/personal')}
+        />
         <Button
           label="Go to my home screen"
-          variant="primary"
+          variant="ghost"
           fullWidth
           onPress={() => router.replace('/(tabs)')}
         />
@@ -60,18 +81,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing[8],
   },
-  checkCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing[6],
   },
   title: {
     fontFamily: FontFamily.display,
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 24,
+    lineHeight: 30,
     textAlign: 'center',
   },
   body: {
@@ -80,9 +101,10 @@ const styles = StyleSheet.create({
     lineHeight: 22.4,
     textAlign: 'center',
     marginTop: Spacing[3],
-    maxWidth: 300,
+    maxWidth: 320,
   },
   footer: {
+    gap: Spacing[2],
     paddingHorizontal: Spacing[5],
     paddingBottom: Spacing[4],
   },
