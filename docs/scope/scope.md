@@ -278,9 +278,19 @@ SRS: F4-01, F4-03, F4-04, F4-05, F4-06, F4-07, F4-12, F4-13, F3-10, M3-04 · cod
 ### 9. Profile lifecycle core: pending edits, send-back, edit after verification, clan "I don't know", name and photo sync, spouse search fix, mentorship bug · in-progress · GA
 Track A. Close the biggest gaps in the one path from visitor to member: editable pending submissions, an honest send-back flow, full post-verification editing, and two known bugs (mentorship always showing "Completed", spouse search leaking email).
 **Done when:** F2-03: a pending visitor edits their submission while it waits; reviewers always see the latest version. F2-05/A2-02: Administration sends a profile back with a written reason; the person is notified and can edit and resubmit (marked "Resubmitted", A2-03). F2-06: a verified member edits all their profile details, saved immediately and logged. F2-07: adding an Area of Service creates a pending claim; removing is blocked while HOD/delegate there; max three active. F2-11: mentorship status shows the real value, not a hardcoded "Completed" (bug). F2-12: spouse search results show name and photo of verified members only, never email (privacy fix). F2-16: a member with no clan sees "Your clan will be assigned by the Hospitality team". F1-07: name and photo are one source of truth everywhere.
-- [ ] Design remaining work (spec): `/architect profile lifecycle core`
-Spec: not yet captured
-SRS: F2-01, F2-02, F2-03, F2-04, F2-05, F2-06, F2-07, F2-08, F2-09, F2-10, F2-11, F2-12, F2-13, F2-16, F1-07, A2-02, A2-03, A2-05 · code: `convex/memberProfiles.ts` (verification core already Built — F2-04)
+- [x] Design remaining work (spec): `/architect profile lifecycle core`
+Spec: [0014](../specs/_root/0014-profile-lifecycle-core/index.md)
+- [x] Build it: `/develop profile lifecycle core`
+  - [x] Absorb the widening first: the three-value `profileStatus` and its send-back fields, the two hardcoded two-value union types, the "Pending" buckets and the two Administration counts, and the five mobile gating files (`use-my-account.ts`, `profile-completion/index.tsx`, `profile.tsx`, `member-gate.tsx`, `profile-completion-banner.tsx`), satisfies AC-1, AC-31
+  - [x] Send back and resubmit end to end: the shared error codes, reason caps and copy; `sendProfileBack` with its authority gate, stale guard and N06 wired to the dormant email action; `resubmitProfile` with its id-based reconcile and the N04 re-alert; the portal send-back dialog; the mobile sent-back screen and the wizard reopened pre-filled, satisfies AC-2 to AC-7, AC-9, AC-10, AC-11, AC-32, AC-33, AC-34
+  - [x] Everything a member owns: the sent-back list, the children and leadership row mutations, the mentorship gate both ways, the `directorySharing` field and toggle, the resolved-photo sweep across eleven clients, the R2 cleanup for replaced files, portal Settings on the one mutation, and the name backfill, satisfies AC-8, AC-12 to AC-18
+  - [x] Areas of Service and clan self service: add, withdraw and leave via the factored removal helper, `changeMyClan` as the only `clanId` writer with both elders told, and the clan copy, satisfies AC-19 to AC-24
+  - [x] Copy sweep, the two bugs, and the tests: four reviewer names onto the shared constant, the mentorship map, the rewritten spouse search, the Convex tests, and the F2-10 live-app proof, satisfies AC-25 to AC-30
+- [ ] Verify it: `/check verify profile lifecycle core`
+- [ ] Test it: `/test profile lifecycle core`
+- [ ] Review it (fresh model): `/check review profile lifecycle core`
+- [ ] Document it: `/document profile lifecycle core`
+SRS: F2-01, F2-02, F2-03, F2-04, F2-05, F2-06, F2-07, F2-08, F2-09, F2-10, F2-11, F2-12, F2-13, F2-16, F1-07, A2-02, A2-03, A2-05 · code: `convex/{memberProfiles,profile,users,children,leadershipProgress,uploads,admin,analytics,schema}.ts`, `convex/lib/{identity,media,mediaCleanup}.ts`, `packages/shared/src/constants/profileLifecycle.ts`, `apps/admin/app/(admin)/areas-of-service/admin/verification/**`, `apps/mobile/app/profile-completion/**`
 
 ### 25. Library: catalogue, free content, stock · planned
 Track B. Let members browse and search what the Library carries (books, flash disks, merchandise, free content) and let the Library team keep the catalogue and stock counts current.
