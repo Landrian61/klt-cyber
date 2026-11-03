@@ -47,11 +47,16 @@ export default async function AreasOfServicePage() {
       name: department.name,
       description: department.description ?? null,
       // `null` for a department with no pages for this caller, which renders
-      // the tile as a plain card rather than a link. Being on a roster is not
-      // enough to enter (see `canEnterDepartment`), and a tile that led to a
+      // the tile as a plain card rather than a link. A tile that led to a
       // layout which turned you around would send you straight back to this
-      // very page.
-      href: canEnterDepartment(roles, isSystemAdmin)
+      // very page, which is why the name and the verified flag go in: a
+      // verified roster member of Media, Hospitality or Library does now have
+      // pages inside, and anyone else on a roster still does not (F3-19, spec
+      // 0015 AC-3).
+      href: canEnterDepartment(roles, isSystemAdmin, {
+        name: department.name,
+        profileVerified: hubData.profileVerified,
+      })
         ? departmentHref(department.name)
         : null,
       // Each department's own fixed mark, the same one its portal header shows

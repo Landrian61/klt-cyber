@@ -70,8 +70,11 @@ export function DepartmentSwitcher({
     return <Skeleton className="h-9 w-44 rounded-full" />;
   }
 
-  const enterable = hub.active.filter(({ roles, isSystemAdmin }) =>
-    canEnterDepartment(roles, isSystemAdmin),
+  const enterable = hub.active.filter(({ department, roles, isSystemAdmin }) =>
+    canEnterDepartment(roles, isSystemAdmin, {
+      name: department.name,
+      profileVerified: hub.profileVerified,
+    }),
   );
 
   // A System Admin has a tie to no department in particular, so listing all six

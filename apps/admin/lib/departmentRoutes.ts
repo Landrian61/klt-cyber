@@ -1,4 +1,9 @@
-import { PAUSED_DEPARTMENTS, slugifyDepartmentName } from "@klt-cyber/shared";
+import {
+  PAUSED_DEPARTMENTS,
+  LEADERS_ONLY_PORTAL_DEPARTMENTS,
+  ROSTER_PORTAL_DEPARTMENTS,
+  slugifyDepartmentName,
+} from "@klt-cyber/shared";
 
 /**
  * Where a department's portal lives, in one place (spec 0012).
@@ -55,29 +60,63 @@ export function isPausedSlug(slug: string): boolean {
 /**
  * Whether the caller can actually open a department's portal.
  *
- * One rule covers every department, bespoke portal or shared shell alike:
- * a System Admin, or that department's own HOD or delegate. Verified against
- * the three gates that exist (`hasAdministrationAccess` and `hasMediaAccess`
- * in convex/profile.ts, and `getShellContext` in convex/departmentShell.ts),
- * which all resolve to exactly this set.
+ * A System Admin, or that department's own HOD or delegate — and, since spec
+ * 0015, a VERIFIED roster member of Media, Hospitality or Library &
+ * Information. Verified against the gates that exist
+ * (`hasAdministrationAccess` and `hasMediaAccess` in convex/profile.ts, and
+ * `getShellContext` in convex/departmentShell.ts), which all resolve to
+ * exactly this set.
  *
- * Being on a department's ROSTER is deliberately not enough. A roster member
- * of Media, Hospitality or Library gets through the portal's front door
- * (spec 0006's `hasPortalAccess`) so they reach the hub, but SRS 4.9.2 gives
- * them no pages inside any department, and every department layout turns them
- * around. The hub and the switcher both read this, so neither offers a way in
- * that would bounce straight back out.
+ * That last clause is what finally makes F3-19 work. A roster member of those
+ * three departments has always got through the portal's front door (spec
+ * 0006's `hasPortalAccess`) and so reached the hub — but every department
+ * layout then turned them around, because `resolveDepartmentShellRole` gave
+ * them no role. The hub and the switcher read this function precisely so they
+ * do not offer a door that bounces straight back out, so until the shell grew
+ * a `roster` role the honest answer here was false. Now it is true for the two
+ * that use the shared `[slug]` shell, and the layout lets them in.
  *
- * `roles` and `isSystemAdmin` come from
+ * Media is the exception, and subtracted by name through
+ * `LEADERS_ONLY_PORTAL_DEPARTMENTS`. Being on Media's roster does grant the
+ * `roster` role, but Media's portal is not the shared shell: it is a bespoke
+ * pair of content management pages gated on `hasMediaAccess`
+ * (`convex/profile.ts`), which this change deliberately did NOT widen. Saying
+ * true for Media would reintroduce exactly the bouncing door this function
+ * exists to prevent, one layer further in. SRS F3-19 records the narrowing.
+ *
+ * SRS 4.9.2 is still intact: what a `roster` role may DO inside is nothing at
+ * all, bar a department-scoped capability its own department grants (today,
+ * Library's catalogue). Entering is not the same as being handed the roster.
+ *
+ * `department` is optional so a caller that does not know which department it
+ * is asking about keeps the narrower, appointment-only answer rather than
+ * silently getting the wider one. Both real call sites pass it. Its
+ * `profileVerified` flag cannot be inferred from `hasPortalAccess` having let
+ * the caller this far: someone holding an unrelated active role passes that
+ * gate with an unverified profile, and the shell would turn them around.
+ *
+ * `roles`, `isSystemAdmin` and `profileVerified` all come from
  * `departmentMemberships.listMyDepartmentsForHub`, which is the one query both
  * surfaces read, so they cannot disagree about who may go where.
  */
 export function canEnterDepartment(
   roles: readonly string[],
-  isSystemAdmin: boolean
+  isSystemAdmin: boolean,
+  department?: { name: string; profileVerified: boolean }
 ): boolean {
+  if (isSystemAdmin) return true;
+  if (roles.includes("hod") || roles.includes("department_admin")) return true;
+  if (!department) return false;
   return (
-    isSystemAdmin || roles.includes("hod") || roles.includes("department_admin")
+    roles.includes("member") &&
+    department.profileVerified &&
+    (ROSTER_PORTAL_DEPARTMENTS as readonly string[]).includes(department.name) &&
+    // Media grants the `roster` role but its portal is bespoke and leaders
+    // only, so offering it here would be a linked tile that Media's own layout
+    // redirects straight back out of. See LEADERS_ONLY_PORTAL_DEPARTMENTS.
+    !(LEADERS_ONLY_PORTAL_DEPARTMENTS as readonly string[]).includes(
+      department.name
+    )
   );
 }
 

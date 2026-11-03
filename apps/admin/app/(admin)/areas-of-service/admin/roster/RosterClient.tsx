@@ -405,7 +405,7 @@ export function RosterClient() {
               onDebouncedChange={setAddSearch}
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+            <div className="subtle-scrollbar flex max-h-72 flex-col gap-1 overflow-y-auto">
               {addCandidates === undefined && (
                 <p className="text-sm text-muted-foreground">Loading…</p>
               )}
@@ -572,7 +572,7 @@ export function RosterClient() {
           open={selected !== null}
           onOpenChange={(open) => !open && setSelected(null)}
         >
-          <SheetContent className="overflow-y-auto bg-surface-low sm:max-w-xl">
+          <SheetContent className="subtle-scrollbar overflow-y-auto bg-surface-low sm:max-w-xl">
             <SheetHeader>
               <SheetTitle>
                 {selected?.profile ? fullName(selected.profile) : "Member"}

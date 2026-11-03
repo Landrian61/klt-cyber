@@ -30,6 +30,13 @@ import { feedSentence } from "./feedCopy";
  * Shared by every department: the dynamic `[slug]` portal mounts it, and a
  * bespoke portal can too. It takes its department as a prop rather than reading
  * the route, which is what makes that possible.
+ *
+ * Two departments do not use it. Media has had its own bespoke Dashboard since
+ * spec 0012 AC-3, and spec 0017 gave the Library one too. The `extras` slot
+ * this component used to carry for the Library's own cards went with that
+ * change: it had exactly one caller, and leaving an unused slot behind invites
+ * a third department to half-use it instead of deciding properly what the
+ * shared shell is for.
  */
 
 /**
@@ -66,13 +73,17 @@ export function DepartmentDashboard({
   canViewRoster: boolean;
 }) {
   const now = useMinuteClock();
-  const dashboard = useAuthQuery(api.departmentShell.getDashboard, {
-    departmentId,
-    now,
-  });
-  const feed = useAuthQuery(api.departmentShell.listDepartmentFeed, {
-    departmentId,
-  });
+  // Skipped outright for a caller without `viewRoster`, not merely hidden. The
+  // server refuses both of these for a roster member anyway (AC-4), so asking
+  // would only buy a guaranteed null the UI would have to render as an error.
+  const dashboard = useAuthQuery(
+    api.departmentShell.getDashboard,
+    canViewRoster ? { departmentId, now } : "skip",
+  );
+  const feed = useAuthQuery(
+    api.departmentShell.listDepartmentFeed,
+    canViewRoster ? { departmentId } : "skip",
+  );
   const programs = useAuthQuery(api.weeklyPrograms.listActivePrograms);
 
   return (
@@ -86,7 +97,7 @@ export function DepartmentDashboard({
         </p>
       </header>
 
-      {dashboard === undefined ? (
+      {!canViewRoster ? null : dashboard === undefined ? (
         <StatGridSkeleton count={4} />
       ) : dashboard === null ? (
         <ErrorState />
@@ -163,6 +174,7 @@ export function DepartmentDashboard({
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {canViewRoster && (
         <Card title="Next activities" icon={<CalendarDays className="size-4" />}>
           {dashboard === undefined ? (
             <CardLines />
@@ -191,6 +203,7 @@ export function DepartmentDashboard({
             </ul>
           )}
         </Card>
+        )}
 
         <Card title="This week at church" icon={<CheckCheck className="size-4" />}>
           {programs === undefined ? (
@@ -223,6 +236,7 @@ export function DepartmentDashboard({
         </Card>
       </div>
 
+      {canViewRoster && (
       <Card title="Recent activity" icon={<Inbox className="size-4" />}>
         {feed === undefined ? (
           <CardLines />
@@ -252,6 +266,7 @@ export function DepartmentDashboard({
           </ul>
         )}
       </Card>
+      )}
 
       {!canViewRoster && (
         <p className="flex items-center gap-2 font-body text-xs text-outline">

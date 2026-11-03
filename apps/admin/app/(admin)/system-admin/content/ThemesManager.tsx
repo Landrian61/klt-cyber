@@ -216,7 +216,7 @@ export function ThemesManager() {
           <SheetHeader className="pr-8">
             <SheetTitle>{editing ? "Edit theme" : "New theme"}</SheetTitle>
           </SheetHeader>
-          <div className="mt-5 flex-1 overflow-y-auto">
+          <div className="subtle-scrollbar mt-5 flex-1 overflow-y-auto">
             <div className="space-y-5">
           <Field label="Scope" htmlFor="theme-scope">
             <Select

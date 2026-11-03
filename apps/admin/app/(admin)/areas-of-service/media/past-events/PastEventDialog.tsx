@@ -148,7 +148,7 @@ export function PastEventDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid min-h-0 grid-cols-1 gap-x-6 gap-y-5 overflow-y-auto px-1 sm:grid-cols-2">
+        <div className="subtle-scrollbar grid min-h-0 grid-cols-1 gap-x-6 gap-y-5 overflow-y-auto px-1 sm:grid-cols-2">
           <div className="space-y-5">
             <Field label="Title" htmlFor="pe-title">
               <Input

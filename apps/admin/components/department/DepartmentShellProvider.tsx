@@ -6,7 +6,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import type { FunctionReturnType } from "convex/server";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
@@ -90,13 +90,24 @@ export function useDepartmentShellOrRedirect() {
  * Wrapper for a shell page: renders `children(shell)` once the department is
  * known, a skeleton while it loads, and nothing at all while the redirect for a
  * caller without access is in flight.
+ *
+ * `requires` names a capability the page needs beyond reaching the shell, and
+ * a caller without it gets a NOT FOUND rather than an empty page (spec 0015,
+ * AC-5). Not found rather than "not authorised", deliberately: these are pages
+ * that exist for one department only, so for every other department the route
+ * genuinely does not exist, and saying so leaks nothing about what Library
+ * happens to have. The matching Convex function re-checks the same capability,
+ * so this is chrome and not the boundary.
  */
 export function DepartmentShellGate({
+  requires,
   children,
 }: {
+  requires?: DepartmentCapability;
   children: (shell: DepartmentShellContext) => ReactNode;
 }) {
   const shell = useDepartmentShellOrRedirect();
+  if (shell && requires && !shell.can[requires]) notFound();
   if (!shell) {
     return (
       <div className="space-y-4" aria-busy="true">

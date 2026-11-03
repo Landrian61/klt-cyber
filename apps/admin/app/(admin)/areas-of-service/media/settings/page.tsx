@@ -12,6 +12,7 @@ export default function MediaSettingsPage() {
           departmentId={shell.department._id}
           departmentName={shell.department.name}
           description={shell.department.description}
+          contactPhone={shell.department.contactPhone}
           can={shell.can}
         />
       )}

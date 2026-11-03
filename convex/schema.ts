@@ -5,6 +5,11 @@ import {
   vCostCurrency,
   vCostServiceKey,
 } from "./lib/costValidators";
+import {
+  vLibraryItemFormat,
+  vLibraryItemType,
+  vLibraryStockDirection,
+} from "./lib/libraryValidators";
 import { vNotificationKind } from "./lib/notificationValidators";
 
 // Shared with convex/notifications.ts (the dispatch action's arg validator)
@@ -289,6 +294,18 @@ export default defineSchema({
     // DEPARTMENT_DESCRIPTION_MAX_LENGTH; absent means the card renders no
     // description line.
     description: v.optional(v.string()),
+    // The one number the congregation uses to reach this department, in strict
+    // E.164 form (`+` then up to 15 digits, no separators) — validated by
+    // E164_PHONE_REGEX in @klt-cyber/shared, which `facilities.contactPhone`
+    // now shares so the portal has one phone format rather than two.
+    //
+    // Added generically rather than as a Library-only record (spec 0015,
+    // AC-29): the Library desk needs it for its `wa.me`/`tel:` buttons and
+    // Real Estate's letting enquiries (RE2-04) need exactly the same field in
+    // the same week. Set and cleared by that department's HOD on the shared
+    // Settings page; absent means the member sees the price but no contact
+    // buttons at all, rather than a button that dials nothing.
+    contactPhone: v.optional(v.string()),
   })
     .index("by_order", ["order"])
     .index("by_name", ["name"]),
@@ -906,4 +923,140 @@ export default defineSchema({
     storageObjectCount: v.number(),
     computedAt: v.number(), // shown beside the figure, because it is a day old
   }),
+
+  // ── Library catalogue, free content and stock (spec 0015) ─────────────────
+  // Everything the church carries, in ONE table split by a `format` axis
+  // (physical against digital) rather than by paid against free. One table
+  // means one search surface, one cover pipeline and one member browse, so a
+  // free teaching is discoverable beside the book it came from instead of
+  // hidden behind its own screen.
+
+  // The editable category list behind L1-01. Its own table rather than a
+  // string on each item because the Library renames and reorders categories,
+  // and a rename against a string field would mean rewriting every row that
+  // used it.
+  libraryCategories: defineTable({
+    name: v.string(), // trimmed, within LIBRARY_CATEGORY_NAME_MAX_LENGTH
+    // The order the member's filter chips and the new-item form's options
+    // render in. Renumbered contiguously from zero by a reorder, so no two
+    // rows share one — enforced in the mutation, since Convex has no unique
+    // indexes (root AGENTS.md).
+    order: v.number(),
+    // Retire a category without stranding the items filed under it. A hidden
+    // category leaves the filter chips and the form, while the items already
+    // on it keep showing its name rather than reading as uncategorised
+    // (AC-12).
+    hidden: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_order", ["order"]),
+
+  libraryItems: defineTable({
+    title: v.string(), // within LIBRARY_TITLE_MAX_LENGTH
+    description: v.optional(v.string()), // within LIBRARY_DESCRIPTION_MAX_LENGTH
+    categoryId: v.id("libraryCategories"),
+    author: v.optional(v.string()), // "author or minister" in L1-01
+    // An R2 object KEY, or an absolute URL for seeded art — resolved at read
+    // time by resolveMediaUrl (convex/lib/media.ts), never stored as a signed
+    // URL. `toR2Key` is what decides which of the two a value is, so a seeded
+    // Unsplash cover is skipped rather than failed on by the delete path.
+    coverImageUrl: v.optional(v.string()),
+    // The axis the table splits on. A `physical` row carries `priceUgx` and
+    // `quantityOnHand` and no file; a `pdf` or `audio` row carries the three
+    // file fields and neither of the other two. An edit may move an item
+    // within one side of the line but never across it (AC-8), so the
+    // invariant holds for the row's whole life.
+    format: vLibraryItemFormat,
+    // What kind of thing it is, independent of how it reaches the member.
+    // `flash_disk_package` and `merchandise` only ever pair with `physical` —
+    // enforced in the mutation rather than by the type system, which is the
+    // price of two orthogonal unions instead of one flat list.
+    itemType: vLibraryItemType,
+    // "Contains" for a flash disk package (L1-02), "Variants" for merchandise
+    // (L1-03). At most LIBRARY_DETAIL_LINES_MAX entries, each within
+    // LIBRARY_DETAIL_LINE_MAX_LENGTH — an unbounded array on a document is a
+    // document that can outgrow Convex's size limit.
+    detailLines: v.optional(v.array(v.string())),
+    // Whole shillings, physical items only. Never on a digital item: a digital
+    // item is free, which is the whole reason it is in the app.
+    priceUgx: v.optional(v.number()),
+    // The R2 key of the PDF or audio object, digital items only.
+    fileKey: v.optional(v.string()),
+    // Read back from R2 with `getMetadata` at attach time, never taken from
+    // the client — that is what makes the 25 MB cap an actual limit rather
+    // than a form hint, and what lets the member see a true weight before
+    // opening the file (AC-18).
+    fileSizeBytes: v.optional(v.number()),
+    // Likewise read back from R2. The value the allowlist check is made
+    // against, so a file renamed to `.pdf` does not get served as one.
+    fileContentType: v.optional(v.string()),
+    // Audio only, and optional on purpose: the Library team may type a
+    // duration in, and the player falls back to the file's own metadata once
+    // it loads, so nothing depends on this being filled (AC-20).
+    audioDurationSeconds: v.optional(v.number()),
+    // The current count, physical items only, never below zero.
+    //
+    // A stored derived value, which is normally a smell. It is justified only
+    // because the member browse would otherwise read a whole movement history
+    // per item just to decide whether to print "Out of stock". The invariant
+    // that keeps it honest lives in ONE mutation: `recordStockMovement` is the
+    // only writer of this field, and any second writer is a bug.
+    quantityOnHand: v.optional(v.number()),
+    // The N43 latch. Set when a movement takes the count from above
+    // LIBRARY_LOW_STOCK_THRESHOLD to at or below it, cleared when a movement
+    // lifts it back above. Its presence is what stops a second notice while
+    // the count stays low, including one that reaches zero (AC-26).
+    lowStockNotifiedAt: v.optional(v.number()),
+    // L1-04 hide: the item leaves every member surface while the team's own
+    // pages keep listing it marked "Hidden". Reversible.
+    hidden: v.boolean(),
+    // L1-04 remove: soft, so the stock history survives a removal. Terminal —
+    // the R2 objects are deleted and every later mutation is refused, so the
+    // row stays readable for the audit trail but is not revivable as a live
+    // item.
+    deletedAt: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // The member browse and the dashboard's recent additions, newest first.
+    .index("by_visibility", ["deletedAt", "hidden", "createdAt"])
+    .index("by_category", ["categoryId"])
+    // The free highlights card needs the newest four, so the index carries
+    // the order rather than sorting a collected list.
+    .index("by_format", ["format", "createdAt"])
+    // The low stock card. `format` sits in the key deliberately: a digital
+    // item has no `quantityOnHand`, and an undefined value sorts FIRST in
+    // Convex, so an index without `format` would count every PDF in the
+    // catalogue as low stock.
+    .index("by_stock", ["deletedAt", "format", "quantityOnHand"]),
+
+  // The audit trail L3-02 asks for. Quantities only, never money: what
+  // something cost is on the item, and a movement is a record of things
+  // leaving and arriving, not a sale.
+  libraryStockMovements: defineTable({
+    itemId: v.id("libraryItems"),
+    direction: vLibraryStockDirection,
+    quantity: v.number(), // a positive whole number
+    // The resulting count, so the Stock page shows a running balance without
+    // summing the whole history. Equals the item's `quantityOnHand`
+    // immediately after this movement — both are written in one transaction
+    // from a freshly read count, so there is no window in which they disagree.
+    quantityAfter: v.number(),
+    note: v.optional(v.string()), // within LIBRARY_STOCK_NOTE_MAX_LENGTH
+    // Always resolves: account deletion anonymises the `users` row rather than
+    // removing it (convex/accountDeletion.ts), so the page renders "a former
+    // member" rather than a broken reference (AC-25).
+    actorUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_item", ["itemId", "createdAt"])
+    // Spec 0017 AC-21: the one index that makes a trend over time possible.
+    // `by_item` can only answer "what happened to this item", so a dashboard
+    // asking "what moved in the last twelve months" would otherwise have to
+    // read the whole table. The Stock query reads this range ONCE, descending,
+    // and derives both the monthly buckets and the ninety day movers from that
+    // single result (AC-21, AC-22).
+    .index("by_created", ["createdAt"]),
 });

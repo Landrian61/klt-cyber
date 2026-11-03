@@ -13,6 +13,7 @@ import {
   getAdministrationAuthorityOrNull,
   getCurrentUser,
   logActivity,
+  departmentCapabilities,
   requireDepartmentCapability,
   resolveDepartmentShellRole,
 } from "./lib/authz";
@@ -514,7 +515,25 @@ export const listForDepartment = query({
   handler: async (ctx, { departmentId, from, to, now }) => {
     const user = await getCurrentUser(ctx);
     if (!user) return null;
-    if (!(await resolveDepartmentShellRole(ctx, user._id, departmentId))) return null;
+    // A CAPABILITY, not merely "any shell role". Spec 0015 added `roster` as a
+    // fourth shell role holding no shell capability at all, so a truthy role
+    // check here would hand a verified Hospitality or Library roster member
+    // this department's whole activity list: titles, locations, cancelled
+    // flags and cancellation reasons. `createActivity` is the capability the
+    // sidebar already keys the Activities link to, so gating on it is what
+    // makes the server agree with the navigation rather than quietly allowing
+    // more than the interface offers.
+    //
+    // Null rather than a throw, like every other query behind a live
+    // subscription in this shell: a page mounted while an appointment is
+    // revoked has to get a value it can render, not an exception inside a
+    // mounted `useQuery`.
+    const role = await resolveDepartmentShellRole(ctx, user._id, departmentId);
+    if (!role) return null;
+    const department = await ctx.db.get(departmentId);
+    if (!departmentCapabilities(role, department?.name).createActivity) {
+      return null;
+    }
 
     const rows = await ctx.db
       .query("groupActivities")

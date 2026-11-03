@@ -120,6 +120,17 @@ export default (): ExpoConfig => {
       "expo-secure-store",
       "expo-notifications",
       ["expo-calendar", { calendarPermission: CALENDAR_PERMISSION_COPY }],
+      // The Library's in-app audio player (spec 0015, AC-20). A NATIVE
+      // module, so it does not reach a device over the air: adding it here
+      // means every tester needs a fresh build from the manual "Build
+      // (preview APK)" workflow before free audio can be played at all.
+      // Feature 20 (Radio core) reuses the same dependency, so the native
+      // build is paid for once.
+      //
+      // No microphone permission is configured deliberately: this app only
+      // ever plays audio, it never records, and asking for a permission
+      // nothing uses is how an app gets refused on review.
+      "expo-audio",
       [
         "@sentry/react-native/expo",
         {

@@ -458,16 +458,16 @@ export function ServiceDialog({
             </TabsList>
             <TabsContent
               value="overview"
-              className="min-h-0 overflow-y-auto px-1"
+              className="subtle-scrollbar min-h-0 overflow-y-auto px-1"
             >
               <ServiceOverview service={service} rate={rate} />
             </TabsContent>
-            <TabsContent value="edit" className="min-h-0 overflow-y-auto px-1">
+            <TabsContent value="edit" className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
               {form}
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="min-h-0 overflow-y-auto px-1">{form}</div>
+          <div className="subtle-scrollbar min-h-0 overflow-y-auto px-1">{form}</div>
         )}
 
         <DialogFooter>

@@ -356,7 +356,7 @@ Members are told plainly, when claiming a department or choosing a clan, that th
 | F3-09 | As anyone appointing an HOD, the appointment always names a department. | Today the backend accepts an unscoped HOD. | Change |
 | F3-10 | As a person whose role is removed, I'm told privately. | | New |
 | F3-16 | As a System Admin or the Administration HOD, I appoint a clan elder. | One elder per clan; appointing replaces the sitting elder. | Change |
-| F3-19 | As a Media, Hospitality or Library roster member, I open my department's portal without holding a role. | Section 3.2. | New |
+| F3-19 | As a Hospitality or Library roster member, I open my department's portal without holding a role. | Section 3.2. Media is excluded: being on Media's roster grants the roster role, but Media's portal is bespoke (Devotionals, Past events) and stays leaders only, so the hub shows Media unlinked to a plain roster member rather than offering a door that bounces. Widening it would hand publishing power over church-wide content to the roster, which is a decision and not a gap. | New |
 
 #### 4.3.2 Clan portal
 
@@ -614,6 +614,8 @@ Members are told plainly, when claiming a department or choosing a clan, that th
 | **Settings** | Department description (HOD only); my own profile and account |
 
 Each department is represented by a **fixed built-in icon**.
+
+The **Dashboard** is the one page a department may replace with its own. Media (4.11) and the Library (4.13) do; every other department renders the shared Dashboard described above. The other four pages always come from the shared set.
 
 #### 4.7.2 HOD and delegate powers
 
@@ -1151,11 +1153,21 @@ Every Library roster member has the **same operational access** (catalogue, free
 
 | Page | Contents |
 |---|---|
+| **Dashboard** | The Library's own dashboard, not the shared department one (4.7.1). Four tabs: Overview, Collection, Stock, Free content |
 | Catalogue | Books, flash disk packages, teaching materials, manuals, merchandise |
 | Free content | PDFs and audio |
 | Stock | Quantities, movements, low-stock alerts |
 
-**Dashboard cards:** total items, low-stock items, recent additions, free content highlights.
+**Dashboard tabs:** the dashboard opens on Overview.
+
+| Tab | Contents |
+|---|---|
+| Overview | Total items, low-stock items (count includes items at zero), recent additions, free content highlights, and how many live items are hidden from members |
+| Collection | Format mix (physical, PDF, audio) as counts and shares, live items per category, items added per month across the last twelve months, and catalogue health as the share of items carrying a cover, an author and a description |
+| Stock | Units on hand, shelf value at desk prices, running low and out of stock as separate figures, quantities in against out per month across the last twelve months, the five fastest-moving items over ninety days, and the running-low list |
+| Free content | Number of PDFs, number of recordings, storage used, and the ten most recently added free items |
+
+Every Library roster member sees the same four tabs (4.13.2). An HOD also keeps, below the tabs, a pending roster claim, the next department activities and the recent activity feed; a roster member sees the tabs only. The verified member count, the mentorship figure and the church's weekly programs do not appear on this dashboard.
 
 #### 4.13.4 Stories
 

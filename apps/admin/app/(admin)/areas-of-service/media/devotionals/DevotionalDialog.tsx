@@ -167,7 +167,7 @@ export function DevotionalDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-5 overflow-y-auto px-1">
+        <div className="subtle-scrollbar min-h-0 space-y-5 overflow-y-auto px-1">
           <Field
             label="Date"
             htmlFor="dev-date"

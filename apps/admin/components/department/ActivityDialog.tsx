@@ -146,7 +146,7 @@ export function ActivityDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="max-h-[70vh] space-y-5 overflow-y-auto px-1">
+        <div className="subtle-scrollbar max-h-[70vh] space-y-5 overflow-y-auto px-1">
           {activity?.cancelled ? (
             <p className="rounded-md bg-crimson-light p-3 font-body text-sm text-crimson">
               This activity is cancelled. It stays on the list, marked, until its

@@ -5,6 +5,7 @@ import {
   DEPARTMENT_MEMBERSHIP_STATUSES,
   LIVE_DEPARTMENT_MEMBERSHIP_STATUSES,
   PAUSED_DEPARTMENTS,
+  LEADERS_ONLY_PORTAL_DEPARTMENTS,
   ROSTER_PORTAL_DEPARTMENTS,
   departmentIconKey,
   slugifyDepartmentName,
@@ -148,6 +149,27 @@ describe('the department name lists agree with each other', () => {
   it('never pauses a department that has a roster portal', () => {
     for (const name of ROSTER_PORTAL_DEPARTMENTS) {
       expect(PAUSED_DEPARTMENTS).not.toContain(name);
+    }
+  });
+
+  // The point of this test: LEADERS_ONLY_PORTAL_DEPARTMENTS subtracts from the
+  // hub, so a name appearing there without appearing in
+  // ROSTER_PORTAL_DEPARTMENTS would be subtracting from nothing and would read
+  // as a rule that does something when it does not.
+  it('only excludes a portal that a roster member could otherwise open', () => {
+    for (const name of LEADERS_ONLY_PORTAL_DEPARTMENTS) {
+      expect(ROSTER_PORTAL_DEPARTMENTS as readonly string[]).toContain(name);
+    }
+  });
+
+  // And the two departments F3-19 still promises stay promised: these use the
+  // shared `[slug]` shell, so their door genuinely opens.
+  it('keeps Hospitality and the Library openable by their roster', () => {
+    for (const name of ['Hospitality', 'Library & Information']) {
+      expect(ROSTER_PORTAL_DEPARTMENTS as readonly string[]).toContain(name);
+      expect(LEADERS_ONLY_PORTAL_DEPARTMENTS as readonly string[]).not.toContain(
+        name,
+      );
     }
   });
 });

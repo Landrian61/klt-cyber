@@ -424,7 +424,7 @@ export function AnnouncementDialog({
             {/* The one genuinely unbounded field in this form — capped with
                 its own small scroll region rather than letting an admin who
                 adds many links push the whole dialog into scrolling. */}
-            <div className="mt-2 max-h-32 space-y-3 overflow-y-auto px-1">
+            <div className="subtle-scrollbar mt-2 max-h-32 space-y-3 overflow-y-auto px-1">
               {form.links.length === 0 && (
                 <p className="font-body text-xs text-outline">No links.</p>
               )}
@@ -488,15 +488,15 @@ export function AnnouncementDialog({
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="edit">Edit</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview" className="min-h-0 overflow-y-auto px-1">
+            <TabsContent value="overview" className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
               <AnnouncementOverview a={announcement} />
             </TabsContent>
-            <TabsContent value="edit" className="min-h-0 overflow-y-auto px-1">
+            <TabsContent value="edit" className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
               {editForm}
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="min-h-0 overflow-y-auto px-1">{editForm}</div>
+          <div className="subtle-scrollbar min-h-0 overflow-y-auto px-1">{editForm}</div>
         )}
 
         <DialogFooter>

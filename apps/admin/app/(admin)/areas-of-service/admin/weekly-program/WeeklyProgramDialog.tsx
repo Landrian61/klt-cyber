@@ -532,15 +532,15 @@ export function WeeklyProgramDialog({
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="edit">Edit</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview" className="min-h-0 overflow-y-auto px-1">
+            <TabsContent value="overview" className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
               <ProgramOverview program={program} />
             </TabsContent>
-            <TabsContent value="edit" className="min-h-0 overflow-y-auto px-1">
+            <TabsContent value="edit" className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
               {editForm}
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="min-h-0 overflow-y-auto px-1">{editForm}</div>
+          <div className="subtle-scrollbar min-h-0 overflow-y-auto px-1">{editForm}</div>
         )}
 
         <DialogFooter>
