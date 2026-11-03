@@ -511,7 +511,7 @@ export function MembersClient() {
         open={selectedProfileId !== null}
         onOpenChange={(open) => !open && setSelectedProfileId(null)}
       >
-        <SheetContent className="overflow-y-auto bg-surface-low sm:max-w-xl">
+        <SheetContent className="subtle-scrollbar overflow-y-auto bg-surface-low sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>
               {selectedProfile ? fullName(selectedProfile) : "Member"}

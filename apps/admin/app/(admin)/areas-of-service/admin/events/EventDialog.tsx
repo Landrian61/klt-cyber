@@ -324,15 +324,15 @@ export function EventDialog({
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="edit">Edit</TabsTrigger>
               </TabsList>
-              <TabsContent value="overview" className="min-h-0 overflow-y-auto px-1">
+              <TabsContent value="overview" className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
                 <EventOverview event={event} />
               </TabsContent>
-              <TabsContent value="edit" className="min-h-0 overflow-y-auto px-1">
+              <TabsContent value="edit" className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
                 {editForm}
               </TabsContent>
             </Tabs>
           ) : (
-            <div className="min-h-0 overflow-y-auto px-1">{editForm}</div>
+            <div className="subtle-scrollbar min-h-0 overflow-y-auto px-1">{editForm}</div>
           )}
 
           <DialogFooter>

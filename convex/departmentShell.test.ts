@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LIBRARY_DEPARTMENT_NAME } from "@klt-cyber/shared";
 import { testConvex } from "./test.setup";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -120,24 +121,76 @@ describe("departmentCapabilities", () => {
     "sendHodNotice",
   ];
 
-  it("gives an HOD everything", () => {
+  // Capabilities that belong to ONE named department rather than to the shell
+  // (spec 0015, AC-2). They sit outside the HOD-only split entirely: every
+  // shell role of the granting department holds them and no role of any other
+  // department does, so "an HOD gets everything" has to mean "everything the
+  // SHELL has" from here on. Each is asserted on its own below.
+  const DEPARTMENT_SCOPED = ["manageLibrary"];
+  const SHELL_CAPABILITIES = DEPARTMENT_CAPABILITIES.filter(
+    (c) => !DEPARTMENT_SCOPED.includes(c)
+  );
+
+  it("gives an HOD everything the shell has", () => {
     const can = departmentCapabilities("hod");
-    for (const capability of DEPARTMENT_CAPABILITIES) {
+    for (const capability of SHELL_CAPABILITIES) {
       expect(can[capability]).toBe(true);
     }
   });
 
-  it("gives a System Admin everything", () => {
+  it("gives a System Admin everything the shell has", () => {
     const can = departmentCapabilities("system_admin");
-    for (const capability of DEPARTMENT_CAPABILITIES) {
+    for (const capability of SHELL_CAPABILITIES) {
       expect(can[capability]).toBe(true);
     }
   });
 
   it("withholds exactly the eight decisions from a delegate", () => {
     const can = departmentCapabilities("delegate");
-    const withheld = DEPARTMENT_CAPABILITIES.filter((c) => !can[c]);
+    const withheld = SHELL_CAPABILITIES.filter((c) => !can[c]);
     expect([...withheld].sort()).toEqual([...HOD_ONLY].sort());
+  });
+
+  // ── Department-scoped capabilities (spec 0015, AC-2) ─────────────────────
+
+  it("grants manageLibrary to every role of Library & Information", () => {
+    for (const role of ["system_admin", "hod", "delegate", "roster"] as const) {
+      expect(
+        departmentCapabilities(role, LIBRARY_DEPARTMENT_NAME).manageLibrary
+      ).toBe(true);
+    }
+  });
+
+  it("grants manageLibrary to nobody in any other department", () => {
+    for (const role of ["system_admin", "hod", "delegate", "roster"] as const) {
+      for (const name of ["Media", "Finance", "Administration"]) {
+        expect(departmentCapabilities(role, name).manageLibrary).toBe(false);
+      }
+    }
+  });
+
+  it("reads manageLibrary as false when no department name is passed", () => {
+    // This is what keeps the dozen untouched call sites safe: a caller that
+    // does not know which department it is talking about cannot be handed a
+    // scoped capability by accident.
+    for (const role of ["system_admin", "hod", "delegate", "roster"] as const) {
+      expect(departmentCapabilities(role).manageLibrary).toBe(false);
+    }
+  });
+
+  it("gives a roster member manageLibrary and nothing else", () => {
+    const can = departmentCapabilities("roster", LIBRARY_DEPARTMENT_NAME);
+    expect(can.manageLibrary).toBe(true);
+    for (const capability of SHELL_CAPABILITIES) {
+      expect(can[capability]).toBe(false);
+    }
+  });
+
+  it("gives a roster member of another department nothing at all", () => {
+    const can = departmentCapabilities("roster", "Media");
+    for (const capability of DEPARTMENT_CAPABILITIES) {
+      expect(can[capability]).toBe(false);
+    }
   });
 
   it("still lets a delegate do the day to day work", () => {
@@ -200,9 +253,14 @@ describe("resolveDepartmentShellRole", () => {
   });
 
   // SRS 4.9.2: a roster member gets "No" on roster, claims, positions and
-  // delegates. Spec 0006's portal gate lets them reach their department's own
-  // bespoke pages; it does not admit them to the shell.
-  it("gives a plain roster member no shell role", async () => {
+  // delegates. That rule is intact — a `roster` role holds no shell capability
+  // whatsoever (see the matrix tests above) — but spec 0015, AC-1 deliberately
+  // changed WHICH ROLE such a member resolves to, so this is no longer null
+  // inside a ROSTER_PORTAL_DEPARTMENTS department. SRS 4.13.2 needs it: every
+  // Library roster member has full operational access over the catalogue
+  // without an appointment, and F3-19 needs Media's and Hospitality's roster
+  // members to reach their own department's pages rather than being bounced.
+  it("resolves a verified roster member of a roster-portal department as roster", async () => {
     const t = testConvex();
     const depts = await seedDepartments(t);
     const userId = await createUser(t);
@@ -211,7 +269,67 @@ describe("resolveDepartmentShellRole", () => {
     const role = await t.run((ctx) =>
       resolveDepartmentShellRole(ctx, userId, depts["Media"])
     );
+    expect(role).toBe("roster");
+  });
+
+  it("gives a roster member of any other department no shell role", async () => {
+    const t = testConvex();
+    const depts = await seedDepartments(t);
+    const userId = await createUser(t);
+    await addMembership(t, userId, depts["Finance"], "active");
+
+    const role = await t.run((ctx) =>
+      resolveDepartmentShellRole(ctx, userId, depts["Finance"])
+    );
     expect(role).toBeNull();
+  });
+
+  it("gives an UNVERIFIED roster member no shell role", async () => {
+    // The gate that matters: `submitProfile` lets a user self-insert their own
+    // roster memberships during the profile wizard, so without the verified
+    // check any visitor could hand themselves the Library's catalogue by
+    // ticking a box about where they would like to serve.
+    const t = testConvex();
+    const depts = await seedDepartments(t);
+    const userId = await createUser(t, {
+      profileStatus: "pending_verification",
+    });
+    await addMembership(t, userId, depts["Media"], "active");
+
+    const role = await t.run((ctx) =>
+      resolveDepartmentShellRole(ctx, userId, depts["Media"])
+    );
+    expect(role).toBeNull();
+  });
+
+  it("gives a roster member with a non-active row no shell role", async () => {
+    const t = testConvex();
+    const depts = await seedDepartments(t);
+    for (const status of ["pending_claim", "removed", "declined"] as const) {
+      const userId = await createUser(t);
+      await addMembership(t, userId, depts["Media"], status);
+
+      const role = await t.run((ctx) =>
+        resolveDepartmentShellRole(ctx, userId, depts["Media"])
+      );
+      expect(role).toBeNull();
+    }
+  });
+
+  it("prefers a real appointment over the roster role", async () => {
+    // Someone can be both Library's HOD and on its roster. Resolving them as
+    // `roster` would strip every capability they actually hold, which is why
+    // precedence runs system_admin, hod, delegate, roster.
+    const t = testConvex();
+    const depts = await seedDepartments(t);
+    const userId = await createUser(t);
+    await addMembership(t, userId, depts["Media"], "active");
+    await grantRole(t, userId, "hod", depts["Media"]);
+
+    const role = await t.run((ctx) =>
+      resolveDepartmentShellRole(ctx, userId, depts["Media"])
+    );
+    expect(role).toBe("hod");
   });
 
   // The deliberate boundary: Administration keeps the active-roster read spec

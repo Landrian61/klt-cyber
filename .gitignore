@@ -62,3 +62,8 @@ Desktop.ini
 
 # Logs
 *.log
+
+# pdf.js runtime assets staged into the admin app's public/ by
+# apps/admin/scripts/pdfjs-assets.mjs. Generated from the pinned pdfjs-dist on
+# every dev run and build, so they are not source.
+apps/admin/public/pdfjs/

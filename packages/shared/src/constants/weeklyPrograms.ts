@@ -40,6 +40,67 @@ export function kampalaToday(now: number = Date.now()): string {
 }
 
 /**
+ * The Kampala calendar month a timestamp falls in, as "YYYY-MM".
+ *
+ * Same arithmetic as `kampalaToday`, one slice shorter. Lives beside the
+ * offset rather than in `convex/lib/` because a second place that knows the
+ * church's timezone is how the two drift apart — and these keys are what the
+ * Library dashboard's twelve month trends are bucketed by, on the server, in
+ * every query (spec 0017 AC-10, AC-15, AC-25).
+ */
+export function kampalaMonthKey(timestamp: number): string {
+  return new Date(timestamp + KAMPALA_UTC_OFFSET_MS).toISOString().slice(0, 7);
+}
+
+/**
+ * The epoch milliseconds of the first instant of the Kampala calendar month a
+ * timestamp falls in.
+ *
+ * Built by shifting into Kampala time, zeroing the day and the clock there via
+ * `Date.UTC`, then shifting back, so midnight means midnight in Kampala and
+ * not in the viewer's zone. This is the lower bound of the dashboard's twelve
+ * month window, counted back month by month from the current one (AC-10,
+ * AC-25).
+ */
+export function kampalaMonthStart(timestamp: number): number {
+  const shifted = new Date(timestamp + KAMPALA_UTC_OFFSET_MS);
+  return (
+    Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), 1) -
+    KAMPALA_UTC_OFFSET_MS
+  );
+}
+
+/**
+ * The `LIBRARY_TREND_MONTHS`-style window of consecutive "YYYY-MM" Kampala
+ * month keys ending at the month `now` falls in, oldest first.
+ *
+ * Generated up front so a trend series is always exactly `count` points and a
+ * quiet month reads as a zero rather than vanishing from the chart. Returns
+ * the keys and the window's lower bound, which is the `createdAt` a range read
+ * starts at (AC-10, AC-15).
+ */
+export function kampalaMonthWindow(
+  now: number,
+  count: number,
+): { keys: string[]; startedAt: number } {
+  const current = new Date(kampalaMonthStart(now) + KAMPALA_UTC_OFFSET_MS);
+  const year = current.getUTCFullYear();
+  const month = current.getUTCMonth();
+  const keys: string[] = [];
+  for (let back = count - 1; back >= 0; back -= 1) {
+    // Date.UTC normalises an out of range month, so month - 13 rolls the year
+    // back on its own and no month arithmetic is written by hand here.
+    keys.push(
+      new Date(Date.UTC(year, month - back, 1)).toISOString().slice(0, 7),
+    );
+  }
+  return {
+    keys,
+    startedAt: Date.UTC(year, month - (count - 1), 1) - KAMPALA_UTC_OFFSET_MS,
+  };
+}
+
+/**
  * Whether a "YYYY-MM-DD" occurrence date is before today in Kampala.
  *
  * The comparison is between calendar DAYS and not between instants, which is

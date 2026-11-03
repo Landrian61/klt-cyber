@@ -114,7 +114,7 @@ export function RosterMemberSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 overflow-y-auto px-4 pb-6">
+        <div className="subtle-scrollbar space-y-6 overflow-y-auto px-4 pb-6">
           <div className="flex items-center gap-3">
             <Avatar name={row.displayName} src={row.photoUrl} size="lg" />
             <div className="flex flex-wrap gap-1.5">

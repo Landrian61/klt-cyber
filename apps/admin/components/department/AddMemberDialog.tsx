@@ -109,7 +109,7 @@ export function AddMemberDialog({
               message="They may not be verified yet, or they may already be on this roster."
             />
           ) : (
-            <ul className="max-h-64 space-y-2 overflow-y-auto">
+            <ul className="subtle-scrollbar max-h-64 space-y-2 overflow-y-auto">
               {candidates.map((candidate) => {
                 const chosen = picked?.userId === candidate.userId;
                 return (

@@ -137,7 +137,7 @@ export function AssignRoleSheet({
           <SheetTitle>Assign a role</SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 space-y-6 overflow-y-auto">
+        <div className="subtle-scrollbar flex-1 space-y-6 overflow-y-auto">
           <Field label="Role" htmlFor="assign-role-type">
             <Select
               value={roleType}

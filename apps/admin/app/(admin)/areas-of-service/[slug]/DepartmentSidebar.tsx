@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BookOpen,
   CalendarDays,
+  Download,
   LayoutDashboard,
   MessageSquare,
+  Package,
   Settings,
   Users,
   type LucideIcon,
@@ -52,6 +55,31 @@ const NAV: {
     label: "Messages",
     icon: MessageSquare,
     capability: "viewMessages",
+  },
+  // Library's three pages (spec 0015, AC-5). `manageLibrary` is a
+  // department-scoped capability — only `Library & Information` grants it, and
+  // there to its HOD, its delegates, its verified roster and a System Admin
+  // alike — so these three entries simply never render for any other
+  // department. Library is the first department to put a page on the shared
+  // `[slug]` shell that only it can open, and this is the pattern Hospitality
+  // and Real Estate will follow.
+  {
+    segment: "catalogue",
+    label: "Catalogue",
+    icon: BookOpen,
+    capability: "manageLibrary",
+  },
+  {
+    segment: "free-content",
+    label: "Free content",
+    icon: Download,
+    capability: "manageLibrary",
+  },
+  {
+    segment: "stock",
+    label: "Stock",
+    icon: Package,
+    capability: "manageLibrary",
   },
   { segment: "settings", label: "Settings", icon: Settings, capability: null },
 ];

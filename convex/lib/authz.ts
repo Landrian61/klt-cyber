@@ -1,6 +1,9 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { ROSTER_PORTAL_DEPARTMENTS } from "@klt-cyber/shared";
+import {
+  LIBRARY_DEPARTMENT_NAME,
+  ROSTER_PORTAL_DEPARTMENTS,
+} from "@klt-cyber/shared";
 import { authComponent } from "../auth";
 
 // Shared authorization & audit helpers for the domain functions. Kept out of the
@@ -186,8 +189,23 @@ export async function requireDepartmentHod(
 // every shell mutation. Copying the matrix per page is how a delegate ends up
 // with HOD powers in one department.
 
-/** Who the caller is *for one department*, as far as the shell is concerned. */
-export type DepartmentShellRole = "hod" | "delegate" | "system_admin";
+/**
+ * Who the caller is *for one department*, as far as the shell is concerned.
+ *
+ * `roster` is the fourth value, added by spec 0015. It is NOT a general
+ * "member of this department" role: it resolves only inside a
+ * `ROSTER_PORTAL_DEPARTMENTS` department, and it holds no shell capability at
+ * all — only a department-scoped one its own department grants (today, just
+ * Library's `manageLibrary`). SRS 4.9.2's "No" on roster, claims, positions
+ * and delegates is therefore still intact for a roster member, while SRS
+ * 4.13.2's "every Library roster member has full operational access" is
+ * satisfied in the one place the portal already computes authority.
+ */
+export type DepartmentShellRole =
+  | "hod"
+  | "delegate"
+  | "system_admin"
+  | "roster";
 
 /**
  * Every gated action in the shell.
@@ -215,6 +233,11 @@ export const DEPARTMENT_CAPABILITIES = [
   "manageDelegates",
   "editDescription",
   "sendHodNotice",
+  // Spec 0015. The first DEPARTMENT-SCOPED capability: it is granted only
+  // inside `Library & Information`, and there to every shell role alike —
+  // including `roster`, which holds this and nothing else. See
+  // DEPARTMENT_SCOPED_CAPABILITIES below.
+  "manageLibrary",
 ] as const;
 
 export type DepartmentCapability = (typeof DEPARTMENT_CAPABILITIES)[number];
@@ -240,29 +263,90 @@ const HOD_ONLY_CAPABILITIES = [
   "sendHodNotice",
 ] as const satisfies readonly DepartmentCapability[];
 
-/** The `can` object for one role. System Admin holds everything. */
+/**
+ * The capabilities that belong to ONE named department rather than to the
+ * shell, mapped to the department that grants them (spec 0015).
+ *
+ * A scoped capability behaves differently from every other entry in the
+ * matrix: it ignores the HOD-only split entirely and is granted to every shell
+ * role of its own department — HOD, delegate, System Admin and `roster` alike
+ * — and to nobody in any other department. That is SRS 4.13.2's rule, which
+ * gives the Library's whole roster full operational access over the catalogue
+ * without an appointment.
+ *
+ * Library is the first of these, and the pattern Hospitality and Real Estate
+ * will land on. A capability listed here is false whenever the department name
+ * is not passed at all, which is why the second argument to
+ * {@link departmentCapabilities} being optional is safe: a caller that does
+ * not know which department it is talking about cannot accidentally be handed
+ * one of these.
+ */
+const DEPARTMENT_SCOPED_CAPABILITIES = {
+  manageLibrary: LIBRARY_DEPARTMENT_NAME,
+} as const satisfies Partial<Record<DepartmentCapability, string>>;
+
+/**
+ * The `can` object for one role. System Admin holds everything the shell has.
+ *
+ * `departmentName` is OPTIONAL on purpose. Only the shell context, which has
+ * just resolved the department document anyway, passes it; every other call
+ * site reads the shell capabilities it always read and sees every scoped
+ * capability as false. Making it required would have meant touching a dozen
+ * call sites to thread through a value eleven of them have no use for.
+ */
 export function departmentCapabilities(
-  role: DepartmentShellRole
+  role: DepartmentShellRole,
+  departmentName?: string
 ): DepartmentCapabilities {
   const hodOnly: readonly string[] = HOD_ONLY_CAPABILITIES;
+  const scoped: Record<string, string | undefined> =
+    DEPARTMENT_SCOPED_CAPABILITIES;
   const full = role === "hod" || role === "system_admin";
   return Object.fromEntries(
-    DEPARTMENT_CAPABILITIES.map((capability) => [
-      capability,
-      full || !hodOnly.includes(capability),
-    ])
+    DEPARTMENT_CAPABILITIES.map((capability) => {
+      // A scoped capability turns on the department, not the role: every role
+      // of that department holds it, no role of any other does.
+      const grantedBy = scoped[capability];
+      if (grantedBy !== undefined) {
+        return [capability, departmentName === grantedBy];
+      }
+      // A roster member holds no shell capability whatsoever — not the roster,
+      // not the claims, not the messages. Only the scoped branch above can
+      // ever give them a true.
+      if (role === "roster") return [capability, false];
+      return [capability, full || !hodOnly.includes(capability)];
+    })
   ) as DepartmentCapabilities;
 }
 
 /**
  * The caller's shell role for one department, or null when they have none.
  *
- * Null — not an error — for a plain roster member: SRS 4.9.2 gives a roster
- * member "No" on roster, claims, positions and delegates, so they get no shell
- * pages even though `hasPortalAccess` admits them to the portal for their
- * department's own bespoke pages (Media's Devotionals, Past events). Null too
- * for Administration authority, which keeps the active-roster read it already
- * had and gains nothing inside another department's shell.
+ * Precedence is `system_admin`, then `hod`, then `delegate`, then `roster`,
+ * and it matters: someone can be both Library's HOD and on its roster, and
+ * resolving them as `roster` would strip the capabilities they actually hold.
+ *
+ * A roster member resolves to `roster` only when all three hold: they have an
+ * `active` `departmentMemberships` row for THIS department, the department's
+ * name is in `ROSTER_PORTAL_DEPARTMENTS`, and their `memberProfiles`
+ * `profileStatus` is `verified`.
+ *
+ * That verified check is not decoration. `submitProfile` lets a user
+ * self-insert their own roster memberships during the profile wizard, so
+ * without it any visitor could hand themselves the Library's catalogue by
+ * ticking a box about which department they would like to serve in. It is the
+ * same gate `hasPortalAccess` applies at the front door, applied again here
+ * because this function is what decides what they can actually do once inside.
+ *
+ * Still null — not an error — for a roster member of any OTHER department: SRS
+ * 4.9.2 gives a roster member "No" on roster, claims, positions and delegates,
+ * so they get no shell pages even though `hasPortalAccess` admits them to the
+ * portal for their department's own bespoke pages (Media's Devotionals, Past
+ * events). `roster` resolving at all does not change that; what it earns is
+ * only a department-scoped capability (see DEPARTMENT_SCOPED_CAPABILITIES),
+ * never a shell one. Null too for Administration authority, which keeps the
+ * active-roster read it already had and gains nothing inside another
+ * department's shell.
  */
 export async function resolveDepartmentShellRole(
   ctx: QueryCtx | MutationCtx,
@@ -280,7 +364,47 @@ export async function resolveDepartmentShellRole(
   ) {
     return "delegate";
   }
+  if (await isVerifiedRosterPortalMember(ctx, userId, departmentId)) {
+    return "roster";
+  }
   return null;
+}
+
+/**
+ * The `roster` branch of {@link resolveDepartmentShellRole}, split out so the
+ * three conditions read as three conditions (spec 0015, AC-1).
+ *
+ * Ordered cheapest-first: the department read decides it for ten of the
+ * thirteen departments without touching the membership or profile tables at
+ * all.
+ */
+async function isVerifiedRosterPortalMember(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  departmentId: Id<"departments">
+): Promise<boolean> {
+  const department = await ctx.db.get(departmentId);
+  if (
+    !department ||
+    !(ROSTER_PORTAL_DEPARTMENTS as readonly string[]).includes(department.name)
+  ) {
+    return false;
+  }
+
+  const membership = await ctx.db
+    .query("departmentMemberships")
+    .withIndex("by_userId_status", (q) =>
+      q.eq("userId", userId).eq("status", "active")
+    )
+    .filter((q) => q.eq(q.field("departmentId"), departmentId))
+    .first();
+  if (!membership) return false;
+
+  const profile = await ctx.db
+    .query("memberProfiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+  return profile?.profileStatus === "verified";
 }
 
 /**
@@ -301,10 +425,21 @@ export async function requireDepartmentCapability(
 ): Promise<{ actor: Doc<"users">; role: DepartmentShellRole }> {
   const actor = await requireUser(ctx);
   const role = await resolveDepartmentShellRole(ctx, actor._id, departmentId);
-  if (!role || !departmentCapabilities(role)[capability]) {
+  // The department's NAME, because a scoped capability is granted on it (spec
+  // 0015, AC-2). One extra document read on a path that was already doing
+  // several, and the alternative — threading the name in from every call site
+  // — would have put the same read in a dozen places.
+  const department = role ? await ctx.db.get(departmentId) : null;
+  if (
+    !role ||
+    !departmentCapabilities(role, department?.name)[capability]
+  ) {
+    // Reworded for spec 0015: "only the HOD or a System Admin" stopped being
+    // true the moment a roster member could hold a capability, and a refusal
+    // that misstates the rule sends the reader looking for the wrong fix.
     throw new Error(
-      "Not authorized to do that in this department. Only this department's " +
-        "HOD or a System Admin may, and some actions are the HOD's alone."
+      "Not authorized to do that in this department. What you may do here " +
+        "depends on your role in it, and some actions are the HOD's alone."
     );
   }
   return { actor, role };

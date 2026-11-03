@@ -1290,6 +1290,7 @@ export const listMyDepartmentsForHub = query({
     const sysAdmin = await isActiveSystemAdmin(ctx, actor._id);
     if (sysAdmin) {
       return {
+        profileVerified: true,
         active: active.map((d) => ({
           department: d,
           roles: [] as string[],
@@ -1299,7 +1300,7 @@ export const listMyDepartmentsForHub = query({
       };
     }
 
-    const [memberships, roles] = await Promise.all([
+    const [memberships, roles, profile] = await Promise.all([
       ctx.db
         .query("departmentMemberships")
         .withIndex("by_userId_status", (q) =>
@@ -1307,6 +1308,10 @@ export const listMyDepartmentsForHub = query({
         )
         .collect(),
       getActiveRoles(ctx, actor._id),
+      ctx.db
+        .query("memberProfiles")
+        .withIndex("by_userId", (q) => q.eq("userId", actor._id))
+        .unique(),
     ]);
 
     const rolesByDept = new Map<Id<"departments">, Set<string>>();
@@ -1327,6 +1332,17 @@ export const listMyDepartmentsForHub = query({
     }
 
     return {
+      // Whether the caller's own profile is verified (spec 0015, AC-3).
+      //
+      // Both surfaces that read this query decide whether to offer a door into
+      // a department, and a roster member only gets one when their profile is
+      // verified — `resolveDepartmentShellRole` checks exactly that, so a
+      // surface that offered the door without it would be offering one that
+      // bounces the visitor straight back out. It cannot be inferred from
+      // `hasPortalAccess` having let them this far: someone holding an
+      // unrelated active role (a clan elder, say) passes that gate without a
+      // verified profile at all.
+      profileVerified: profile?.profileStatus === "verified",
       active: active
         .filter((d) => rolesByDept.has(d._id))
         .map((d) => ({

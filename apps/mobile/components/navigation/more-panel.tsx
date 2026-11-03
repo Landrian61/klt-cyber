@@ -26,7 +26,7 @@ interface MorePanelItem {
 
 const ITEMS: MorePanelItem[] = [
   { key: 'members', label: 'Members', icon: 'people-outline', route: '/members' },
-  { key: 'library', label: 'Library', icon: 'book-outline' },
+  { key: 'library', label: 'Library', icon: 'book-outline', route: '/library' },
   { key: 'media', label: 'Media', icon: 'play-circle-outline' },
   { key: 'admin', label: 'Admin', icon: 'shield-checkmark-outline', locked: true },
   { key: 'tower', label: 'Tower', icon: 'business-outline' },

@@ -57,6 +57,10 @@ export function resolveDeepLinkHref(
     case 'profile_review':
     case 'department_claim':
     case 'hod_notice':
+    // Spec 0015's N43. Restocking is portal work like the three above: the
+    // notice says what is low, the Stock page is where the movement is
+    // recorded.
+    case 'library_low_stock':
       // Work done on the web portal. The screen explains what is waiting and
       // links there; the id is not needed to say that.
       return `/portal-work?type=${deepLink.type}` as Href;

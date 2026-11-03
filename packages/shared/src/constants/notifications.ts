@@ -55,7 +55,14 @@ export const ROLE_COPY: Record<RoleType, { label: string; description: string }>
 };
 
 /** The deep link types that open the mobile "waiting on the web portal" screen. */
-export const PORTAL_WORK_TYPES = ['profile_review', 'department_claim', 'hod_notice'] as const;
+export const PORTAL_WORK_TYPES = [
+  'profile_review',
+  'department_claim',
+  'hod_notice',
+  // Spec 0015. N43's notice: the Library is running low on something, and
+  // recording what came in is done on the portal's Stock page.
+  'library_low_stock',
+] as const;
 
 export type PortalWorkType = (typeof PORTAL_WORK_TYPES)[number];
 
@@ -76,5 +83,9 @@ export const PORTAL_WORK_COPY: Record<PortalWorkType, { title: string; body: str
   hod_notice: {
     title: 'You have a notice from another HOD',
     body: 'Read the full notice on the web portal.',
+  },
+  library_low_stock: {
+    title: 'Something in the Library is running low',
+    body: 'Open the Library’s Stock page on the web portal to see what it is and record what comes in.',
   },
 };

@@ -11,6 +11,27 @@ export const ROSTER_PORTAL_DEPARTMENTS = [
   "Library & Information",
 ] as const;
 
+/**
+ * The departments that grant a `roster` shell role but whose PORTAL a roster
+ * member still cannot open.
+ *
+ * A subset of ROSTER_PORTAL_DEPARTMENTS, and the distinction is real rather
+ * than bookkeeping: being on Media's roster is what gives a member the
+ * `roster` role (and so the Library-style operational access the matrix hands
+ * out by department), while Media's portal itself is not the shared `[slug]`
+ * shell at all. It is a bespoke portal of two content management pages,
+ * Devotionals and Past events, gated on `hasMediaAccess` — System Admin or
+ * Media's own HOD or delegate.
+ *
+ * Without this list the hub would offer a plain Media roster member a LINKED
+ * tile that Media's own layout then redirects straight back out of: a door
+ * that bounces. Narrowing the hub is deliberately preferred over widening
+ * `hasMediaAccess`, because publishing devotionals to the whole congregation
+ * is real authority and granting it is a decision, not a bug fix. SRS F3-19
+ * records the same narrowing.
+ */
+export const LEADERS_ONLY_PORTAL_DEPARTMENTS = ["Media"] as const;
+
 export const PAUSED_DEPARTMENTS = [
   "Education",
   "Worship Ministry",

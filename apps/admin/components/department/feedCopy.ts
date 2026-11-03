@@ -1,4 +1,7 @@
-import { DEPARTMENT_FEED_ACTIONS } from "@klt-cyber/shared";
+import {
+  DEPARTMENT_FEED_ACTIONS,
+  LIBRARY_FEED_ACTIONS,
+} from "@klt-cyber/shared";
 
 /**
  * One audit entry, as a sentence (spec 0012, AC-35).
@@ -19,7 +22,11 @@ type FeedEntry = {
   metadata: Record<string, unknown> | null;
 };
 
-const TEMPLATES: Record<(typeof DEPARTMENT_FEED_ACTIONS)[number], string> = {
+type FeedAction =
+  | (typeof DEPARTMENT_FEED_ACTIONS)[number]
+  | (typeof LIBRARY_FEED_ACTIONS)[number];
+
+const TEMPLATES: Record<FeedAction, string> = {
   "department.claim_created": "asked to serve here",
   "department.claim_confirmed": "confirmed someone's request to serve here",
   "department.claim_declined": "declined a request to serve here",
@@ -32,6 +39,14 @@ const TEMPLATES: Record<(typeof DEPARTMENT_FEED_ACTIONS)[number], string> = {
   "department.activity_created": "scheduled an activity",
   "department.activity_cancelled": "cancelled an activity",
   "department.description_updated": "edited the department description",
+  // Spec 0015. Library runs its own pages on this shell, so its operational
+  // writes are what this department's "recent activity" actually is (AC-10).
+  "library.item_created": "added something to the catalogue",
+  "library.item_updated": "edited a catalogue item",
+  "library.item_hidden": "changed whether a catalogue item is visible",
+  "library.item_removed": "removed something from the catalogue",
+  "library.stock_recorded": "recorded a stock movement",
+  "library.category_changed": "changed the catalogue categories",
 };
 
 export function feedSentence(entry: FeedEntry): string {
@@ -44,7 +59,13 @@ export function feedSentence(entry: FeedEntry): string {
   }
 
   const title = typeof entry.metadata?.title === "string" ? entry.metadata.title : null;
-  if (title && entry.action.startsWith("department.activity")) {
+  if (
+    title &&
+    (entry.action.startsWith("department.activity") ||
+      entry.action.startsWith("library."))
+  ) {
+    // Which item, for a catalogue or stock entry. "added a book" is a far
+    // weaker answer to "what has been going on" than naming the book.
     return `${entry.actorName} ${template}: ${title}`;
   }
   return `${entry.actorName} ${template}`;

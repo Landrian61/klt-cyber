@@ -1,9 +1,12 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import {
+  DEPARTMENT_CONTACT_PHONE_INVALID,
   DEPARTMENT_DESCRIPTION_MAX_LENGTH,
   DEPARTMENT_FEED_ACTIONS,
+  LIBRARY_FEED_ACTIONS,
   PAUSED_DEPARTMENTS,
+  normalizeE164Phone,
   departmentIconKey,
   slugifyDepartmentName,
 } from "@klt-cyber/shared";
@@ -81,10 +84,21 @@ export const getShellContext = query({
         _id: department._id,
         name: department.name,
         description: department.description ?? null,
+        // The desk number the HOD sets on Settings (spec 0015, AC-29). Here
+        // rather than in its own query because the Settings form needs the
+        // current value to show, and this is the read that page already makes.
+        // The MEMBER's copy of it comes from `library.getCatalogueItem`
+        // instead, which is a different audience and a different gate.
+        contactPhone: department.contactPhone ?? null,
       },
       iconKey: departmentIconKey(department.name),
       role,
-      can: departmentCapabilities(role),
+      // The NAME goes in, so a department-scoped capability can be granted on
+      // it (spec 0015, AC-2). This is the one call site that passes it: every
+      // other caller of `departmentCapabilities` is asking about the shell's
+      // own matrix and reads a scoped capability as false, which is correct
+      // for all of them.
+      can: departmentCapabilities(role, department.name),
     };
   },
 });
@@ -101,6 +115,32 @@ async function shellRoleOrNull(ctx: QueryCtx, departmentId: Id<"departments">) {
   if (!user) return null;
   const role = await resolveDepartmentShellRole(ctx, user._id, departmentId);
   return role ? { user, role } : null;
+}
+
+/**
+ * A shell query's gate when the page in question is a LEADER's page.
+ *
+ * `shellRoleOrNull` above asks only "do you have any role here", which was the
+ * same question until spec 0015 gave the shell a `roster` role. A roster
+ * member has a role here and holds no shell capability at all, so the two
+ * queries behind the dashboard's member counts and its activity feed have to
+ * ask the narrower question: the portal hiding those cards is user experience,
+ * and leaving the queries open would hand a roster member the department's
+ * claim numbers through the API anyway (AC-4).
+ *
+ * `viewRoster` is the capability that stands for "this is leaders' data": it
+ * is the one every member-facing panel on the dashboard is already keyed to.
+ */
+async function rosterViewerOrNull(
+  ctx: QueryCtx,
+  departmentId: Id<"departments">
+) {
+  const resolved = await shellRoleOrNull(ctx, departmentId);
+  if (!resolved) return null;
+  const department = await ctx.db.get(departmentId);
+  return departmentCapabilities(resolved.role, department?.name).viewRoster
+    ? resolved
+    : null;
 }
 
 /** How many feed entries a dashboard reads. Small: the card shows a glance. */
@@ -145,7 +185,10 @@ const UPCOMING_COUNT_CAP = 50;
 export const getDashboard = query({
   args: { departmentId: v.id("departments"), now: v.number() },
   handler: async (ctx, { departmentId, now }) => {
-    if (!(await shellRoleOrNull(ctx, departmentId))) return null;
+    // Leaders' data: member counts, claim numbers, mentorship gaps. A roster
+    // member has a role in this department and no business reading any of it
+    // (spec 0015, AC-4).
+    if (!(await rosterViewerOrNull(ctx, departmentId))) return null;
 
     const [activeRows, pendingRows] = await Promise.all([
       ctx.db
@@ -231,9 +274,21 @@ export const listDepartmentFeed = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { departmentId, limit }) => {
-    if (!(await shellRoleOrNull(ctx, departmentId))) return null;
+    // Leaders' data too: the feed is a record of confirmations, removals and
+    // messages, which is the department's own business and not its roster's
+    // (spec 0015, AC-4).
+    if (!(await rosterViewerOrNull(ctx, departmentId))) return null;
 
-    const actions: readonly string[] = DEPARTMENT_FEED_ACTIONS;
+    // The shell's own events, plus the operational events of a department that
+    // runs its own pages on this shell (spec 0015, AC-10). Library's catalogue
+    // and stock writes ARE that department's recent activity, so excluding
+    // them would leave its feed showing roster changes and nothing about the
+    // work the department actually does. A department with no bespoke pages is
+    // unaffected: it never writes one of these actions.
+    const actions: readonly string[] = [
+      ...DEPARTMENT_FEED_ACTIONS,
+      ...LIBRARY_FEED_ACTIONS,
+    ];
     const page = Math.min(limit ?? FEED_PAGE_SIZE, 50);
 
     // Over-read then filter, because the index is on the department and not on
@@ -419,6 +474,74 @@ export const updateDepartmentDescription = mutation({
       targetId: departmentId,
       departmentId,
       metadata: { from: department.description ?? null, to: next ?? null },
+    });
+
+    return { ok: true as const, changed: true as const };
+  },
+});
+
+/**
+ * Set or clear the one number the congregation uses to reach this department
+ * (spec 0015, AC-29).
+ *
+ * Gated exactly as the description editor above is — `editDescription`, which
+ * is HOD-only — and for the same reason, only more so: the description is what
+ * a department says about itself, and this is the number the whole
+ * congregation taps. A delegate, a roster member or anyone else is refused by
+ * the server, not merely by a hidden field.
+ *
+ * Stored in strict E.164 form so there is one phone format in the portal
+ * rather than two: `tel:` takes the stored value as is, `wa.me` takes it with
+ * the leading `+` stripped, and neither survives free text. What the HOD types
+ * is normalised on the way in (spaces, dashes and brackets come out), and
+ * anything still not E.164 is refused rather than guessed at — inferring a
+ * missing country code is how a congregation ends up dialling the wrong
+ * continent.
+ *
+ * An empty string clears the field, which removes the contact buttons from the
+ * member's screen entirely rather than leaving one that dials nothing.
+ */
+export const updateContactPhone = mutation({
+  args: {
+    departmentId: v.id("departments"),
+    contactPhone: v.string(),
+  },
+  handler: async (ctx, { departmentId, contactPhone }) => {
+    const { actor } = await requireDepartmentCapability(
+      ctx,
+      departmentId,
+      "editDescription"
+    );
+
+    const department = await ctx.db.get(departmentId);
+    if (!department) throw new Error("Department not found");
+
+    const normalised = normalizeE164Phone(contactPhone);
+    if (normalised === null) {
+      throw new ConvexError({
+        code: DEPARTMENT_CONTACT_PHONE_INVALID,
+        message:
+          "Enter the number in full international form, starting with the country code, e.g. +256700123456.",
+      });
+    }
+    // Convex drops an optional field patched to undefined, which is how an
+    // empty value clears the number.
+    const next = normalised.length > 0 ? normalised : undefined;
+
+    // An unchanged save writes no audit entry. Saving a field you did not
+    // change is not an event, and a feed full of them hides the ones that are.
+    if (next === (department.contactPhone ?? undefined)) {
+      return { ok: true as const, changed: false as const };
+    }
+
+    await ctx.db.patch(departmentId, { contactPhone: next });
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "department.contact_phone_updated",
+      targetType: "departments",
+      targetId: departmentId,
+      departmentId,
+      metadata: { from: department.contactPhone ?? null, to: next ?? null },
     });
 
     return { ok: true as const, changed: true as const };

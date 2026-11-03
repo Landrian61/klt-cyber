@@ -141,7 +141,11 @@ async function resolveAllAudience(ctx: QueryCtx | MutationCtx): Promise<Id<"user
  * unverified roster member can still READ what their department is told. Only
  * the push audience is narrowed here.
  */
-async function resolveDepartmentAudience(
+// Exported since spec 0015: N43's recipient list is the union of this
+// audience and the department's own appointment holders, deduplicated, and
+// that union is computed in convex/library.ts rather than being a sixth
+// audience variant — a one-off recipient set is not a new KIND of audience.
+export async function resolveDepartmentAudience(
   ctx: QueryCtx | MutationCtx,
   departmentId: Id<"departments">
 ): Promise<Id<"users">[]> {
