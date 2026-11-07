@@ -43,5 +43,6 @@ There is no `lint` or `test` script here yet, so root `pnpm lint` and `pnpm test
 ## Gotchas
 
 - Deploys come from Cloudflare Workers Builds on push to `main`, not from the GitHub Actions staging workflow.
+- **`@sentry/nextjs` is pinned to `10.76.0` and held back from v11 on purpose — do not bump it alone.** The monorepo has one flat `node_modules` (`nodeLinker: hoisted`, required by Metro), so whatever version this app hoists is the one `apps/mobile` resolves too. `@sentry/react-native@8.30.0` requires `@sentry/core`/`@sentry/browser`/`@sentry/react` at exactly `10.76.0`; when this app was on v11 the mobile app crashed on launch and sat on its splash screen with no error. Nothing catches that — not the build, not the typecheck, not a PR check. Bump both apps together, or not at all.
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

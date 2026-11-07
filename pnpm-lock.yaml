@@ -194,7 +194,7 @@ importers:
         specifier: ^7.1.8
         version: 7.3.13(react-native@0.81.5(@babel/core@7.29.7(supports-color@10.2.2))(@types/react@19.1.17)(react@19.1.0)(supports-color@10.2.2))(react@19.1.0)
       '@sentry/react-native':
-        specifier: ^8.30.0
+        specifier: 8.30.0
         version: 8.30.0(@babel/core@7.29.7(supports-color@10.2.2))(@expo/config-types@54.0.10)(@expo/config@12.0.14(supports-color@10.2.2))(@expo/env@2.0.12(supports-color@10.2.2))(@react-navigation/native@7.3.13(react-native@0.81.5(@babel/core@7.29.7(supports-color@10.2.2))(@types/react@19.1.17)(react@19.1.0)(supports-color@10.2.2))(react@19.1.0))(dotenv@17.4.2)(expo-router@6.0.24)(expo-updates@29.0.20(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7(supports-color@10.2.2))(@types/react@19.1.17)(react@19.1.0)(supports-color@10.2.2))(react@19.1.0)(supports-color@10.2.2))(expo@54.0.37)(metro-config@0.83.7(supports-color@10.2.2))(metro-resolver@0.83.7)(metro@0.83.7(supports-color@10.2.2))(open@8.4.2)(promise@8.3.0)(react-native@0.81.5(@babel/core@7.29.7(supports-color@10.2.2))(@types/react@19.1.17)(react@19.1.0)(supports-color@10.2.2))(react@19.1.0)(rollup@4.64.2)(supports-color@10.2.2)(webpack@5.112.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.34.5))
       better-auth:
         specifier: 1.6.11

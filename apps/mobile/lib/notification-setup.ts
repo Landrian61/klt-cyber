@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 // Registered once at import time (module side effect, same pattern as
-// `SplashScreen.preventAutoHideAsync()` in app/_layout.tsx) rather than
-// inside a component, since it's global native configuration, not
+// `SplashScreen.preventAutoHideAsync()` in lib/splash-watchdog.ts) rather
+// than inside a component, since it's global native configuration, not
 // component-scoped state.
 //
 // Field names verified fresh against the installed expo-notifications
