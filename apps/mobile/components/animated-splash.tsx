@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { FontFamily, Spacing, HeavenGradient } from '@/constants/theme';
+import { cancelSplashWatchdog } from '@/lib/splash-watchdog';
 
 /**
  * Kingdom Radiant — animated cold-open splash.
@@ -57,7 +58,11 @@ export function AnimatedSplash({ sessionReady, onFinish }: Props) {
 
   // Hide the native splash on our first frame. (setOptions is unavailable in
   // Expo Go, so we don't call it — plain hideAsync works everywhere.)
+  // Standing the watchdog down first: reaching this point means the handoff
+  // worked, so its timeout must not fire later and uncover the screen
+  // underneath mid-intro (see lib/splash-watchdog.ts).
   useEffect(() => {
+    cancelSplashWatchdog();
     SplashScreen.hideAsync().catch(() => {});
   }, []);
 
