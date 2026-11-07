@@ -1,6 +1,10 @@
+// FIRST, before any import that could throw while loading: arms the guarantee
+// that the native splash always lifts, and owns preventAutoHideAsync. Keeping
+// it at the top is load bearing — see lib/splash-watchdog.ts for why.
+import '@/lib/splash-watchdog';
+
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -25,7 +29,6 @@ import { initSentry, Sentry } from '@/lib/sentry';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { useActivityReporter } from '@/hooks/use-activity-reporter';
 
-SplashScreen.preventAutoHideAsync();
 initSentry();
 
 export const unstable_settings = {
@@ -184,7 +187,7 @@ function RootLayoutInner() {
 }
 
 function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     // Kingdom Radiant — Bricolage Grotesque (display), Plus Jakarta Sans
     // (UI/body), Spline Sans Mono (amounts). All Google Fonts, OFL.
     'BricolageGrotesque-Bold': require('../assets/fonts/BricolageGrotesque-Bold.ttf'),
@@ -199,9 +202,20 @@ function RootLayout() {
     'SplineSansMono-SemiBold': require('../assets/fonts/SplineSansMono-SemiBold.ttf'),
   });
 
-  // Native splash stays up (cream + logo) until fonts are ready; the animated
-  // splash then hides it on its own first frame for a seamless handoff.
-  if (!fontsLoaded) {
+  // A font that fails to load must never strand the app. `useFonts` reports
+  // failure through its second element and then stays `false` forever, so
+  // reading only the first one meant a single unreadable .ttf left the app
+  // behind the native splash permanently, silently, with no way to tell that
+  // from any other hang. Report it and carry on: React Native falls back to a
+  // system typeface, so the app is merely off-brand rather than unusable.
+  useEffect(() => {
+    if (fontError) Sentry.captureException(fontError);
+  }, [fontError]);
+
+  // Native splash stays up (cream + logo) until the fonts have settled — one
+  // way or the other; the animated splash then hides it on its own first frame
+  // for a seamless handoff.
+  if (!fontsLoaded && !fontError) {
     return <View style={{ flex: 1, backgroundColor: LightColors.surface }} />;
   }
 
