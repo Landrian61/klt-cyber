@@ -219,21 +219,44 @@ export const departments = internalMutation({
   },
 });
 
-// The three Tower of Faith facilities, seeded everywhere (including
-// production) as hidden drafts — name only, so Real Estate fills in the rest
-// after launch (spec 0001, AC-3).
+// The Tower of Faith facilities, seeded everywhere (including production) as
+// hidden drafts — name only, so Real Estate fills in the rest after their
+// appointment (spec 0001, AC-3; spec 0018, AC-26).
+//
+// Spec 0018 replaced the original three with the seven names SRS 4.14.3
+// actually records, because the SRS wins when it and the code disagree (root
+// AGENTS.md). The original three are LEFT IN rather than renamed or deleted:
+// this seed runs in production, it is idempotent by name, and quietly deleting
+// rows an operator may already have filled in is not something a seed should
+// do. Somebody should confirm whether those three are real facilities that
+// belong on the SRS list or leftovers to remove by hand — recorded in spec
+// 0018's Follow-up.
+//
+// No floors are seeded. Only Real Estate knows the Tower's real floor names
+// and their order, so every draft below arrives unplaced and the portal's
+// Tower page opens on a "Not yet placed" group until they create them (AC-27).
 const FACILITY_DRAFT_NAMES = [
+  // Seeded before spec 0018, kept for the reason above.
   "KLT Media Studio",
   "KLT Resource Library",
   "KLT Fellowship Hall",
+  // SRS 4.14.3's seven.
+  "Heritage Academy",
+  "Restaurant",
+  "Saloon",
+  "Conference halls",
+  "Leadership Institute",
+  "Parking",
+  "Offices",
 ] as const;
 
 /**
- * Ensure the three Tower of Faith facilities exist as hidden drafts
- * (active: false, name only), attributed to the SEED_ADMIN_EMAIL user. Safe
- * everywhere including production. Idempotent — inserts only if absent by name, so it can
- * run in either order relative to churchAdminSeed:seedChurchAdmin without
- * creating duplicates (AC-7).
+ * Ensure the Tower of Faith facility drafts exist (active: false, name only),
+ * attributed to the SEED_ADMIN_EMAIL user. Safe everywhere including
+ * production. Idempotent — inserts only if absent by name, so it can run in
+ * either order relative to churchAdminSeed:seedChurchAdmin without creating
+ * duplicates (AC-7), and re-running it after spec 0018 adds only the seven new
+ * names without touching the three that were already there.
  */
 export const facilityDrafts = internalMutation({
   args: {},

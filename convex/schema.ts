@@ -310,23 +310,153 @@ export default defineSchema({
     .index("by_order", ["order"])
     .index("by_name", ["name"]),
 
+  // The Tower of Faith's floors (spec 0018, RE1-01 and M7-01's "floor by
+  // floor"). Owned by the Real Estate department, which is the only authority
+  // that may write them (`manageRealEstate`).
+  //
+  // A floor is pure structure: it carries no content of its own, which is why
+  // deleting an empty one is a hard delete while a floor with anything on it
+  // refuses (AC-6) and must be hidden instead.
+  realEstateFloors: defineTable({
+    // Trimmed, within RE_FLOOR_NAME_MAX_LENGTH, and unique case-insensitively
+    // with internal whitespace collapsed. Convex has no unique indexes, so the
+    // mutation enforces it via normalizeFloorName (AC-5).
+    name: v.string(),
+    // Renumbered contiguously from zero by a reorder, so no two floors tie.
+    order: v.number(),
+    // Retires a floor without stranding what sits on it: everything on a
+    // hidden floor leaves the app, while the portal keeps listing it under
+    // that floor marked "Floor hidden" (AC-7).
+    hidden: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_order", ["order"]),
+
   // Tower of Faith facilities directory.
+  //
+  // Grown rather than replaced by spec 0018 (RE1-02 to RE1-05). The six new
+  // fields are all optional so the rows seeded as hidden drafts stay valid
+  // against this schema without a backfill running first — a deliberate
+  // tradeoff recorded in that spec's Consequences, since `floorId` and
+  // `photos` would both otherwise deserve to be required.
   facilities: defineTable({
     name: v.string(),
     tagline: v.optional(v.string()),
     description: v.optional(v.string()),
+    // At most RE_SERVICES_MAX entries, each within RE_SERVICE_MAX_LENGTH.
     servicesOffered: v.optional(v.array(v.string())),
+
+    // -- DEPRECATED by spec 0018 (AC-25) ---------------------------------
+    // Written by nothing and read by nothing from spec 0018 onward. Kept in
+    // the schema deliberately rather than dropped in the same change: a push
+    // to `main` deploys the whole repo's schema to staging automatically, so
+    // one PR carrying both the add and the drop has no point at which the
+    // backfill could run between them — it would either fail validation
+    // against live rows or drop a column whose data had not moved yet.
+    // Dropping these four is a separate, trivial PR once the backfill has been
+    // verified in dev, staging and production. See spec 0018's Follow-up.
     campusBlock: v.optional(v.string()),
     address: v.optional(v.string()),
-    contactPerson: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
-    contactPhone: v.optional(v.string()), // wa.me link built at render time
+    // Backfilled into `photos[0]` by realEstateMigration and left in place, so
+    // the migration is safe to re-run and the old value stays as evidence.
     imageUrl: v.optional(v.string()),
+    // --------------------------------------------------------------------
+
+    // Which floor this facility sits on. Optional ONLY so a seeded draft stays
+    // valid; unset means "Not yet placed" (AC-27) and keeps it out of the app.
+    floorId: v.optional(v.id("realEstateFloors")),
+    // Position within its floor. Absent sorts as zero and ties break by name,
+    // so the order is stable even before anyone has reordered anything.
+    order: v.optional(v.number()),
+    // Ordered R2 object keys, at most RE_PHOTOS_MAX. `photos[0]` IS the cover,
+    // so choosing a cover is a reorder and can never point at a photo that was
+    // removed (AC-11).
+    photos: v.optional(v.array(v.string())),
+    // The facility's own published numbers, in strict E.164 — never a
+    // responsible member's personal number. Validated by E164_PHONE_REGEX from
+    // @klt-cyber/shared, the same regex `departments.contactPhone` uses.
+    //
+    // Rows created before spec 0018 are NOT guaranteed to match: the migration
+    // reports them without rewriting, so a loose value is known about before
+    // an operator meets it on first edit (AC-25).
+    contactPhone: v.optional(v.string()),
+    contactWhatsapp: v.optional(v.string()),
+    // Who runs this facility, named one of two mutually exclusive ways:
+    // a `users` row, or a typed-in name. Setting either clears the other, so
+    // the normal path never refuses (AC-9). Not restricted to verified members,
+    // because a facility can reasonably be run by someone who has not finished
+    // the profile wizard.
+    responsibleUserId: v.optional(v.id("users")),
+    contactPerson: v.optional(v.string()),
+    // Seven entries, one per weekday, weekday 0 being SUNDAY to match
+    // JavaScript's getDay() — so no conversion layer sits between the stored
+    // data and the clock (AC-10). A close below its open means the window runs
+    // into the next day. Absent hours read "Hours not listed" in the app, never
+    // "Closed", and do NOT keep the facility out of it (AC-18).
+    openingHours: v.optional(
+      v.array(
+        v.object({
+          weekday: v.number(),
+          closed: v.boolean(),
+          openMinutes: v.optional(v.number()),
+          closeMinutes: v.optional(v.number()),
+        }),
+      ),
+    ),
+    // The hide flag, and the ONLY stored visibility state. Whether a member
+    // actually sees this facility is not a state at all: it is AC-18's five
+    // conditions evaluated on read, of which this is one. Unhiding never checks
+    // completeness, so an operator can always save work in progress.
     active: v.boolean(),
+    // Soft remove, and terminal: a row with this set refuses every later
+    // mutation, so a removed facility can never be edited back into existence
+    // with its photos already deleted from R2 (AC-13).
+    deletedAt: v.optional(v.number()),
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_active", ["active"]),
+  })
+    .index("by_active", ["active"])
+    .index("by_floor", ["floorId", "order"]),
+
+  // Spaces in the Tower available to let (spec 0018, RE2-01 to RE2-04).
+  realEstateSpaces: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    // Required, unlike a facility's: one building, so a floor places a space
+    // fully, and there is no seeded draft to keep valid here.
+    floorId: v.id("realEstateFloors"),
+    // RE_SPACE_SIZE_MIN_SQM to RE_SPACE_SIZE_MAX_SQM. Fractional metres are
+    // fine; absent simply means the size was not recorded.
+    sizeSqm: v.optional(v.number()),
+    // Whole shillings, 0 to RE_SPACE_PRICE_MAX_UGX. Absent reads "Price on
+    // enquiry" rather than free (AC-20).
+    priceUgxPerMonth: v.optional(v.number()),
+    // Ordered R2 keys, at most RE_PHOTOS_MAX, `photos[0]` the cover — exactly
+    // as on a facility.
+    photos: v.optional(v.array(v.string())),
+    // Per-listing overrides. Each falls back INDEPENDENTLY to the Real Estate
+    // department's `contactPhone`, so a listing overriding only its phone still
+    // offers WhatsApp (AC-21).
+    contactPhone: v.optional(v.string()),
+    contactWhatsapp: v.optional(v.string()),
+    // "available" | "reserved" | "let", per RE_SPACE_STATUSES. All six
+    // transitions are allowed and each is logged. A `let` space leaves the app
+    // and stays in the portal, so it can be flipped back without retyping it.
+    status: v.string(),
+    // Soft remove, terminal, same rule as a facility's.
+    deletedAt: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // ["status", "createdAt"] cannot express two statuses in one read, so the
+    // member query reads the `available` and `reserved` ranges separately and
+    // merges them, rather than scanning the table (AC-20).
+    .index("by_status", ["status", "createdAt"])
+    .index("by_floor", ["floorId"]),
 
   // The 12 fixed clans — seeded reference data (seed:clans).
   clans: defineTable({

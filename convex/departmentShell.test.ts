@@ -122,11 +122,16 @@ describe("departmentCapabilities", () => {
   ];
 
   // Capabilities that belong to ONE named department rather than to the shell
-  // (spec 0015, AC-2). They sit outside the HOD-only split entirely: every
-  // shell role of the granting department holds them and no role of any other
-  // department does, so "an HOD gets everything" has to mean "everything the
-  // SHELL has" from here on. Each is asserted on its own below.
-  const DEPARTMENT_SCOPED = ["manageLibrary"];
+  // (spec 0015, AC-2; spec 0018, AC-1). They sit outside the HOD-only split
+  // entirely: every shell role of the granting department holds them and no
+  // role of any other department does, so "an HOD gets everything" has to mean
+  // "everything the SHELL has" from here on. Each is asserted on its own below.
+  //
+  // Mirrors DEPARTMENT_SCOPED_CAPABILITIES in `lib/authz.ts`. A new scoped
+  // capability added there and not here fails the three assertions below,
+  // which is the point: it forces whoever adds one to say out loud that it is
+  // scoped rather than letting it quietly look like a shell capability.
+  const DEPARTMENT_SCOPED = ["manageLibrary", "manageRealEstate"];
   const SHELL_CAPABILITIES = DEPARTMENT_CAPABILITIES.filter(
     (c) => !DEPARTMENT_SCOPED.includes(c)
   );

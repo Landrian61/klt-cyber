@@ -126,9 +126,20 @@ describe("content query sign-in gating (AC-1)", () => {
     expect(result).toBeNull();
   });
 
-  it("listActiveFacilities returns null without auth", async () => {
+  // `listActiveFacilities` became `listTowerFacilities` in spec 0018: the old
+  // query returned every active row flat, which the Tower screen cannot use
+  // now that visibility depends on the floor and a contact number too.
+  it("listTowerFacilities returns null without auth", async () => {
     const t = testConvex();
-    const result = await t.query(api.facilities.listActiveFacilities, {});
+    const result = await t.query(api.facilities.listTowerFacilities, {});
+    expect(result).toBeNull();
+  });
+
+  it("getFacility returns null without auth", async () => {
+    const t = testConvex();
+    const result = await t.query(api.facilities.getFacility, {
+      facilityId: "not-a-real-id",
+    });
     expect(result).toBeNull();
   });
 });

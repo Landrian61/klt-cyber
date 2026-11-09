@@ -103,10 +103,9 @@ export const seedChurchAdmin = internalMutation({
         description:
           "Our in-house production studio — livestream, recording, and broadcast for Reign Radio.",
         servicesOffered: ["Livestream", "Audio recording", "Radio broadcast"],
-        campusBlock: "Block A, Ground Floor",
         contactPerson: "Media & Communication HOD",
         contactPhone: "+256700100100",
-        imageUrl: IMG.media,
+        photos: [IMG.media],
       },
       {
         name: "KLT Resource Library",
@@ -114,10 +113,9 @@ export const seedChurchAdmin = internalMutation({
         description:
           "A lending library of books, sermons, and study materials for members.",
         servicesOffered: ["Book lending", "Study room", "Sermon archive"],
-        campusBlock: "Block B, First Floor",
         contactPerson: "Library Coordinator",
-        contactEmail: "library@kltcyberchurch.org",
-        imageUrl: IMG.library,
+        contactPhone: "+256700100300",
+        photos: [IMG.library],
       },
       {
         name: "KLT Fellowship Hall",
@@ -125,10 +123,9 @@ export const seedChurchAdmin = internalMutation({
         description:
           "Our multipurpose hall for weddings, conferences, and fellowship meals.",
         servicesOffered: ["Event hosting", "Catering hall", "Conference seating"],
-        campusBlock: "Main Campus, Annex",
         contactPerson: "Facilities Manager",
         contactPhone: "+256700100200",
-        imageUrl: IMG.hall,
+        photos: [IMG.hall],
       },
     ];
     let facilitiesCreated = 0;

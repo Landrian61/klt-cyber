@@ -32,23 +32,37 @@ describe("seed:facilityDrafts", () => {
     expect(facilities).toHaveLength(0);
   });
 
-  it("inserts the three facilities as hidden drafts, attributed to the seed admin", async () => {
+  it("inserts all ten facility drafts as hidden, attributed to the seed admin", async () => {
     vi.stubEnv("SEED_ADMIN_EMAIL", SEED_ADMIN_EMAIL);
     const t = testConvex();
     await seedAdminUser(t);
 
     const result = await t.mutation(internal.seed.facilityDrafts, {});
-    expect(result).toMatchObject({ ok: true, created: 3, total: 3 });
+    expect(result).toMatchObject({ ok: true, created: 10, total: 10 });
 
     const facilities = await t.run((ctx) => ctx.db.query("facilities").collect());
-    expect(facilities).toHaveLength(3);
+    expect(facilities).toHaveLength(10);
     for (const facility of facilities) {
       expect(facility.active).toBe(false);
       expect(facility.name).toBeTruthy();
+      // Name only: spec 0018 seeds no floor, because only Real Estate knows
+      // the Tower's real floor names (AC-26), so every draft is unplaced.
+      expect(facility.floorId).toBeUndefined();
     }
-    expect(facilities.map((f) => f.name).sort()).toEqual(
-      ["KLT Fellowship Hall", "KLT Media Studio", "KLT Resource Library"].sort()
-    );
+    // SRS 4.14.3's seven, plus the three seeded before spec 0018 which are
+    // left in place rather than renamed or deleted (AC-26).
+    expect(facilities.map((f) => f.name).sort()).toEqual([
+        "Conference halls",
+        "Heritage Academy",
+        "KLT Fellowship Hall",
+        "KLT Media Studio",
+        "KLT Resource Library",
+        "Leadership Institute",
+        "Offices",
+        "Parking",
+        "Restaurant",
+        "Saloon",
+      ].sort());
   });
 
   it("is idempotent — a second run inserts nothing new", async () => {
@@ -58,7 +72,7 @@ describe("seed:facilityDrafts", () => {
 
     await t.mutation(internal.seed.facilityDrafts, {});
     const second = await t.mutation(internal.seed.facilityDrafts, {});
-    expect(second).toMatchObject({ ok: true, created: 0, total: 3 });
+    expect(second).toMatchObject({ ok: true, created: 0, total: 10 });
   });
 });
 
@@ -144,7 +158,8 @@ describe("facility visibility (AC-8)", () => {
     await t.mutation(internal.seed.facilityDrafts, {});
     const facilities = await t.run((ctx) => ctx.db.query("facilities").collect());
     expect(facilities.find((f) => f.name === "KLT Media Studio")?.active).toBe(true);
-    expect(facilities.filter((f) => f.active === false)).toHaveLength(2);
+    // The other nine arrive hidden; the live one is left exactly as it was.
+    expect(facilities.filter((f) => f.active === false)).toHaveLength(9);
   });
 });
 
@@ -161,8 +176,9 @@ describe("facilityDrafts and churchAdminSeed order-independence (AC-7)", () => {
     expect(churchAdminResult.ok).toBe(true);
 
     const facilities = await t.run((ctx) => ctx.db.query("facilities").collect());
-    // 3 hidden drafts, matched by name so seedChurchAdmin adds no duplicates.
-    expect(facilities).toHaveLength(3);
+    // 10 hidden drafts, matched by name so seedChurchAdmin's three sample rows
+    // add no duplicates on top of the drafts that already carry those names.
+    expect(facilities).toHaveLength(10);
     expect(facilities.every((f) => f.active === false)).toBe(true);
   });
 
@@ -176,11 +192,12 @@ describe("facilityDrafts and churchAdminSeed order-independence (AC-7)", () => {
     });
     expect(churchAdminResult.ok).toBe(true);
     const facilityResult = await t.mutation(internal.seed.facilityDrafts, {});
-    expect(facilityResult).toMatchObject({ ok: true, created: 0 });
+    // seedChurchAdmin already wrote the three it shares a name with, so only
+    // SRS 4.14.3's seven are new here. Neither seed suppressed the other.
+    expect(facilityResult).toMatchObject({ ok: true, created: 7, total: 10 });
 
     const facilities = await t.run((ctx) => ctx.db.query("facilities").collect());
-    expect(facilities).toHaveLength(3);
-    expect(facilities.every((f) => f.active === false)).toBe(true);
+    expect(facilities).toHaveLength(10);
     expect(facilities.every((f) => f.active === false)).toBe(true);
   });
 });
