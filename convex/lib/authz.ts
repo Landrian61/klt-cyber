@@ -2,6 +2,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   LIBRARY_DEPARTMENT_NAME,
+  REAL_ESTATE_DEPARTMENT_NAME,
   ROSTER_PORTAL_DEPARTMENTS,
 } from "@klt-cyber/shared";
 import { authComponent } from "../auth";
@@ -238,6 +239,17 @@ export const DEPARTMENT_CAPABILITIES = [
   // including `roster`, which holds this and nothing else. See
   // DEPARTMENT_SCOPED_CAPABILITIES below.
   "manageLibrary",
+  // Spec 0018. The second scoped capability, and the one that proves the first
+  // was a pattern rather than a Library special case. Granted only inside
+  // `Real Estate`, and there to the HOD, a delegate and a System Admin.
+  //
+  // It reaches no roster member, but NOT by a rule of its own: Real Estate is
+  // deliberately absent from ROSTER_PORTAL_DEPARTMENTS, so
+  // `resolveDepartmentShellRole` returns null for a Real Estate roster member
+  // and the scoped branch below is never even reached for them. That is how
+  // SRS 4.14.1's "roster members have no portal access" holds here without a
+  // second exception living in this file.
+  "manageRealEstate",
 ] as const;
 
 export type DepartmentCapability = (typeof DEPARTMENT_CAPABILITIES)[number];
@@ -274,15 +286,23 @@ const HOD_ONLY_CAPABILITIES = [
  * gives the Library's whole roster full operational access over the catalogue
  * without an appointment.
  *
- * Library is the first of these, and the pattern Hospitality and Real Estate
- * will land on. A capability listed here is false whenever the department name
- * is not passed at all, which is why the second argument to
- * {@link departmentCapabilities} being optional is safe: a caller that does
- * not know which department it is talking about cannot accidentally be handed
- * one of these.
+ * Library is the first of these, and Real Estate (spec 0018) is the second, on
+ * exactly this mechanism with no new machinery. Hospitality is next. A
+ * capability listed here is false whenever the department name is not passed
+ * at all, which is why the second argument to {@link departmentCapabilities}
+ * being optional is safe: a caller that does not know which department it is
+ * talking about cannot accidentally be handed one of these.
+ *
+ * Note that the two entries differ in who they actually reach, and not because
+ * of anything written here. `manageLibrary` reaches the Library's roster
+ * because `Library & Information` is in ROSTER_PORTAL_DEPARTMENTS;
+ * `manageRealEstate` reaches only the HOD, delegates and System Admin because
+ * `Real Estate` is not. The scoping rule is the same for both, and the roster
+ * question is settled one layer down in `resolveDepartmentShellRole`.
  */
 const DEPARTMENT_SCOPED_CAPABILITIES = {
   manageLibrary: LIBRARY_DEPARTMENT_NAME,
+  manageRealEstate: REAL_ESTATE_DEPARTMENT_NAME,
 } as const satisfies Partial<Record<DepartmentCapability, string>>;
 
 /**
