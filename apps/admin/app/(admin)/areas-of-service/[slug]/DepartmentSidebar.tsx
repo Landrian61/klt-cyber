@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
+  Building2,
   CalendarDays,
   Download,
+  KeyRound,
   LayoutDashboard,
   MessageSquare,
   Package,
@@ -80,6 +82,24 @@ const NAV: {
     label: "Stock",
     icon: Package,
     capability: "manageLibrary",
+  },
+  // Spec 0018. The same scoped mechanism, one department along: only
+  // `Real Estate` grants `manageRealEstate`, so these two never render for any
+  // other department. Unlike the Library's three, they never reach a roster
+  // member either — Real Estate is deliberately absent from
+  // ROSTER_PORTAL_DEPARTMENTS, so a roster member resolves to no shell role
+  // there at all and `can.manageRealEstate` is false for them.
+  {
+    segment: "tower",
+    label: "Tower of Faith",
+    icon: Building2,
+    capability: "manageRealEstate",
+  },
+  {
+    segment: "spaces",
+    label: "Spaces to let",
+    icon: KeyRound,
+    capability: "manageRealEstate",
   },
   { segment: "settings", label: "Settings", icon: Settings, capability: null },
 ];
