@@ -161,6 +161,9 @@ function RootLayoutInner() {
           <Stack.Screen name="events" />
           <Stack.Screen name="event-detail" />
           <Stack.Screen name="item-detail" />
+          <Stack.Screen name="tower" />
+          <Stack.Screen name="facility-detail" />
+          <Stack.Screen name="space-detail" />
           <Stack.Screen name="announcement-detail" />
           <Stack.Screen name="role-notice" />
           <Stack.Screen name="portal-work" />

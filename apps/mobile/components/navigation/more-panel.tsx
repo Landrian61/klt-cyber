@@ -29,7 +29,7 @@ const ITEMS: MorePanelItem[] = [
   { key: 'library', label: 'Library', icon: 'book-outline', route: '/library' },
   { key: 'media', label: 'Media', icon: 'play-circle-outline' },
   { key: 'admin', label: 'Admin', icon: 'shield-checkmark-outline', locked: true },
-  { key: 'tower', label: 'Tower', icon: 'business-outline' },
+  { key: 'tower', label: 'Tower', icon: 'business-outline', route: '/tower' },
   { key: 'appointments', label: 'Booking', icon: 'calendar-outline' },
   { key: 'inquiries', label: 'Inquiries', icon: 'chatbubble-ellipses-outline' },
   { key: 'procurement', label: 'Procure', icon: 'briefcase-outline' },
