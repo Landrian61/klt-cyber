@@ -15,22 +15,17 @@ export const ROSTER_PORTAL_DEPARTMENTS = [
  * The departments that grant a `roster` shell role but whose PORTAL a roster
  * member still cannot open.
  *
- * A subset of ROSTER_PORTAL_DEPARTMENTS, and the distinction is real rather
- * than bookkeeping: being on Media's roster is what gives a member the
- * `roster` role (and so the Library-style operational access the matrix hands
- * out by department), while Media's portal itself is not the shared `[slug]`
- * shell at all. It is a bespoke portal of two content management pages,
- * Devotionals and Past events, gated on `hasMediaAccess` — System Admin or
- * Media's own HOD or delegate.
+ * A subset of ROSTER_PORTAL_DEPARTMENTS. Empty since spec 0019: Media was the
+ * one entry until then, because its bespoke portal held only Devotionals and
+ * Past events, which stay leaders only, so the hub would have offered a plain
+ * roster member a door that bounced. Media's portal now carries the radio
+ * pages, which every verified Media roster member may run (`manageRadio`,
+ * SRS 4.9.2, F3-19), so the door opens and the subtraction went.
  *
- * Without this list the hub would offer a plain Media roster member a LINKED
- * tile that Media's own layout then redirects straight back out of: a door
- * that bounces. Narrowing the hub is deliberately preferred over widening
- * `hasMediaAccess`, because publishing devotionals to the whole congregation
- * is real authority and granting it is a decision, not a bug fix. SRS F3-19
- * records the same narrowing.
+ * Kept as a list rather than deleted, because the next bespoke portal whose
+ * roster has nothing to do inside is exactly the case it exists for.
  */
-export const LEADERS_ONLY_PORTAL_DEPARTMENTS = ["Media"] as const;
+export const LEADERS_ONLY_PORTAL_DEPARTMENTS: readonly string[] = [];
 
 export const PAUSED_DEPARTMENTS = [
   "Education",

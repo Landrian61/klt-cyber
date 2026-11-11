@@ -162,6 +162,12 @@ describe('the department name lists agree with each other', () => {
     }
   });
 
+  // Spec 0019: Media's roster runs the radio pages, so its portal opens.
+  it("lets Media's roster into Media's portal", () => {
+    expect(ROSTER_PORTAL_DEPARTMENTS as readonly string[]).toContain('Media');
+    expect(LEADERS_ONLY_PORTAL_DEPARTMENTS).not.toContain('Media');
+  });
+
   // And the two departments F3-19 still promises stay promised: these use the
   // shared `[slug]` shell, so their door genuinely opens.
   it('keeps Hospitality and the Library openable by their roster', () => {
