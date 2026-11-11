@@ -109,9 +109,12 @@ export const submit = mutation({
  * anyone else. A testimony carries its sender's name; a prayer request
  * carries no sender field at all.
  *
- * Paged by broadcast. `cursor` is the earliest item time across the previous
- * page, and each page shows its broadcasts whole, so every item of a shown
- * broadcast sits at or after the cursor and the next page cannot list it again.
+ * Paged by broadcast. Items are scanned newest first, and a broadcast joins
+ * the page at its newest item; the page then shows it whole. `cursor` is the
+ * time where the scan stopped. Every broadcast shown so far has its newest
+ * item at or after that point, and every broadcast not yet shown has its
+ * newest item before it, so the next page scans below the cursor and skips
+ * any broadcast whose newest item is not below it.
  */
 export const listByBroadcast = query({
   args: { cursor: v.optional(v.number()) },
@@ -126,8 +129,10 @@ export const listByBroadcast = query({
     let before = cursor ?? Number.POSITIVE_INFINITY;
     let scanned = 0;
     let exhausted = false;
+    // Where this page's scan stopped: the next page's cursor.
+    let stopAt = before;
 
-    while (chosen.length < INBOX_BROADCASTS_PER_PAGE && scanned < INBOX_SCAN_LIMIT) {
+    scan: while (scanned < INBOX_SCAN_LIMIT) {
       const chunk = await ctx.db
         .query("radioInboxItems")
         .withIndex("by_createdAt", (q) => q.lt("createdAt", before))
@@ -137,16 +142,26 @@ export const listByBroadcast = query({
         exhausted = true;
         break;
       }
-      scanned += chunk.length;
       for (const item of chunk) {
+        scanned++;
+        stopAt = item.createdAt;
         if (seen.has(item.broadcastId)) continue;
         seen.add(item.broadcastId);
+        if (cursor !== undefined) {
+          // Shown on an earlier page: its newest item is not below the cursor.
+          const newest = await ctx.db
+            .query("radioInboxItems")
+            .withIndex("by_broadcastId_createdAt", (q) => q.eq("broadcastId", item.broadcastId))
+            .order("desc")
+            .first();
+          if (newest && newest.createdAt >= cursor) continue;
+        }
         chosen.push(item.broadcastId);
-        if (chosen.length === INBOX_BROADCASTS_PER_PAGE) break;
+        if (chosen.length === INBOX_BROADCASTS_PER_PAGE) break scan;
       }
       before = chunk[chunk.length - 1].createdAt;
       if (chunk.length < INBOX_SCAN_CHUNK) {
-        exhausted = chosen.length < INBOX_BROADCASTS_PER_PAGE;
+        exhausted = true;
         break;
       }
     }
@@ -157,7 +172,6 @@ export const listByBroadcast = query({
       return names.get(id) ?? null;
     };
 
-    let earliestShown = Number.POSITIVE_INFINITY;
     const groups = [];
     for (const broadcastId of chosen) {
       const broadcast = await ctx.db.get(broadcastId);
@@ -166,7 +180,6 @@ export const listByBroadcast = query({
         .withIndex("by_broadcastId_createdAt", (q) => q.eq("broadcastId", broadcastId))
         .order("desc")
         .collect();
-      for (const item of items) earliestShown = Math.min(earliestShown, item.createdAt);
       groups.push({
         broadcast: broadcast
           ? {
@@ -197,10 +210,7 @@ export const listByBroadcast = query({
     return {
       groups,
       canMarkPrayedFor: canManage,
-      nextCursor:
-        exhausted || groups.length === 0 || !Number.isFinite(earliestShown)
-          ? null
-          : earliestShown,
+      nextCursor: exhausted || groups.length === 0 ? null : stopAt,
     };
   },
 });

@@ -65,6 +65,8 @@ export function resolveDeepLinkHref(
     // notice says what is low, the Stock page is where the movement is
     // recorded.
     case 'library_low_stock':
+    // Spec 0019's N34, the hourly inbox count: read on the portal.
+    case 'radio_inbox':
       // Work done on the web portal. The screen explains what is waiting and
       // links there; the id is not needed to say that.
       return `/portal-work?type=${deepLink.type}` as Href;

@@ -1,4 +1,5 @@
 import type { MutationCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { isInLivePushWindow } from "@klt-cyber/shared";
 import { sendPushOnly } from "../notifications";
@@ -11,6 +12,12 @@ import { sendPushOnly } from "../notifications";
  * broadcast is tested and marked in this one transaction, so two probes
  * racing the same transition cannot both send: Convex serialises the two
  * writes to the same row, and the loser sees `livePushSentAt` already set.
+ *
+ * The probe only marks and SCHEDULES the send; finding the recipients and
+ * pushing run in `radio.sendLivePush`, which starts only if the probe's write
+ * commits. Doing that work inside the probe meant one failure (or a large
+ * users table, for a program followed by default) rolled back the status
+ * write itself, and the radio read Off air in the middle of a live broadcast.
  *
  * Mute choices (feature 28) are not stored yet; once they are, a member who
  * muted the radio category is excluded here.
@@ -75,15 +82,32 @@ export async function sendDueLivePushes(
     if (!program) continue;
 
     await ctx.db.patch(b._id, { livePushSentAt: now });
-    const recipients = await radioFollowers(ctx, program);
-    if (recipients.length > 0) {
-      await sendPushOnly(ctx, recipients, {
-        title: `${program.name} is live`,
-        body: "It has just started on Reign Radio. Tap to listen.",
-        deepLink: { type: "radio_broadcast", id: b._id },
-      });
-    }
+    await ctx.scheduler.runAfter(0, internal.radio.sendLivePush, { broadcastId: b._id });
     sent++;
   }
   return sent;
+}
+
+/**
+ * Deliver one broadcast's N33, from the job the probe scheduled. Checks the
+ * row again, so a broadcast cancelled between the probe and this job sends
+ * nothing.
+ */
+export async function deliverLivePush(
+  ctx: MutationCtx,
+  broadcastId: Id<"radioBroadcasts">
+): Promise<number> {
+  const b = await ctx.db.get(broadcastId);
+  if (!b || b.status === "cancelled" || !b.programId) return 0;
+  const program = await ctx.db.get(b.programId);
+  if (!program) return 0;
+  const recipients = await radioFollowers(ctx, program);
+  if (recipients.length > 0) {
+    await sendPushOnly(ctx, recipients, {
+      title: `${program.name} is live`,
+      body: "It has just started on Reign Radio. Tap to listen.",
+      deepLink: { type: "radio_broadcast", id: b._id },
+    });
+  }
+  return recipients.length;
 }

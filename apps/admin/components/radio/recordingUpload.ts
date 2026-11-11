@@ -47,6 +47,7 @@ export interface RecordingUploadApi {
     key: string;
     parts: DonePart[];
     durationSeconds?: number;
+    replace?: boolean;
   }) => Promise<null>;
   abortUpload: (args: {
     broadcastId: Id<"radioBroadcasts">;
@@ -281,6 +282,9 @@ export async function uploadRecording(opts: {
     key,
     parts: [...done.entries()].map(([partNumber, etag]) => ({ partNumber, etag })),
     ...(durationSeconds !== undefined ? { durationSeconds } : {}),
+    // This attempt's own choice, not the one saved when it started: if a
+    // recording appeared meanwhile, only a person who chose replace replaces.
+    replace,
   });
   writeSaved(saveKey, null);
 }

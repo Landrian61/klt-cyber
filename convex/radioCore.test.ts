@@ -282,10 +282,20 @@ describe("recordings (AC-24 to AC-27)", () => {
     expect(await scheduled(t, "deleteObjects")).toHaveLength(0);
 
     vi.setSystemTime(T0 + MIN);
+    // Without choosing replace, a second upload never takes the first's place,
+    // even one that started before the first attached (a resumed upload).
+    await expect(
+      t.mutation(internal.radioRecordings.attachRecording, {
+        broadcastId: id,
+        key: second,
+        sizeBytes: 20_000_000,
+      })
+    ).rejects.toMatchObject({ data: { code: "RADIO_RECORDING_EXISTS" } });
     await t.mutation(internal.radioRecordings.attachRecording, {
       broadcastId: id,
       key: second,
       sizeBytes: 20_000_000,
+      replace: true,
     });
     row = await t.run((ctx) => ctx.db.get(id));
     expect(row?.recording?.key).toBe(second);
@@ -339,8 +349,11 @@ describe("recordings (AC-24 to AC-27)", () => {
     expect(page.isDone).toBe(false);
     const uploaded = page.page.map((r) => r.uploadedAt);
     expect([...uploaded].sort((a, b) => b - a)).toEqual(uploaded);
-    expect(page.page[0].url).toEqual(expect.any(String));
+    // No url rides in the list; it is signed when someone taps play.
+    expect(page.page[0]).not.toHaveProperty("url");
     expect(page.page[0]).not.toHaveProperty("recording");
+    const url = await t.query(api.radio.getRecordingUrl, { broadcastId: page.page[0]._id });
+    expect(url).toEqual(expect.stringContaining("X-Amz-Expires=3600"));
 
     const filtered = await t.query(api.radio.listRecordings, {
       programId: evening,

@@ -61,18 +61,18 @@ export function LiveNowCard() {
           style={[styles.card, ShadowE2]}
         >
           <View style={styles.pill}>
-            <Animated.View style={[styles.dot, dotStyle]} />
-            <Text style={styles.pillText}>LIVE NOW</Text>
+            <Animated.View style={[styles.dot, { backgroundColor: Colors.onSecondary }, dotStyle]} />
+            <Text style={[styles.pillText, { color: Colors.onSecondary }]}>LIVE NOW</Text>
           </View>
           <View style={styles.body}>
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={[styles.title, { color: Colors.onSecondary }]} numberOfLines={1}>
               {title}
             </Text>
             <Text style={styles.meta} numberOfLines={1}>
               {host ? `${host} · Reign Radio` : 'Reign Radio'}
             </Text>
           </View>
-          <View style={styles.play}>
+          <View style={[styles.play, { backgroundColor: Colors.onSecondary }]}>
             <Ionicons name="play" size={20} color={Colors.secondary} style={{ marginLeft: 2 }} />
           </View>
         </LinearGradient>
@@ -99,21 +99,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[2],
     paddingVertical: 4,
   },
-  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#FFFFFF' },
+  dot: { width: 7, height: 7, borderRadius: 3.5 },
   pillText: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 10,
     letterSpacing: 0.8,
-    color: '#FFFFFF',
   },
   body: { flex: 1, gap: 2 },
-  title: { fontFamily: FontFamily.bodySemiBold, fontSize: 16, lineHeight: 22, color: '#FFFFFF' },
+  title: { fontFamily: FontFamily.bodySemiBold, fontSize: 16, lineHeight: 22 },
   meta: { fontFamily: FontFamily.body, fontSize: 12, lineHeight: 17, color: 'rgba(255,255,255,0.8)' },
   play: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

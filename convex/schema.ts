@@ -1359,12 +1359,9 @@ export default defineSchema({
     .index("by_userId_broadcastId", ["userId", "broadcastId"])
     // The sweep and the probe's listener count read stretches by beat age.
     .index("by_lastBeatAt", ["lastBeatAt"])
-    .index("by_user_device_broadcast_open", [
-      "userId",
-      "deviceId",
-      "broadcastId",
-      "closedAt",
-    ]),
+    // A beat's own lookup: this device's open stretches, normally one, read
+    // without touching anyone else's rows (spec 0019, AC-12).
+    .index("by_user_device_open", ["userId", "deviceId", "closedAt"]),
 
   // Seconds per city and Kampala day, added once per closed stretch. Holds no
   // user reference of any kind, so nothing here traces to a person (AC-16).

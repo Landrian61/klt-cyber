@@ -62,6 +62,9 @@ export const PORTAL_WORK_TYPES = [
   // Spec 0015. N43's notice: the Library is running low on something, and
   // recording what came in is done on the portal's Stock page.
   'library_low_stock',
+  // Spec 0019. N34's hourly count of new prayer requests and testimonies,
+  // read in the Radio inbox on the portal.
+  'radio_inbox',
 ] as const;
 
 export type PortalWorkType = (typeof PORTAL_WORK_TYPES)[number];
@@ -87,5 +90,9 @@ export const PORTAL_WORK_COPY: Record<PortalWorkType, { title: string; body: str
   library_low_stock: {
     title: 'Something in the Library is running low',
     body: 'Open the Library’s Stock page on the web portal to see what it is and record what comes in.',
+  },
+  radio_inbox: {
+    title: 'New prayer requests and testimonies',
+    body: 'They came in during a broadcast. Read them in the Radio inbox on the web portal.',
   },
 };

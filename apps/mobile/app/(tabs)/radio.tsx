@@ -139,10 +139,12 @@ export default function RadioScreen() {
   );
 }
 
-const STATUS_PILL: Record<RadioDisplayStatus, { bg: string; dot: string }> = {
-  live: { bg: 'rgba(171, 51, 50, 0.92)', dot: '#FFFFFF' },
-  interrupted: { bg: 'rgba(196, 127, 8, 0.92)', dot: '#FFFFFF' },
-  off_air: { bg: 'rgba(255, 255, 255, 0.16)', dot: 'rgba(255,255,255,0.7)' },
+// Washes over the hero photo. The solid dot and the text come from the
+// theme's on-tertiary token, the hero being a royal blue scrim.
+const STATUS_PILL: Record<RadioDisplayStatus, { bg: string; solidDot: boolean }> = {
+  live: { bg: 'rgba(171, 51, 50, 0.92)', solidDot: true },
+  interrupted: { bg: 'rgba(196, 127, 8, 0.92)', solidDot: true },
+  off_air: { bg: 'rgba(255, 255, 255, 0.16)', solidDot: false },
 };
 
 function PlayerHero({
@@ -156,6 +158,8 @@ function PlayerHero({
   current: RadioBroadcastView | null;
   listeners: number;
 }) {
+  const Colors = useThemeColors();
+  const onHero = Colors.onTertiary;
   const { state, source, play, stop } = useRadioPlayer();
   const isActive = state === 'playing' || state === 'connecting';
   // A recording playing through the one player: the hero's button stops it.
@@ -216,14 +220,19 @@ function PlayerHero({
             accessibilityLiveRegion="polite"
             accessibilityLabel={`Status: ${RADIO_DISPLAY_STATUS_LABELS[status]}`}
           >
-            <View style={[styles.statusDot, { backgroundColor: pill.dot }]} />
-            <Text style={styles.statusText}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: onHero, opacity: pill.solidDot ? 1 : 0.7 },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: onHero }]}>
               {loading ? 'CHECKING' : RADIO_DISPLAY_STATUS_LABELS[status].toUpperCase()}
             </Text>
           </View>
 
           <View style={styles.heroContent}>
-            <Text style={styles.heroTitle} numberOfLines={2} accessibilityRole="header">
+            <Text style={[styles.heroTitle, { color: onHero }]} numberOfLines={2} accessibilityRole="header">
               {title}
             </Text>
             <Text style={styles.heroSubtitle} numberOfLines={1}>
@@ -233,7 +242,7 @@ function PlayerHero({
               <View style={styles.listenerRow}>
                 <Ionicons name="headset-outline" size={13} color="rgba(255,255,255,0.7)" />
                 <Text style={styles.listenerText}>
-                  <Text style={styles.listenerCount}>{listeners}</Text>{' '}
+                  <Text style={[styles.listenerCount, { color: onHero }]}>{listeners}</Text>{' '}
                   {listeners === 1 ? 'in app listener' : 'in app listeners'}
                 </Text>
               </View>
@@ -255,12 +264,12 @@ function PlayerHero({
                   style={[styles.playButton, GoldGlow]}
                 >
                   {state === 'connecting' ? (
-                    <ActivityIndicator color="#3A2604" />
+                    <ActivityIndicator color={Colors.onPrimary} />
                   ) : (
                     <Ionicons
                       name={isActive ? 'pause' : 'play'}
                       size={30}
-                      color="#3A2604"
+                      color={Colors.onPrimary}
                       style={!isActive ? { marginLeft: 3 } : undefined}
                     />
                   )}
@@ -361,7 +370,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
     lineHeight: 15,
-    color: '#FFFFFF',
     letterSpacing: 0.8,
   },
   heroContent: { marginTop: 'auto', marginBottom: Spacing[5] },
@@ -369,7 +377,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.display,
     fontSize: 28,
     lineHeight: 34,
-    color: '#FFFFFF',
   },
   heroSubtitle: {
     fontFamily: FontFamily.body,
@@ -385,7 +392,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: 'rgba(255,255,255,0.75)',
   },
-  listenerCount: { fontFamily: FontFamily.mono, color: '#FFFFFF' },
+  listenerCount: { fontFamily: FontFamily.mono },
   controls: { alignItems: 'center', gap: Spacing[3] },
   playButton: {
     width: 72,

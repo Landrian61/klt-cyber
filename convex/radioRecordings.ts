@@ -126,6 +126,10 @@ export const attachRecording = internalMutation({
     key: v.string(),
     sizeBytes: v.number(),
     durationSeconds: v.optional(v.number()),
+    // Checked here, at the end, not only when the upload started: someone
+    // else may have attached a recording while this one was paused, and a
+    // resumed upload must not silently replace and delete theirs (AC-26).
+    replace: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const actor = await requireRadioAuthority(ctx);
@@ -139,6 +143,7 @@ export const attachRecording = internalMutation({
     }
 
     const previous = broadcast.recording;
+    if (previous && previous.key !== args.key && !args.replace) refuse("RADIO_RECORDING_EXISTS");
     const duration =
       args.durationSeconds !== undefined &&
       Number.isFinite(args.durationSeconds) &&
