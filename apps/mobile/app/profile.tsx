@@ -551,6 +551,35 @@ export default function ProfileScreen() {
             </Animated.View>
           )}
 
+          {/* Followed radio programs (spec 0019, AC-9, M6-05). Everyone signed
+              in, visitors included: following is never gated on users.role. */}
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(360)}
+            style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}
+          >
+            <Text style={[styles.cardLabel, { color: Colors.primary }]}>REIGN RADIO</Text>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/radio-follows' as any);
+              }}
+              style={styles.sharingRow}
+              accessibilityRole="button"
+              accessibilityLabel="Followed radio programs"
+              accessibilityHint="Choose which programs send you a push when they go live"
+            >
+              <View style={styles.sharingText}>
+                <Text style={[styles.sharingTitle, { color: Colors.onSurface }]}>
+                  Followed radio programs
+                </Text>
+                <Text style={[styles.sharingBody, { color: Colors.onSurfaceVariant }]}>
+                  Get a push when a program you follow goes live.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
+            </Pressable>
+          </Animated.View>
+
           {/* Actions */}
           <View style={styles.actions}>
             <Button label="Sign out" variant="destructive" fullWidth onPress={signOut} />

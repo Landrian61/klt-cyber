@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Cover } from '@/components/ui/cover';
 import { ErrorState } from '@/components/ui/error-state';
 import { OfflineBanner } from '@/components/ui/offline-banner';
+import { LiveNowCard } from '@/components/radio/live-now-card';
 import { ProfileCompletionBanner } from '@/components/profile-completion-banner';
 import { NotificationPermissionBanner } from '@/components/notification-permission-banner';
 import { useMyAccount } from '@/hooks/use-my-account';
@@ -352,6 +353,9 @@ function HomeScreenContent() {
         </Text>
         <Text style={[styles.date, { color: Colors.outline }]}>{getFormattedDate()}</Text>
       </Animated.View>
+
+      {/* Live now (spec 0019, AC-35) — only while the radio is Live */}
+      <LiveNowCard />
 
       {/* Section 1 — Theme banner (annual + monthly, scripture, cover) */}
       {themes && <ThemeBanner themes={themes} />}
