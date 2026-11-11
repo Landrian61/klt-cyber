@@ -28,6 +28,8 @@
     "@better-auth/expo": "1.6.11",
     "@convex-dev/better-auth": "^0.12.2",
     "@convex-dev/expo-push-notifications": "^0.3.1",
+    "@aws-sdk/client-s3": "3.1093.0",
+    "@aws-sdk/s3-request-presigner": "3.1093.0",
     "@convex-dev/r2": "^0.10.2",
     "@convex-dev/resend": "0.2.9",
     "@klt-cyber/shared": "workspace:*",

@@ -543,3 +543,36 @@ export const dispatch = internalMutation({
     });
   },
 });
+
+/** The most recipients sent in one push batch call. */
+const PUSH_ONLY_BATCH = 500;
+
+/**
+ * A push with no `notifications` row behind it (spec 0019, N33): for a notice
+ * that is only ever a push, such as "your program is live now", which has no
+ * place in the bell once the broadcast is over.
+ *
+ * Callable from a mutation, so the caller's own transaction decides whether
+ * it is sent: N33 is tested and marked inside the probe's write, and this
+ * enqueues only if that write commits.
+ */
+export async function sendPushOnly(
+  ctx: MutationCtx,
+  userIds: readonly Id<"users">[],
+  notification: { title: string; body: string; deepLink: { type: string; id: string } }
+): Promise<void> {
+  for (let i = 0; i < userIds.length; i += PUSH_ONLY_BATCH) {
+    await pushNotifications.sendPushNotificationBatch(ctx, {
+      notifications: userIds.slice(i, i + PUSH_ONLY_BATCH).map((userId) => ({
+        userId,
+        notification: {
+          title: notification.title,
+          body: notification.body,
+          data: { type: notification.deepLink.type, id: notification.deepLink.id },
+          sound: "default",
+        },
+      })),
+      allowUnregisteredTokens: true,
+    });
+  }
+}

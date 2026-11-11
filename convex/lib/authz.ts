@@ -2,6 +2,8 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   LIBRARY_DEPARTMENT_NAME,
+  MEDIA_DEPARTMENT_NAME,
+  PASTORAL_DEPARTMENT_NAME,
   REAL_ESTATE_DEPARTMENT_NAME,
   ROSTER_PORTAL_DEPARTMENTS,
 } from "@klt-cyber/shared";
@@ -250,6 +252,18 @@ export const DEPARTMENT_CAPABILITIES = [
   // SRS 4.14.1's "roster members have no portal access" holds here without a
   // second exception living in this file.
   "manageRealEstate",
+  // Spec 0019. The third scoped capability, and the first on a bespoke portal
+  // rather than the shared shell. Granted only inside `Media`, and there to
+  // every shell role alike: the HOD, a delegate, a System Admin and a
+  // VERIFIED roster member. The roster reaches it because Media is in
+  // ROSTER_PORTAL_DEPARTMENTS and `resolveDepartmentShellRole` already
+  // requires a verified member profile for the `roster` role, so an
+  // unverified roster member is refused there rather than by a second rule.
+  //
+  // It covers the radio pages only (SRS 4.9.2, F3-19). Devotionals and Past
+  // events keep `requireMediaAuthority`, so publishing church wide content
+  // does not widen to the roster.
+  "manageRadio",
 ] as const;
 
 export type DepartmentCapability = (typeof DEPARTMENT_CAPABILITIES)[number];
@@ -303,6 +317,7 @@ const HOD_ONLY_CAPABILITIES = [
 const DEPARTMENT_SCOPED_CAPABILITIES = {
   manageLibrary: LIBRARY_DEPARTMENT_NAME,
   manageRealEstate: REAL_ESTATE_DEPARTMENT_NAME,
+  manageRadio: MEDIA_DEPARTMENT_NAME,
 } as const satisfies Partial<Record<DepartmentCapability, string>>;
 
 /**
@@ -591,7 +606,7 @@ export async function getMediaDepartmentId(
 ): Promise<Id<"departments"> | null> {
   const dept = await ctx.db
     .query("departments")
-    .withIndex("by_name", (q) => q.eq("name", "Media"))
+    .withIndex("by_name", (q) => q.eq("name", MEDIA_DEPARTMENT_NAME))
     .first();
   return dept?._id ?? null;
 }
@@ -639,6 +654,106 @@ export async function getMediaAuthorityOrNull(
   const user = await getCurrentUser(ctx);
   if (!user) return null;
   return await assertMediaAuthority(ctx, user);
+}
+
+// ── Radio authority (spec 0019) ───────────────────────────────────────────
+// `manageRadio` is a department scoped capability like `manageLibrary`, but
+// the radio functions are not called with a departmentId: there is exactly
+// one radio and it belongs to Media. These helpers resolve Media by name and
+// ask the same matrix every other scoped capability goes through, so there is
+// no second definition of who may run the radio.
+
+/**
+ * Whether a user holds `manageRadio`: Media's HOD, a Media delegate, a
+ * verified Media roster member, or a System Admin (AC-32). False everywhere
+ * else, including for a roster member of any other department.
+ */
+export async function hasRadioAuthority(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  const mediaDeptId = await getMediaDepartmentId(ctx);
+  if (!mediaDeptId) return isActiveSystemAdmin(ctx, userId);
+  const role = await resolveDepartmentShellRole(ctx, userId, mediaDeptId);
+  if (!role) return false;
+  return departmentCapabilities(role, MEDIA_DEPARTMENT_NAME).manageRadio;
+}
+
+/**
+ * The caller, when they hold `manageRadio`. Throws when unauthenticated or
+ * not authorised (AC-33). For mutations and actions' internal reads.
+ */
+export async function requireRadioAuthority(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users">> {
+  const user = await requireUser(ctx);
+  if (!(await hasRadioAuthority(ctx, user._id))) {
+    throw new Error("Not authorized to manage the radio");
+  }
+  return user;
+}
+
+/**
+ * The caller when they hold `manageRadio`, else null, never throwing, so a
+ * management query returns null to anyone else and survives the reactive
+ * teardown on sign out.
+ */
+export async function getRadioAuthorityOrNull(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users"> | null> {
+  const user = await getCurrentUser(ctx);
+  if (!user) return null;
+  return (await hasRadioAuthority(ctx, user._id)) ? user : null;
+}
+
+// ── Pastoral's view of the Radio inbox (spec 0019, AC-30, AC-38) ─────────
+// SRS PS2-03 gives Pastoral's HOD and delegates the same inbox view as Media.
+// Appointment holders only: Pastoral's roster does not read the inbox.
+
+/** The `_id` of the fixed "Pastoral" department, or null if unseeded. */
+export async function getPastoralDepartmentId(
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"departments"> | null> {
+  const dept = await ctx.db
+    .query("departments")
+    .withIndex("by_name", (q) => q.eq("name", PASTORAL_DEPARTMENT_NAME))
+    .first();
+  return dept?._id ?? null;
+}
+
+/** Whether a user is Pastoral's active HOD or a Pastoral delegate. */
+export async function isPastoralLeader(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  return hasActiveDepartmentRole(ctx, userId, await getPastoralDepartmentId(ctx), [
+    "hod",
+    "department_admin",
+  ]);
+}
+
+/**
+ * The active Pastoral HOD and delegates, deduplicated: N34's recipients
+ * (AC-30). Resolved at send time, so a delegate appointed this morning is
+ * included and one revoked is not.
+ */
+export async function pastoralLeaderIds(
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"users">[]> {
+  const deptId = await getPastoralDepartmentId(ctx);
+  if (!deptId) return [];
+  const rows = await ctx.db
+    .query("roleAssignments")
+    .withIndex("by_departmentId", (q) => q.eq("departmentId", deptId))
+    .filter((q) => q.eq(q.field("status"), "active"))
+    .collect();
+  return [
+    ...new Set(
+      rows
+        .filter((r) => r.roleType === "hod" || r.roleType === "department_admin")
+        .map((r) => r.userId)
+    ),
+  ];
 }
 
 // ── Portal access (spec 0006) ─────────────────────────────────────────────

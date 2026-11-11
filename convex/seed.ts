@@ -1,5 +1,11 @@
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { KAMPALA_OFFSET_MS } from "./calendar";
+import {
+  RADIO_SEED_PROGRAMS,
+  isSuperTProgram,
+  radioProgramNameKey,
+} from "@klt-cyber/shared";
+import { materialiseProgram } from "./lib/radioSchedule";
 import type {
   BillingCycle,
   CostCurrency,
@@ -699,5 +705,57 @@ export const costServices = internalMutation({
 
     const total = (await ctx.db.query("costServices").collect()).length;
     return { ok: true as const, created, filled, total };
+  },
+});
+
+// ── Radio programs (spec 0019, AC-23) ──────────────────────────────────────
+// The eight programs SRS R2-01 names, seeded ACTIVE everywhere including
+// production: they are the real broadcast schedule, not sample data. Matched
+// on `seedKey`, so a second run changes nothing, and a program Media renamed
+// or edited is never reset. A seed whose name an active program already holds
+// is skipped rather than breaking the one active name rule. Each newly seeded
+// program has its coming week written at once.
+
+export const radioPrograms = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    let created = 0;
+    let broadcastsWritten = 0;
+    const skipped: string[] = [];
+    for (const seed of RADIO_SEED_PROGRAMS) {
+      const existing = await ctx.db
+        .query("radioPrograms")
+        .withIndex("by_seedKey", (q) => q.eq("seedKey", seed.seedKey))
+        .first();
+      if (existing) continue;
+      const nameKey = radioProgramNameKey(seed.name);
+      const clash = await ctx.db
+        .query("radioPrograms")
+        .withIndex("by_nameKey", (q) => q.eq("nameKey", nameKey))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .first();
+      if (clash) {
+        skipped.push(seed.name);
+        continue;
+      }
+      const id = await ctx.db.insert("radioPrograms", {
+        name: seed.name,
+        nameKey,
+        seedKey: seed.seedKey,
+        description: seed.description,
+        days: [...seed.days],
+        startTime: seed.startTime,
+        durationMinutes: seed.durationMinutes,
+        recurrence: seed.recurrence,
+        recordByDefault: seed.recordByDefault && !isSuperTProgram(seed),
+        followedByDefault: seed.followedByDefault,
+        isActive: true,
+        updatedAt: now,
+      });
+      created++;
+      broadcastsWritten += await materialiseProgram(ctx, (await ctx.db.get(id))!, now);
+    }
+    return { created, broadcastsWritten, skipped };
   },
 });

@@ -445,10 +445,12 @@ async function scrubAuditPage(
 }
 
 /**
- * Delete one page of the user's notification overlay rows (AC-8).
+ * Delete one page of the user's notification overlay rows (AC-8), and of
+ * their radio follows and inbox items (spec 0019, AC-36).
  *
- * These are per-user rows over shared `notifications` documents, so they are
- * genuinely deletable, unlike almost everything else in this file. Returns
+ * The notification rows are per-user rows over shared `notifications`
+ * documents, so they are genuinely deletable, unlike almost everything else in
+ * this file. Returns
  * true when a page came back full and there may be more.
  */
 async function deleteNotificationPage(
@@ -467,7 +469,28 @@ async function deleteNotificationPage(
     .take(CLEANUP_PAGE);
   for (const row of dismissals) await ctx.db.delete(row._id);
 
-  return reads.length === CLEANUP_PAGE || dismissals.length === CLEANUP_PAGE;
+  // Radio (spec 0019, AC-36): follow choices, and inbox items, whose text can
+  // name the sender. Listening stretches are deliberately kept: they point at
+  // this user row, which is anonymised below, so past broadcast totals stay
+  // true while nothing identifies the person.
+  const follows = await ctx.db
+    .query("radioProgramFollows")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .take(CLEANUP_PAGE);
+  for (const row of follows) await ctx.db.delete(row._id);
+
+  const inboxItems = await ctx.db
+    .query("radioInboxItems")
+    .withIndex("by_senderUserId", (q) => q.eq("senderUserId", userId))
+    .take(CLEANUP_PAGE);
+  for (const row of inboxItems) await ctx.db.delete(row._id);
+
+  return (
+    reads.length === CLEANUP_PAGE ||
+    dismissals.length === CLEANUP_PAGE ||
+    follows.length === CLEANUP_PAGE ||
+    inboxItems.length === CLEANUP_PAGE
+  );
 }
 
 /**

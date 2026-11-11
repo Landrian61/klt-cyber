@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { LIBRARY_DEPARTMENT_NAME } from "@klt-cyber/shared";
+import {
+  LIBRARY_DEPARTMENT_NAME,
+  MEDIA_DEPARTMENT_NAME,
+} from "@klt-cyber/shared";
 import { testConvex } from "./test.setup";
 import type { Id } from "./_generated/dataModel";
 import {
   DEPARTMENT_CAPABILITIES,
   departmentCapabilities,
+  hasRadioAuthority,
   resolveDepartmentShellRole,
 } from "./lib/authz";
 import {
@@ -131,7 +135,7 @@ describe("departmentCapabilities", () => {
   // capability added there and not here fails the three assertions below,
   // which is the point: it forces whoever adds one to say out loud that it is
   // scoped rather than letting it quietly look like a shell capability.
-  const DEPARTMENT_SCOPED = ["manageLibrary", "manageRealEstate"];
+  const DEPARTMENT_SCOPED = ["manageLibrary", "manageRealEstate", "manageRadio"];
   const SHELL_CAPABILITIES = DEPARTMENT_CAPABILITIES.filter(
     (c) => !DEPARTMENT_SCOPED.includes(c)
   );
@@ -192,8 +196,44 @@ describe("departmentCapabilities", () => {
   });
 
   it("gives a roster member of another department nothing at all", () => {
-    const can = departmentCapabilities("roster", "Media");
+    // Hospitality: a roster portal department that grants no scoped
+    // capability yet. (Media stopped being the example here once spec 0019
+    // gave its roster `manageRadio`.)
+    const can = departmentCapabilities("roster", "Hospitality");
     for (const capability of DEPARTMENT_CAPABILITIES) {
+      expect(can[capability]).toBe(false);
+    }
+  });
+
+  // ── manageRadio (spec 0019, AC-32) ───────────────────────────────────────
+
+  it("grants manageRadio to every role of Media, the roster included", () => {
+    for (const role of ["system_admin", "hod", "delegate", "roster"] as const) {
+      expect(
+        departmentCapabilities(role, MEDIA_DEPARTMENT_NAME).manageRadio
+      ).toBe(true);
+    }
+  });
+
+  it("grants manageRadio to nobody in any other department", () => {
+    for (const role of ["system_admin", "hod", "delegate", "roster"] as const) {
+      for (const name of [
+        LIBRARY_DEPARTMENT_NAME,
+        "Hospitality",
+        "Pastoral",
+        "Administration",
+      ]) {
+        expect(departmentCapabilities(role, name).manageRadio).toBe(false);
+      }
+      expect(departmentCapabilities(role).manageRadio).toBe(false);
+    }
+  });
+
+  it("gives a Media roster member manageRadio and no shell capability", () => {
+    const can = departmentCapabilities("roster", MEDIA_DEPARTMENT_NAME);
+    expect(can.manageRadio).toBe(true);
+    expect(can.manageLibrary).toBe(false);
+    for (const capability of SHELL_CAPABILITIES) {
       expect(can[capability]).toBe(false);
     }
   });
@@ -568,5 +608,86 @@ describe("listActiveMemberships", () => {
     const rows = await t.run((ctx) => listActiveMemberships(ctx, userId));
     expect(rows).toHaveLength(1);
     expect(rows[0].departmentId).toBe(depts["Finance"]);
+  });
+});
+
+// ── hasRadioAuthority (spec 0019, AC-32, AC-33) ─────────────────────────────
+// The resolver every radio function goes through. It asks the same matrix as
+// every other scoped capability, so these cases prove the wiring: Media's
+// whole verified roster holds it, nobody outside Media does.
+describe("hasRadioAuthority", () => {
+  async function setup() {
+    const t = testConvex();
+    const depts = await seedDepartments(t);
+    const libraryId = await t.run((ctx) =>
+      ctx.db.insert("departments", { name: LIBRARY_DEPARTMENT_NAME, order: 9 })
+    );
+    return { t, depts, libraryId };
+  }
+
+  it("grants Media's HOD and delegates", async () => {
+    const { t, depts } = await setup();
+    const hod = await createUser(t);
+    const delegate = await createUser(t);
+    await grantRole(t, hod, "hod", depts.Media);
+    await grantRole(t, delegate, "department_admin", depts.Media);
+    await t.run(async (ctx) => {
+      expect(await hasRadioAuthority(ctx, hod)).toBe(true);
+      expect(await hasRadioAuthority(ctx, delegate)).toBe(true);
+    });
+  });
+
+  it("grants a System Admin with no Media role", async () => {
+    const { t } = await setup();
+    const admin = await createUser(t);
+    await grantRole(t, admin, "system_admin");
+    await t.run(async (ctx) => {
+      expect(await hasRadioAuthority(ctx, admin)).toBe(true);
+    });
+  });
+
+  it("grants a verified Media roster member", async () => {
+    const { t, depts } = await setup();
+    const member = await createUser(t);
+    await addMembership(t, member, depts.Media, "active");
+    await t.run(async (ctx) => {
+      expect(await hasRadioAuthority(ctx, member)).toBe(true);
+    });
+  });
+
+  it("refuses a Media roster member whose profile is not verified", async () => {
+    const { t, depts } = await setup();
+    const member = await createUser(t, { profileStatus: "pending_verification" });
+    await addMembership(t, member, depts.Media, "active");
+    await t.run(async (ctx) => {
+      expect(await hasRadioAuthority(ctx, member)).toBe(false);
+    });
+  });
+
+  it("refuses a pending or removed Media roster row", async () => {
+    const { t, depts } = await setup();
+    const pending = await createUser(t);
+    const removed = await createUser(t);
+    await addMembership(t, pending, depts.Media, "pending_claim");
+    await addMembership(t, removed, depts.Media, "removed");
+    await t.run(async (ctx) => {
+      expect(await hasRadioAuthority(ctx, pending)).toBe(false);
+      expect(await hasRadioAuthority(ctx, removed)).toBe(false);
+    });
+  });
+
+  it("refuses another department's roster member, HOD and delegate", async () => {
+    const { t, depts, libraryId } = await setup();
+    const libraryRoster = await createUser(t);
+    const financeHod = await createUser(t);
+    const adminDelegate = await createUser(t);
+    await addMembership(t, libraryRoster, libraryId, "active");
+    await grantRole(t, financeHod, "hod", depts.Finance);
+    await grantRole(t, adminDelegate, "department_admin", depts.Administration);
+    await t.run(async (ctx) => {
+      expect(await hasRadioAuthority(ctx, libraryRoster)).toBe(false);
+      expect(await hasRadioAuthority(ctx, financeHod)).toBe(false);
+      expect(await hasRadioAuthority(ctx, adminDelegate)).toBe(false);
+    });
   });
 });
