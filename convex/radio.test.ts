@@ -105,6 +105,32 @@ describe("recordProbe", () => {
     expect(rows[0].endsAt).toBe(T0 + 90 * MIN);
   });
 
+  it("leaves the auto row alone until its end is near", async () => {
+    const t = testConvex();
+    await t.mutation(internal.radio.recordProbe, { outcome: "live" });
+    vi.setSystemTime(T0 + 10 * MIN);
+    await t.mutation(internal.radio.recordProbe, { outcome: "live" });
+    expect((await broadcasts(t))[0].endsAt).toBe(T0 + 60 * MIN);
+  });
+
+  it("caps an auto row at a full day, then opens a fresh one", async () => {
+    const t = testConvex();
+    await t.mutation(internal.radio.recordProbe, { outcome: "live" });
+    // Live probes all day long: the row extends, but never past 24 hours.
+    for (let m = 40; m < 24 * 60; m += 40) {
+      vi.setSystemTime(T0 + m * MIN);
+      await t.mutation(internal.radio.recordProbe, { outcome: "live" });
+    }
+    let rows = await broadcasts(t);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].endsAt).toBe(T0 + 24 * 60 * MIN);
+    vi.setSystemTime(T0 + 24 * 60 * MIN + MIN);
+    await t.mutation(internal.radio.recordProbe, { outcome: "live" });
+    rows = await broadcasts(t);
+    expect(rows).toHaveLength(2);
+    expect(rows[1].startsAt).toBe(T0 + 24 * 60 * MIN + MIN);
+  });
+
   it("keeps one auto row through a drop and return inside the grace", async () => {
     const t = testConvex();
     await t.mutation(internal.radio.recordProbe, { outcome: "live" });
@@ -212,5 +238,48 @@ describe("recordProbe", () => {
     expect(result.burst).toBe(false);
     // The override survives the probe untouched.
     expect((await status(t))?.override?.state).toBe("live");
+  });
+});
+
+describe("probeStream's mount choice (review finding)", () => {
+  const stream = "https://radio.example.org:43348/listen.mp3?authn0123abcd";
+  const stats = (sources: object[]) =>
+    new Response(JSON.stringify({ icestats: { source: sources.length === 1 ? sources[0] : sources } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("matches our mount by path, across scheme and the listener pass, as Caster FM lists it", async () => {
+    vi.stubEnv("RADIO_STATUS_URL", "https://radio.example.org:43348/status-json.xsl");
+    vi.stubEnv("RADIO_STREAM_URL", stream);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        stats([{ listenurl: "http://radio.example.org:43348/listen.mp3", listeners: 7 }])
+      )
+    );
+    const t = testConvex();
+    await t.action(internal.radio.probeStream, {});
+    expect(await status(t)).toMatchObject({ detected: "live", streamListeners: 7 });
+  });
+
+  it("never reads another mount being up as our stream being live", async () => {
+    vi.stubEnv("RADIO_STATUS_URL", "https://radio.example.org:43348/status-json.xsl");
+    vi.stubEnv("RADIO_STREAM_URL", stream);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        stats([{ listenurl: "http://radio.example.org:43348/autodj.mp3", listeners: 3 }])
+      )
+    );
+    const t = testConvex();
+    await t.action(internal.radio.probeStream, {});
+    expect(await status(t)).toMatchObject({ detected: "off_air" });
+    expect(await broadcasts(t)).toHaveLength(0);
   });
 });

@@ -12,6 +12,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   RADIO_AUTO_BROADCAST_EXTEND_MS,
+  RADIO_BROADCAST_MAX_MS,
   RADIO_AUTO_BROADCAST_FALLBACK_TITLE,
   RADIO_BURST_PROBE_OFFSETS_MS,
   RADIO_LISTENER_WINDOW_MS,
@@ -45,7 +46,7 @@ import { reportError } from "./lib/sentry";
 import { vRadioOverrideState } from "./lib/radioValidators";
 import { materialiseProgram } from "./lib/radioSchedule";
 import { applyBeat, sweepStaleStretches } from "./lib/radioListening";
-import { sendDueLivePushes } from "./lib/radioLivePush";
+import { deliverLivePush, sendDueLivePushes } from "./lib/radioLivePush";
 
 /**
  * Radio core: the stream probe, the status row and what readers are shown
@@ -64,6 +65,9 @@ const MINUTE_MS = 60_000;
 /** How far around `now` the reader queries look for current and next rows. */
 const NOW_PLAYING_LOOKBEHIND_MS = 24 * 60 * MINUTE_MS;
 const NOW_PLAYING_LOOKAHEAD_MS = 7 * 24 * 60 * MINUTE_MS;
+/** An auto row is extended once its end is this close (spec 0019, AC-17). */
+const AUTO_EXTEND_WHEN_WITHIN_MS = 30 * MINUTE_MS;
+
 /** The most broadcast rows the phone is handed to resolve current and next. */
 const NOW_PLAYING_ROW_CAP = 12;
 
@@ -243,9 +247,11 @@ export const getNowPlaying = query({
 
 /**
  * The mobile Recordings segment (AC-27): newest upload first, optionally one
- * program only, a page at a time (the phone asks for twenty). Each playback
- * url is signed for an hour from the stored key, never stored. A signed out
- * caller gets an empty, finished page so the subscription survives sign out.
+ * program only, a page at a time (the phone asks for twenty). No playback url
+ * here: a url signed inside a live query keeps being handed out after it
+ * expires by a screen left open, so the phone asks `getRecordingUrl` at the
+ * moment someone taps play. A signed out caller gets an empty, finished page
+ * so the subscription survives sign out.
  */
 export const listRecordings = query({
   args: {
@@ -279,11 +285,25 @@ export const listRecordings = query({
             ...(await presentBroadcast(ctx, b)),
             durationSeconds: recording.durationSeconds ?? null,
             uploadedAt: recording.uploadedAt,
-            url: await signedKeyUrl(recording.key, RADIO_RECORDING_URL_TTL_SECONDS),
           };
         })
     );
     return { ...result, page };
+  },
+});
+
+/**
+ * A recording's playback url, signed for an hour from the stored key at the
+ * moment someone taps play (AC-27). Never stored. Null when signed out or
+ * when the broadcast has no recording any more.
+ */
+export const getRecordingUrl = query({
+  args: { broadcastId: v.id("radioBroadcasts") },
+  handler: async (ctx, { broadcastId }) => {
+    if (!(await getCurrentUser(ctx))) return null;
+    const b = await ctx.db.get(broadcastId);
+    if (!b?.recording) return null;
+    return await signedKeyUrl(b.recording.key, RADIO_RECORDING_URL_TTL_SECONDS);
   },
 });
 
@@ -626,21 +646,33 @@ function statsSources(body: unknown): StatsSource[] | null {
   return [];
 }
 
-/** The mount whose `listenurl` matches the stream url, else the first. */
+/** The path of a stream url, `/listen.mp3`, or null when it is not a url. */
+function mountPath(url: string): string | null {
+  try {
+    return new URL(url.trim()).pathname.replace(/\/+$/, "").toLowerCase() || "/";
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Our mount among the sources the server lists. Matched on the mount PATH,
+ * because the server lists `http://host:port/listen.mp3` while the app plays
+ * `https://host:port/listen.mp3?authn...` with the station's listener pass.
+ * With a stream url set and no mount matching, there is no source of ours:
+ * another mount being up (a fallback, an AutoDJ) never reads as us being
+ * Live. Without a stream url there is nothing to match, so the only mount.
+ */
 function chooseMount(
   sources: StatsSource[],
   streamUrl: string | undefined
 ): StatsSource | undefined {
   if (sources.length === 0) return undefined;
-  const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
-  if (streamUrl) {
-    const target = norm(streamUrl);
-    const match = sources.find(
-      (s) => typeof s.listenurl === "string" && norm(s.listenurl) === target
-    );
-    if (match) return match;
-  }
-  return sources[0];
+  const target = streamUrl ? mountPath(streamUrl) : null;
+  if (!target) return sources.length === 1 ? sources[0] : undefined;
+  return sources.find(
+    (s) => typeof s.listenurl === "string" && mountPath(s.listenurl) === target
+  );
 }
 
 async function fetchWithTimeout(
@@ -789,6 +821,19 @@ export const probeStream = internalAction({
  * nothing here (auto rows, `wentLiveAt`, the N33 push) keys on
  * it (AC-6).
  */
+/**
+ * N33's delivery (spec 0019, AC-11), scheduled by the probe that marked the
+ * broadcast. Separate from the probe's write so a failure here can never roll
+ * back a status reading.
+ */
+export const sendLivePush = internalMutation({
+  args: { broadcastId: v.id("radioBroadcasts") },
+  handler: async (ctx, { broadcastId }) => {
+    await deliverLivePush(ctx, broadcastId);
+    return null;
+  },
+});
+
 export const recordProbe = internalMutation({
   args: {
     outcome: v.union(v.literal("live"), v.literal("off_air"), v.literal("unknown")),
@@ -895,9 +940,19 @@ async function openOrExtendAuto(
     // A scheduled or one off row has taken over: leave the auto row to end at
     // its own `endsAt` rather than stretching it alongside the real show.
     if (current && current._id !== coveringAuto._id) return current;
-    const endsAt = Math.max(coveringAuto.endsAt, now + RADIO_AUTO_BROADCAST_EXTEND_MS);
-    if (endsAt !== coveringAuto.endsAt) {
-      await ctx.db.patch(coveringAuto._id, { endsAt });
+    // Extend only once the end is near, not on every probe: each write wakes
+    // every open schedule screen. And never past the longest a broadcast may
+    // run, because every lookup looks back that far by start; at the cap the
+    // row ends and the next live probe opens a fresh one.
+    let endsAt = coveringAuto.endsAt;
+    if (coveringAuto.endsAt - now <= AUTO_EXTEND_WHEN_WITHIN_MS) {
+      endsAt = Math.min(
+        now + RADIO_AUTO_BROADCAST_EXTEND_MS,
+        coveringAuto.startsAt + RADIO_BROADCAST_MAX_MS
+      );
+      if (endsAt !== coveringAuto.endsAt) {
+        await ctx.db.patch(coveringAuto._id, { endsAt });
+      }
     }
     return current ?? { ...coveringAuto, endsAt };
   }

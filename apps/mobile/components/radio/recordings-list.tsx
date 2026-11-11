@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { usePaginatedQuery, useQuery } from 'convex/react';
+import { useConvex, usePaginatedQuery, useQuery } from 'convex/react';
 import type { FunctionReturnType } from 'convex/server';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -147,11 +147,14 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
 
 const RecordingItem = memo(function RecordingItem({ row }: { row: RecordingRow }) {
   const Colors = useThemeColors();
+  const convex = useConvex();
   const { state, source, position, duration, playRecording, pause, resume } = useRadioPlayer();
+  const [fetching, setFetching] = useState(false);
+  const [linkFailed, setLinkFailed] = useState(false);
   const isThis = source.kind === 'recording' && source.broadcastId === row._id;
   const active = isThis && (state === 'playing' || state === 'connecting');
   const held = isThis && state === 'paused';
-  const failed = isThis && state === 'unavailable';
+  const failed = linkFailed || (isThis && state === 'unavailable');
 
   const date = formatKampalaDayHeading(kampalaDateKeyAt(row.startsAt));
   const length = formatLength(row.durationSeconds);
@@ -167,14 +170,28 @@ const RecordingItem = memo(function RecordingItem({ row }: { row: RecordingRow }
       resume();
       return;
     }
-    playRecording({
-      broadcastId: row._id,
-      title: row.title,
-      subtitle: [row.host, date].filter(Boolean).join(' · ') || null,
-      url: row.url,
-      imageUrl: row.imageUrl,
-      seedKey: row.seedKey,
-    });
+    // A fresh link, signed now, so a screen left open for hours still plays.
+    if (fetching) return;
+    setFetching(true);
+    setLinkFailed(false);
+    convex
+      .query(api.radio.getRecordingUrl, { broadcastId: row._id })
+      .then((url) => {
+        if (!url) {
+          setLinkFailed(true);
+          return;
+        }
+        playRecording({
+          broadcastId: row._id,
+          title: row.title,
+          subtitle: [row.host, date].filter(Boolean).join(' · ') || null,
+          url,
+          imageUrl: row.imageUrl,
+          seedKey: row.seedKey,
+        });
+      })
+      .catch(() => setLinkFailed(true))
+      .finally(() => setFetching(false));
   };
 
   const meta =
@@ -194,7 +211,7 @@ const RecordingItem = memo(function RecordingItem({ row }: { row: RecordingRow }
       ]}
     >
       <View style={[styles.playDot, { backgroundColor: active ? Colors.primary : Colors.surfaceLow }]}>
-        {isThis && state === 'connecting' ? (
+        {fetching || (isThis && state === 'connecting') ? (
           <ActivityIndicator size="small" color={Colors.onPrimary} />
         ) : (
           <Ionicons

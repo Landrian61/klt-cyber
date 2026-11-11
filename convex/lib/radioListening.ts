@@ -105,14 +105,14 @@ export async function applyBeat(
   const city = normalizeRadioCity(input.city);
   const current = resolveCurrentBroadcast(await broadcastsCovering(ctx, now), now);
 
-  const open = (
-    await ctx.db
-      .query("listeningSessions")
-      .withIndex("by_lastBeatAt", (q) => q.gte("lastBeatAt", now - OPEN_LOOKBACK_MS))
-      .collect()
-  ).filter(
-    (s) => s.userId === userId && s.deviceId === deviceId && s.closedAt === undefined
-  );
+  // Only this device's open stretches, through their own index, so a beat
+  // neither grows with the audience nor conflicts with other listeners' beats.
+  const open = await ctx.db
+    .query("listeningSessions")
+    .withIndex("by_user_device_open", (q) =>
+      q.eq("userId", userId).eq("deviceId", deviceId).eq("closedAt", undefined)
+    )
+    .collect();
 
   let kept: Doc<"listeningSessions"> | null = null;
   for (const s of open) {

@@ -279,7 +279,7 @@ export function RadioPage() {
             value={data.streamListeners ?? "Not reported"}
             hint="Caster FM's own count, every listener on any player."
           />
-          <div className="rounded-md border border-border bg-surface-lowest p-6 shadow-e1">
+          <div className="rounded-md bg-surface-lowest p-6 shadow-e1">
             <p className="flex items-center gap-2 font-body text-sm text-on-surface-variant">
               <Headphones className="h-4 w-4" aria-hidden />
               Stream check

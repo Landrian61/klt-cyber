@@ -311,6 +311,65 @@ describe("radioInbox.listByBroadcast (AC-29, AC-38)", () => {
   });
 });
 
+describe("radioInbox.listByBroadcast paging across overlapping broadcasts", () => {
+  it("never skips a broadcast that sits between an older shown one and the cursor", async () => {
+    // The review's case: A has items at 1 and 100; B to J at 50 to 99; K at 40.
+    // A page of ten picks A to J and shows A whole; K must still reach page two.
+    const t = testConvex();
+    const depts = await seedDepartments(t);
+    const sender = await createUser(t, "Grace");
+    const base = T0 - 10 * 60 * MIN;
+    const at = (n: number) => base + n * MIN;
+    const ids = await t.run(async (ctx) => {
+      const make = async (name: string, times: number[]) => {
+        const id = await ctx.db.insert("radioBroadcasts", {
+          oneOffName: name,
+          origin: "oneOff",
+          startsAt: at(Math.min(...times)),
+          endsAt: at(Math.max(...times)) + 1,
+          isRecorded: false,
+          status: "scheduled",
+          adjusted: true,
+        });
+        for (const n of times) {
+          await ctx.db.insert("radioInboxItems", {
+            type: "testimony",
+            body: `${name}${n}`,
+            senderUserId: sender.userId,
+            broadcastId: id,
+            createdAt: at(n),
+          });
+        }
+        return id;
+      };
+      const out: Record<string, Id<"radioBroadcasts">> = {};
+      out.A = await make("A", [1, 100]);
+      let n = 99;
+      for (const name of "BCDEFGHIJ") {
+        out[name] = await make(name, [n]);
+        n -= 5;
+      }
+      out.K = await make("K", [40]);
+      return out;
+    });
+
+    const hod = await createUser(t, "Mediahod");
+    await grantRole(t, hod.userId, "hod", depts.media);
+    as(hod.authId);
+    const first = await t.query(api.radioInbox.listByBroadcast, {});
+    expect(first?.groups).toHaveLength(10);
+    const second = await t.query(api.radioInbox.listByBroadcast, { cursor: first!.nextCursor! });
+    const shown = [...first!.groups, ...second!.groups].map((g) => g.broadcast._id);
+    expect(shown).toContain(ids.K);
+    expect(new Set(shown).size).toBe(shown.length);
+    expect(new Set(shown).size).toBe(11);
+    // A is shown whole, both items, exactly once.
+    const a = [...first!.groups, ...second!.groups].filter((g) => g.broadcast._id === ids.A);
+    expect(a).toHaveLength(1);
+    expect(a[0].items).toHaveLength(2);
+  });
+});
+
 describe("radioInbox.markPrayedFor (AC-29, AC-31)", () => {
   it("lets manageRadio mark a prayer request, returning no sender", async () => {
     const t = testConvex();

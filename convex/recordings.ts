@@ -277,6 +277,7 @@ export const completeUpload = action({
     key: v.string(),
     parts: v.array(v.object({ partNumber: v.number(), etag: v.string() })),
     durationSeconds: v.optional(v.number()),
+    replace: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await checkTarget(ctx, args.broadcastId);
@@ -317,6 +318,7 @@ export const completeUpload = action({
         key: args.key,
         sizeBytes,
         ...(args.durationSeconds !== undefined ? { durationSeconds: args.durationSeconds } : {}),
+        ...(args.replace ? { replace: true } : {}),
       });
     } catch (error) {
       // The broadcast changed under the upload (cancelled into Super T, the
