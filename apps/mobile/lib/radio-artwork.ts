@@ -1,4 +1,4 @@
-import { Image, type ImageSourcePropType } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 import type { RadioSeedKey } from '@klt-cyber/shared';
 
 /**
@@ -26,10 +26,20 @@ export function radioArtwork(b: {
   return bundled ?? RADIO_FALLBACK_ARTWORK;
 }
 
-/** A url the lock screen can load, for a remote or a bundled image. */
-export function radioArtworkUrl(source: ImageSourcePropType): string | undefined {
-  if (typeof source === 'object' && source && 'uri' in source && source.uri) {
-    return source.uri;
-  }
-  return Image.resolveAssetSource(source as number)?.uri ?? undefined;
+/**
+ * The artwork the notification and lock screen card load (spec 0020). Always a
+ * web address: Android's media notification downloads `artworkUrl` as a Java
+ * `URL`, and a bundled image resolves to a resource name in a release build,
+ * so it can never reach the card. The program's uploaded image first, else the
+ * portal's hosted copy of its bundled photo, else the portal's default; with
+ * no portal address configured, no artwork rather than a broken one.
+ */
+export function radioRemoteArtworkUrl(
+  b: { imageUrl: string | null; seedKey: string | null } | null,
+  artworkBaseUrl: string | undefined,
+): string | undefined {
+  if (b?.imageUrl) return b.imageUrl;
+  if (!artworkBaseUrl) return undefined;
+  const hosted = b?.seedKey && b.seedKey in BUNDLED ? b.seedKey : 'default';
+  return `${artworkBaseUrl}${hosted}.jpg`;
 }

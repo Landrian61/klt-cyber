@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ActivityReporter } from "@/components/ActivityReporter";
+import { PortalRadioPlayer } from "@/components/radio/PortalRadioPlayer";
 
 // The portal-wide wrapper for every signed-in route group (spec 0011).
 //
@@ -13,11 +14,16 @@ import { ActivityReporter } from "@/components/ActivityReporter";
 // portal they are, and a per-module copy would be four copies to keep in step
 // and one to forget. Middleware has already turned away anyone with no
 // session cookie, so every render beneath this point is a signed-in one.
+//
+// The Reign Radio player lives here for the same reason (spec 0020): it
+// belongs to the whole portal, appears in every module while the radio is
+// Live, and keeps playing across navigation because this layout persists.
 export default function PortalLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <ActivityReporter />
       {children}
+      <PortalRadioPlayer />
     </>
   );
 }

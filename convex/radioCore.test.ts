@@ -497,3 +497,28 @@ describe("account deletion over radio rows (AC-36)", () => {
     expect(remaining.stretches.reduce((s, r) => s + r.seconds, 0)).toBe(7200);
   });
 });
+
+// ── spec 0020: lock screen artwork comes from the portal ─────────────────
+
+describe("radio.getPlaybackConfig artwork (spec 0020, AC-7)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("points the lock screen at the portal's hosted artwork, and omits it without a portal", async () => {
+    const t = testConvex();
+    const member = await createUser(t, "Plain");
+    as(member.authId);
+
+    vi.stubEnv("PORTAL_ORIGIN", "https://portal.example.org/");
+    const withPortal = await t.query(api.radio.getPlaybackConfig, {});
+    expect(withPortal?.artworkBaseUrl).toBe("https://portal.example.org/radio/");
+    expect(withPortal?.cityLookupUrl).toBe("https://portal.example.org/api/where");
+
+    vi.stubEnv("PORTAL_ORIGIN", "");
+    const without = await t.query(api.radio.getPlaybackConfig, {});
+    expect(without).not.toHaveProperty("artworkBaseUrl");
+    expect(without).not.toHaveProperty("cityLookupUrl");
+
+    as(null);
+    expect(await t.query(api.radio.getPlaybackConfig, {})).toBeNull();
+  });
+});

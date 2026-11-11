@@ -15,7 +15,6 @@ import { AmbientShadow, FontFamily, Radius, Spacing } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { api, type Id } from '@/lib/api';
 import { useRadioPlayer } from '@/lib/radio-player';
-import { radioArtwork, radioArtworkUrl } from '@/lib/radio-artwork';
 
 type RecordingRow = FunctionReturnType<typeof api.radio.listRecordings>['page'][number];
 
@@ -148,9 +147,10 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
 
 const RecordingItem = memo(function RecordingItem({ row }: { row: RecordingRow }) {
   const Colors = useThemeColors();
-  const { state, source, position, duration, playRecording, stop } = useRadioPlayer();
+  const { state, source, position, duration, playRecording, pause, resume } = useRadioPlayer();
   const isThis = source.kind === 'recording' && source.broadcastId === row._id;
   const active = isThis && (state === 'playing' || state === 'connecting');
+  const held = isThis && state === 'paused';
   const failed = isThis && state === 'unavailable';
 
   const date = formatKampalaDayHeading(kampalaDateKeyAt(row.startsAt));
@@ -158,29 +158,35 @@ const RecordingItem = memo(function RecordingItem({ row }: { row: RecordingRow }
 
   const onPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    // Pause and resume in place, as a music app does (spec 0020, AC-6).
     if (active) {
-      stop();
+      pause();
       return;
     }
-    const artworkUrl = radioArtworkUrl(radioArtwork(row));
+    if (held) {
+      resume();
+      return;
+    }
     playRecording({
       broadcastId: row._id,
       title: row.title,
       subtitle: [row.host, date].filter(Boolean).join(' · ') || null,
       url: row.url,
-      ...(artworkUrl ? { artworkUrl } : {}),
+      imageUrl: row.imageUrl,
+      seedKey: row.seedKey,
     });
   };
 
-  const meta = active && state === 'playing'
-    ? `${formatClock(position)} of ${formatClock(duration || row.durationSeconds || 0)}`
-    : [date, length].filter(Boolean).join(' · ');
+  const meta =
+    (active && state === 'playing') || held
+      ? `${held ? 'Paused · ' : ''}${formatClock(position)} of ${formatClock(duration || row.durationSeconds || 0)}`
+      : [date, length].filter(Boolean).join(' · ');
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${active ? 'Stop' : 'Play'} the recording of ${row.title}, ${date}`}
+      accessibilityLabel={`${active ? 'Pause' : held ? 'Resume' : 'Play'} the recording of ${row.title}, ${date}`}
       style={[
         styles.row,
         AmbientShadow,

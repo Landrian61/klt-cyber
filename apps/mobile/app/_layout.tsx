@@ -3,7 +3,7 @@
 // it at the top is load bearing — see lib/splash-watchdog.ts for why.
 import '@/lib/splash-watchdog';
 
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
@@ -28,6 +28,9 @@ import { resolveDeepLinkHref } from '@/lib/notification-links';
 import { initSentry, Sentry } from '@/lib/sentry';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { useActivityReporter } from '@/hooks/use-activity-reporter';
+import { RadioPlayerProvider } from '@/lib/radio-player';
+import { MiniPlayer } from '@/components/radio/mini-player';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 initSentry();
 
@@ -144,6 +147,9 @@ function RootLayoutInner() {
   // (isAuthenticated itself is hoisted above, next to the effects that need it.)
 
   return (
+    // The one Reign Radio player, at the root so every screen can reach it
+    // (spec 0020): the tabs, the drill down screens and the mini player.
+    <RadioPlayerProvider>
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
         {/* Authenticated area: tabs + all drill-down screens. */}
@@ -177,6 +183,8 @@ function RootLayoutInner() {
         </Stack.Protected>
       </Stack>
 
+      {isAuthenticated && <FloatingMiniPlayer />}
+
       {/* Branded cold-open. Fades out once the session is known, revealing the
           correct screen already mounted underneath. */}
       {!splashDone && (
@@ -187,7 +195,27 @@ function RootLayoutInner() {
           Screens with dark tops (welcome, profile) override this themselves. */}
       <StatusBar style={!splashDone || isDark ? 'light' : 'dark'} />
     </View>
+    </RadioPlayerProvider>
   );
+}
+
+/**
+ * Screens where the floating mini player would cover the main action, so it
+ * stays away: finishing a profile, deleting an account and paying (spec 0020).
+ */
+const NO_MINI_PLAYER_ROUTES = new Set(['profile-completion', 'delete-account', 'give']);
+
+/**
+ * The mini player on screens outside the tabs (spec 0020, AC-5). The tabs
+ * layout places its own above the bottom navigation, so this one stands down
+ * there and floats at the bottom of every other signed in screen.
+ */
+function FloatingMiniPlayer() {
+  const segments = useSegments();
+  const insets = useSafeAreaInsets();
+  const first = segments[0] ?? '';
+  if (first === '(tabs)' || first === '(auth)' || NO_MINI_PLAYER_ROUTES.has(first)) return null;
+  return <MiniPlayer bottom={insets.bottom + 12} />;
 }
 
 function RootLayout() {

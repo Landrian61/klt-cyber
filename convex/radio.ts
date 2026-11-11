@@ -191,6 +191,11 @@ export const getPlaybackConfig = query({
     return {
       streamUrl,
       ...(origin ? { cityLookupUrl: `${origin}/api/where` } : {}),
+      // Where the lock screen fetches program artwork when a program has no
+      // uploaded image (spec 0020): the portal serves copies of the bundled
+      // program photos at /radio/<seedKey>.jpg and /radio/default.jpg,
+      // because Android loads notification artwork only from a web address.
+      ...(origin ? { artworkBaseUrl: `${origin}/radio/` } : {}),
     };
   },
 });
