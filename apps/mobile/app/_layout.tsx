@@ -156,6 +156,7 @@ function RootLayoutInner() {
           <Stack.Screen name="giving" />
           <Stack.Screen name="members" />
           <Stack.Screen name="programs" />
+          <Stack.Screen name="radio-follows" />
           <Stack.Screen name="program-detail" />
           <Stack.Screen name="devotionals" />
           <Stack.Screen name="events" />

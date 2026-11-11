@@ -1,582 +1,436 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  ScrollView, View, Text, TextInput, Pressable,
-  ImageBackground, StyleSheet,
+  ActivityIndicator,
+  ImageBackground,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
-  FadeInUp, FadeInRight, useSharedValue, useAnimatedStyle, withSpring,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-
 import { LinearGradient } from 'expo-linear-gradient';
+import {
+  RADIO_DISPLAY_STATUS_LABELS,
+  RADIO_NOTHING_ON_AIR_MESSAGE,
+  formatKampalaTime,
+  formatRadioCountdown,
+  formatRadioDuration,
+  type RadioDisplayStatus,
+} from '@klt-cyber/shared';
 
 import {
-  FontFamily, Spacing, Radius, AmbientShadow, GoldGradient, GoldGlow,
+  AmbientShadow,
+  FontFamily,
+  GoldGlow,
+  GoldGradient,
+  Radius,
+  Spacing,
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
-import { getOnlinePrograms, type Program } from '@/data/programs';
+import { useRadioNow, type RadioBroadcastView } from '@/hooks/use-radio-now';
+import { useRadioPlayer } from '@/lib/radio-player';
+import { radioArtwork } from '@/lib/radio-artwork';
+import { ErrorState } from '@/components/ui/error-state';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { ScheduleList } from '@/components/radio/schedule-list';
+import { RecordingsList } from '@/components/radio/recordings-list';
+import { InboxSend } from '@/components/radio/inbox-send';
 
-// When no program is live, fall back to the church theme image
-const FALLBACK_IMAGE = require('@/assets/images/Church_Theme.jpg');
+const SEGMENTS = ['Now', 'Schedule', 'Recordings'];
 
-interface Comment {
-  id: string;
-  author: string;
-  initials: string;
-  text: string;
-  time: string;
-}
-
-// Placeholder comments
-const INITIAL_COMMENTS: Comment[] = [
-  { id: '1', author: 'Sister Grace', initials: 'SG', text: 'Powerful word tonight! 🙏', time: '2 min ago' },
-  { id: '2', author: 'Brother James', initials: 'BJ', text: 'Amen, glory to God', time: '5 min ago' },
-  { id: '3', author: 'Deacon Paul', initials: 'DP', text: 'The presence of God is strong', time: '8 min ago' },
-];
-
-const LISTENER_COUNT = 47;
-
+/**
+ * The Radio tab (spec 0019). Real data only: the live status derived from the
+ * stream probe and the phone's own clock, the broadcast on now and what is
+ * next with a countdown that ticks, the in app listener figure, and the one
+ * player behind the lock screen (AC-1 to AC-4, AC-7, AC-15).
+ *
+ * The Now, Schedule and Recordings segments sit under the player (AC-7,
+ * AC-8, AC-27), so the player keeps playing whichever one is open. The Now
+ * segment carries the prayer request and testimony forms (AC-28).
+ */
 export default function RadioScreen() {
   const Colors = useThemeColors();
-  const [notes, setNotes] = useState('');
-  const [saved, setSaved] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [comments, setComments] = useState<Comment[]>(INITIAL_COMMENTS);
-  const [commentText, setCommentText] = useState('');
-  const commentInputRef = useRef<TextInput>(null);
+  const { data, status, current, next, now } = useRadioNow(1000);
+  const [segment, setSegment] = useState(0);
 
-  // In a real app, this would come from a live status API.
-  // null = no live broadcast; a Program = currently broadcasting.
-  const [currentProgram] = useState<Program | null>(null);
-
-  const onlinePrograms = useMemo(() => getOnlinePrograms(), []);
-
-  const heroImage = currentProgram?.image ?? FALLBACK_IMAGE;
-  const heroTitle = currentProgram?.name ?? 'Reign Radio';
-  const heroSubtitle = currentProgram
-    ? `Live now on religradio.caster.fm`
-    : 'religradio.caster.fm';
-
-  // Play button animation
-  const playScale = useSharedValue(1);
-  const playAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: playScale.value }],
-  }));
-
-  const handlePlayToggle = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsPlaying((prev) => !prev);
-    playScale.value = withSpring(1.15, { damping: 8, stiffness: 300 }, () => {
-      playScale.value = withSpring(1);
-    });
-  };
-
-  const handleSendComment = () => {
-    const trimmed = commentText.trim();
-    if (!trimmed) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newComment: Comment = {
-      id: Date.now().toString(),
-      author: 'Andrew',
-      initials: 'AL',
-      text: trimmed,
-      time: 'Just now',
-    };
-    setComments((prev) => [newComment, ...prev]);
-    setCommentText('');
-    commentInputRef.current?.blur();
-  };
-
-  const handleNotesChange = useCallback((text: string) => {
-    setNotes(text);
-    setSaved(false);
-    const timeout = setTimeout(() => setSaved(true), 1000);
-    return () => clearTimeout(timeout);
-  }, []);
+  if (data === null) {
+    return (
+      <View style={styles.centered}>
+        <ErrorState />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Radio Player Hero */}
-      <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.heroSection}>
-        <ImageBackground
-          source={heroImage}
-          resizeMode="cover"
-          style={styles.heroImage}
-          imageStyle={{ borderRadius: Radius.xl }}
-        >
-          <View style={styles.heroScrim}>
-            {/* Live badge */}
-            {currentProgram && (
-              <View style={styles.liveBadge}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveText}>LIVE</Text>
-              </View>
-            )}
-
-            {/* Program info */}
-            <View style={styles.heroContent}>
-              <Text style={styles.heroTitle} numberOfLines={2}>{heroTitle}</Text>
-              <View style={styles.heroMeta}>
-                <Text style={styles.heroSubtitle}>{heroSubtitle}</Text>
-                <View style={styles.listenerBadge}>
-                  <Ionicons name="headset-outline" size={12} color="rgba(255,255,255,0.6)" />
-                  <Text style={styles.listenerText}>{LISTENER_COUNT} listening</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Playback controls */}
-            <View style={styles.controls}>
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                style={styles.controlButton}
-                accessibilityLabel="Previous"
-              >
-                <Ionicons name="play-skip-back" size={22} color="rgba(255,255,255,0.6)" />
-              </Pressable>
-
-              <Animated.View style={playAnimatedStyle}>
-                <Pressable
-                  onPress={handlePlayToggle}
-                  accessibilityRole="button"
-                  accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
-                >
-                  <LinearGradient
-                    colors={[...GoldGradient.colors]}
-                    start={GoldGradient.start}
-                    end={GoldGradient.end}
-                    style={[styles.playButton, GoldGlow]}
-                  >
-                    <Ionicons
-                      name={isPlaying ? 'pause' : 'play'}
-                      size={28}
-                      color="#3A2604"
-                      style={!isPlaying ? { marginLeft: 3 } : undefined}
-                    />
-                  </LinearGradient>
-                </Pressable>
-              </Animated.View>
-
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                style={styles.controlButton}
-                accessibilityLabel="Next"
-              >
-                <Ionicons name="play-skip-forward" size={22} color="rgba(255,255,255,0.6)" />
-              </Pressable>
-            </View>
-
-            {/* Volume hint */}
-            <View style={styles.volumeRow}>
-              <Ionicons name="volume-low" size={16} color="rgba(255,255,255,0.4)" />
-              <View style={styles.volumeTrack}>
-                <View style={[styles.volumeFill, { width: '70%' }]} />
-              </View>
-              <Ionicons name="volume-high" size={16} color="rgba(255,255,255,0.4)" />
-            </View>
-          </View>
-        </ImageBackground>
-      </Animated.View>
-
-      {/* Program Schedule */}
-      <Animated.View entering={FadeInUp.duration(400).delay(200)} style={[styles.section, { marginTop: Spacing[6] }]}>
-        <Text style={[styles.sectionLabel, { color: Colors.outline }]}>PROGRAM SCHEDULE</Text>
-        {onlinePrograms.map((program, index) => (
-          <Animated.View
-            key={program.id}
-            entering={FadeInUp.duration(300).delay(260 + index * 60)}
-          >
-            <ScheduleCard program={program} />
-          </Animated.View>
-        ))}
-      </Animated.View>
-
-      {/* Live Comments */}
-      <Animated.View entering={FadeInUp.duration(400).delay(320)} style={[styles.section, { marginTop: Spacing[6] }]}>
-        <Text style={[styles.sectionLabel, { color: Colors.outline }]}>LIVE COMMENTS</Text>
-
-        {/* Comment input */}
-        <View style={[styles.commentInputRow, { backgroundColor: Colors.surfaceLow }]}>
-          <TextInput
-            ref={commentInputRef}
-            style={[styles.commentInput, { color: Colors.onSurface }]}
-            value={commentText}
-            onChangeText={setCommentText}
-            placeholder="Say something..."
-            placeholderTextColor={Colors.outline}
-            returnKeyType="send"
-            onSubmitEditing={handleSendComment}
-          />
-          <Pressable
-            onPress={handleSendComment}
-            hitSlop={8}
-            style={[
-              styles.sendButton,
-              { backgroundColor: commentText.trim() ? Colors.primary : Colors.surfaceHigh },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Send comment"
-          >
-            <Ionicons
-              name="arrow-up"
-              size={18}
-              color={commentText.trim() ? '#FFFFFF' : Colors.outline}
-            />
-          </Pressable>
-        </View>
-
-        {/* Comments list */}
-        <View style={styles.commentsList}>
-          {comments.map((comment, index) => (
-            <Animated.View
-              key={comment.id}
-              entering={index === 0 && comment.time === 'Just now' ? FadeInRight.duration(250) : undefined}
-              style={styles.commentRow}
-            >
-              <View style={[styles.commentAvatar, { backgroundColor: Colors.primaryLight }]}>
-                <Text style={[styles.commentInitials, { color: Colors.primary }]}>{comment.initials}</Text>
-              </View>
-              <View style={styles.commentBody}>
-                <View style={styles.commentHeader}>
-                  <Text style={[styles.commentAuthor, { color: Colors.onSurface }]}>{comment.author}</Text>
-                  <Text style={[styles.commentTime, { color: Colors.outline }]}>{comment.time}</Text>
-                </View>
-                <Text style={[styles.commentText, { color: Colors.onSurfaceVariant }]}>{comment.text}</Text>
-              </View>
-            </Animated.View>
-          ))}
-        </View>
-      </Animated.View>
-
-      {/* My Notes */}
-      <Animated.View entering={FadeInUp.duration(400).delay(380)} style={[styles.section, { marginTop: Spacing[6] }]}>
-        <View style={styles.notesHeader}>
-          <Text style={[styles.notesLabel, { color: Colors.onSurface }]}>My notes</Text>
-          {saved && <Text style={[styles.savedIndicator, { color: Colors.success }]}>Saved</Text>}
-        </View>
-        <TextInput
-          style={[styles.notesInput, { backgroundColor: Colors.surfaceLow, color: Colors.onSurface }]}
-          value={notes}
-          onChangeText={handleNotesChange}
-          placeholder="Write your notes — saved automatically."
-          placeholderTextColor={Colors.outline}
-          multiline
-          textAlignVertical="top"
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <Animated.View entering={FadeInUp.duration(400).delay(60)}>
+        <PlayerHero
+          loading={data === undefined}
+          status={status}
+          current={current}
+          listeners={data?.inAppListeners ?? 0}
         />
       </Animated.View>
 
-      <View style={{ height: Spacing[6] }} />
+      <Animated.View entering={FadeInUp.duration(400).delay(120)} style={styles.section}>
+        <SegmentedControl options={SEGMENTS} selectedIndex={segment} onChange={setSegment} />
+      </Animated.View>
+
+      {segment === 2 ? (
+        <View style={styles.section}>
+          <RecordingsList />
+        </View>
+      ) : segment === 1 ? (
+        <View style={styles.section}>
+          <ScheduleList now={now} />
+        </View>
+      ) : (
+        <>
+          <Animated.View entering={FadeInUp.duration(400).delay(160)} style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: Colors.outline }]}>UP NEXT</Text>
+            {data === undefined ? (
+              <View style={[styles.nextCard, { backgroundColor: Colors.surfaceLow }]}>
+                <View style={[styles.skeletonLine, { backgroundColor: Colors.surfaceHigh, width: '60%' }]} />
+                <View style={[styles.skeletonLine, { backgroundColor: Colors.surfaceHigh, width: '35%' }]} />
+              </View>
+            ) : next ? (
+              <NextCard next={next} now={now} />
+            ) : (
+              <View style={[styles.nextCard, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}>
+                <Ionicons name="calendar-outline" size={28} color={Colors.outline} />
+                <Text style={[styles.emptyTitle, { color: Colors.onSurfaceVariant }]}>
+                  Nothing scheduled yet
+                </Text>
+                <Text style={[styles.emptyBody, { color: Colors.outline }]}>
+                  The Media team adds broadcasts here as they are planned.
+                </Text>
+              </View>
+            )}
+          </Animated.View>
+
+          <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.section}>
+            <InboxSend status={status} />
+          </Animated.View>
+
+          <Animated.View entering={FadeInUp.duration(400).delay(240)} style={styles.section}>
+            <View style={[styles.aboutCard, { backgroundColor: Colors.surfaceLow }]}>
+              <Ionicons name="radio-outline" size={18} color={Colors.primary} />
+              <Text style={[styles.aboutText, { color: Colors.onSurfaceVariant }]}>
+                Reign Radio is Kingdom Life Tabernacle&apos;s station. It keeps playing when you
+                lock your phone, and you can pause it from the lock screen.
+              </Text>
+            </View>
+          </Animated.View>
+        </>
+      )}
     </ScrollView>
   );
 }
 
-function ScheduleCard({ program }: { program: Program }) {
-  const Colors = useThemeColors();
+const STATUS_PILL: Record<RadioDisplayStatus, { bg: string; dot: string }> = {
+  live: { bg: 'rgba(171, 51, 50, 0.92)', dot: '#FFFFFF' },
+  interrupted: { bg: 'rgba(196, 127, 8, 0.92)', dot: '#FFFFFF' },
+  off_air: { bg: 'rgba(255, 255, 255, 0.16)', dot: 'rgba(255,255,255,0.7)' },
+};
 
-  const timeDisplay = [
-    program.time,
-    program.endTime ? `– ${program.endTime}` : null,
-    program.duration ? `(${program.duration})` : null,
-  ].filter(Boolean).join(' ');
+function PlayerHero({
+  loading,
+  status,
+  current,
+  listeners,
+}: {
+  loading: boolean;
+  status: RadioDisplayStatus;
+  current: RadioBroadcastView | null;
+  listeners: number;
+}) {
+  const { state, source, play, stop } = useRadioPlayer();
+  const isActive = state === 'playing' || state === 'connecting';
+  // A recording playing through the one player: the hero's button stops it.
+  const onRecording = source.kind === 'recording' && isActive;
+
+  const scale = useSharedValue(1);
+  const playStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  // A small pulse when audio actually arrives, so the change is felt.
+  useEffect(() => {
+    if (state === 'playing') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+  }, [state]);
+
+  const onPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    scale.value = withSpring(1.12, { damping: 9, stiffness: 320 }, () => {
+      scale.value = withSpring(1);
+    });
+    if (isActive) stop();
+    else play();
+  };
+
+  const pill = STATUS_PILL[status];
+  const title = current?.title ?? 'Reign Radio';
+  const subtitle = current
+    ? [current.host, `${formatKampalaTime(current.startsAt)} to ${formatKampalaTime(current.endsAt)}`]
+        .filter(Boolean)
+        .join(' · ')
+    : status === 'live'
+      ? 'On air now'
+      : 'Kingdom Life Tabernacle';
+
+  const accessibilityLabel = onRecording
+    ? 'Stop the recording'
+    : state === 'connecting'
+      ? 'Connecting, tap to cancel'
+      : isActive
+        ? 'Pause Reign Radio'
+        : 'Play Reign Radio';
 
   return (
-    <View style={[styles.scheduleCard, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}>
+    <View style={styles.heroSection}>
       <ImageBackground
-        source={program.image}
+        source={radioArtwork(current)}
         resizeMode="cover"
-        style={styles.scheduleImage}
-        imageStyle={{ borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg }}
-      />
-      <View style={styles.scheduleContent}>
-        <Text style={[styles.scheduleTitle, { color: Colors.onSurface }]} numberOfLines={1}>
-          {program.name}
-        </Text>
-        <Text style={[styles.scheduleDay, { color: Colors.onSurfaceVariant }]}>
-          {program.day}{timeDisplay ? `, ${timeDisplay}` : ''}
-        </Text>
-        <View style={styles.scheduleTagRow}>
-          <View style={[styles.scheduleTag, { backgroundColor: Colors.primaryLight }]}>
-            <Ionicons name="radio-outline" size={11} color={Colors.primary} />
-            <Text style={[styles.scheduleTagText, { color: Colors.primary }]}>
-              {program.locationType === 'hybrid' ? 'In-person & Online' : 'Online'}
+        style={styles.heroImage}
+        imageStyle={{ borderRadius: Radius.xl }}
+      >
+        <LinearGradient
+          colors={['rgba(12, 33, 84, 0.45)', 'rgba(12, 33, 84, 0.92)']}
+          style={styles.heroScrim}
+        >
+          <View
+            style={[styles.statusPill, { backgroundColor: pill.bg }]}
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={`Status: ${RADIO_DISPLAY_STATUS_LABELS[status]}`}
+          >
+            <View style={[styles.statusDot, { backgroundColor: pill.dot }]} />
+            <Text style={styles.statusText}>
+              {loading ? 'CHECKING' : RADIO_DISPLAY_STATUS_LABELS[status].toUpperCase()}
             </Text>
           </View>
-        </View>
+
+          <View style={styles.heroContent}>
+            <Text style={styles.heroTitle} numberOfLines={2} accessibilityRole="header">
+              {title}
+            </Text>
+            <Text style={styles.heroSubtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+            {status === 'live' && (
+              <View style={styles.listenerRow}>
+                <Ionicons name="headset-outline" size={13} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.listenerText}>
+                  <Text style={styles.listenerCount}>{listeners}</Text>{' '}
+                  {listeners === 1 ? 'in app listener' : 'in app listeners'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.controls}>
+            <Animated.View style={playStyle}>
+              <Pressable
+                onPress={onPress}
+                accessibilityRole="button"
+                accessibilityLabel={accessibilityLabel}
+                hitSlop={8}
+              >
+                <LinearGradient
+                  colors={[...GoldGradient.colors]}
+                  start={GoldGradient.start}
+                  end={GoldGradient.end}
+                  style={[styles.playButton, GoldGlow]}
+                >
+                  {state === 'connecting' ? (
+                    <ActivityIndicator color="#3A2604" />
+                  ) : (
+                    <Ionicons
+                      name={isActive ? 'pause' : 'play'}
+                      size={30}
+                      color="#3A2604"
+                      style={!isActive ? { marginLeft: 3 } : undefined}
+                    />
+                  )}
+                </LinearGradient>
+              </Pressable>
+            </Animated.View>
+            <Text style={styles.controlHint} accessibilityLiveRegion="polite">
+              {onRecording
+                ? 'Playing a recording · tap to stop'
+                : state === 'nothing_on_air' && source.kind === 'live'
+                ? RADIO_NOTHING_ON_AIR_MESSAGE
+                : state === 'connecting'
+                  ? 'Connecting to the stream…'
+                  : state === 'playing' && source.kind === 'live'
+                    ? 'Playing live'
+                    : status === 'live'
+                      ? 'Tap to listen live'
+                      : 'Tap to try the stream'}
+            </Text>
+          </View>
+        </LinearGradient>
+      </ImageBackground>
+    </View>
+  );
+}
+
+function NextCard({ next, now }: { next: RadioBroadcastView; now: number }) {
+  const Colors = useThemeColors();
+  const minutes = Math.round((next.endsAt - next.startsAt) / 60_000);
+  const cancelled = next.status === 'cancelled';
+  return (
+    <View style={[styles.nextCard, styles.nextRow, AmbientShadow, { backgroundColor: Colors.surfaceLowest }]}>
+      <ImageBackground
+        source={radioArtwork(next)}
+        resizeMode="cover"
+        style={styles.nextImage}
+        imageStyle={{ borderRadius: Radius.md }}
+      />
+      <View style={styles.nextBody}>
+        <Text style={[styles.nextTitle, { color: Colors.onSurface }]} numberOfLines={1}>
+          {next.title}
+        </Text>
+        <Text style={[styles.nextMeta, { color: Colors.onSurfaceVariant }]} numberOfLines={1}>
+          {[next.host, `${formatKampalaTime(next.startsAt)} · ${formatRadioDuration(minutes)}`]
+            .filter(Boolean)
+            .join(' · ')}
+        </Text>
+      </View>
+      <View style={[styles.countdown, { backgroundColor: Colors.primaryLight }]}>
+        <Text style={[styles.countdownLabel, { color: Colors.primary }]}>
+          {cancelled ? 'CANCELLED' : 'STARTS IN'}
+        </Text>
+        {!cancelled && (
+          <Text
+            style={[styles.countdownValue, { color: Colors.primary }]}
+            accessibilityLabel={`Starts in ${formatRadioCountdown(next.startsAt - now)}`}
+          >
+            {formatRadioCountdown(next.startsAt - now)}
+          </Text>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: Spacing[5],
-  },
-  // Hero player
-  heroSection: {
-    paddingHorizontal: Spacing[5],
-    marginTop: Spacing[5],
-  },
-  heroImage: {
-    width: '100%',
-    minHeight: 320,
-    justifyContent: 'flex-end',
-  },
-  heroScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(12, 33, 84, 0.62)',
-    borderRadius: Radius.xl,
-    justifyContent: 'flex-end',
-    padding: Spacing[5],
-    paddingBottom: Spacing[4],
-  },
-  liveBadge: {
-    position: 'absolute',
-    top: Spacing[4],
-    left: Spacing[4],
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(171, 51, 50, 0.9)',
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing[2],
-    paddingVertical: 3,
-    gap: 5,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
-  },
-  liveText: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 10,
-    lineHeight: 14,
-    color: '#FFFFFF',
-    letterSpacing: 0.8,
-  },
-  heroContent: {
-    marginBottom: Spacing[5],
-  },
-  heroTitle: {
-    fontFamily: FontFamily.display,
-    fontSize: 26,
-    lineHeight: 32,
-    color: '#FFFFFF',
-  },
-  heroMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: Spacing[1],
-  },
-  heroSubtitle: {
-    fontFamily: FontFamily.body,
-    fontSize: 12,
-    lineHeight: 18,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  listenerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  listenerText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 11,
-    lineHeight: 15.4,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  // Playback controls
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing[6],
-    marginBottom: Spacing[4],
-  },
-  controlButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Volume
-  volumeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[2],
-  },
-  volumeTrack: {
-    flex: 1,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  volumeFill: {
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-  },
-  // Section label
+  scroll: { flex: 1 },
+  content: { paddingBottom: Spacing[6] },
+  centered: { flex: 1, justifyContent: 'center', padding: Spacing[5] },
+  section: { paddingHorizontal: Spacing[5], marginTop: Spacing[6] },
   sectionLabel: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
     lineHeight: 15.4,
     letterSpacing: 0.6,
-    marginBottom: Spacing[4],
-  },
-  // Schedule cards
-  scheduleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
     marginBottom: Spacing[3],
   },
-  scheduleImage: {
-    width: 72,
-    alignSelf: 'stretch',
-    overflow: 'hidden',
+  // Hero
+  heroSection: { paddingHorizontal: Spacing[5], marginTop: Spacing[5] },
+  heroImage: { width: '100%', minHeight: 360 },
+  heroScrim: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: Radius.xl,
+    justifyContent: 'space-between',
+    padding: Spacing[5],
   },
-  scheduleContent: {
-    flex: 1,
-    paddingVertical: Spacing[3],
+  statusPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: Radius.full,
     paddingHorizontal: Spacing[3],
-    gap: 2,
+    paddingVertical: 4,
+    gap: 6,
   },
-  scheduleTitle: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  scheduleDay: {
-    fontFamily: FontFamily.body,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  scheduleTagRow: {
-    flexDirection: 'row',
-    marginTop: 4,
-  },
-  scheduleTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing[2],
-    paddingVertical: 2,
-  },
-  scheduleTagText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  // Comments
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: Radius.full,
-    paddingLeft: Spacing[4],
-    paddingRight: Spacing[1],
-    paddingVertical: Spacing[1],
-    gap: Spacing[2],
-  },
-  commentInput: {
-    flex: 1,
-    fontFamily: FontFamily.body,
-    fontSize: 14,
-    lineHeight: 20,
-    paddingVertical: Spacing[2],
-  },
-  sendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  commentsList: {
-    marginTop: Spacing[4],
-    gap: Spacing[4],
-  },
-  commentRow: {
-    flexDirection: 'row',
-    gap: Spacing[3],
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  commentInitials: {
+  statusDot: { width: 7, height: 7, borderRadius: 3.5 },
+  statusText: {
     fontFamily: FontFamily.bodySemiBold,
     fontSize: 11,
-    lineHeight: 14,
+    lineHeight: 15,
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
   },
-  commentBody: {
-    flex: 1,
+  heroContent: { marginTop: 'auto', marginBottom: Spacing[5] },
+  heroTitle: {
+    fontFamily: FontFamily.display,
+    fontSize: 28,
+    lineHeight: 34,
+    color: '#FFFFFF',
   },
-  commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  commentAuthor: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  commentTime: {
-    fontFamily: FontFamily.body,
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  commentText: {
+  heroSubtitle: {
     fontFamily: FontFamily.body,
     fontSize: 13,
     lineHeight: 19,
-    marginTop: 1,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: Spacing[1],
   },
-  // Notes
-  notesHeader: {
-    flexDirection: 'row',
+  listenerRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: Spacing[2] },
+  listenerText: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(255,255,255,0.75)',
+  },
+  listenerCount: { fontFamily: FontFamily.mono, color: '#FFFFFF' },
+  controls: { alignItems: 'center', gap: Spacing[3] },
+  playButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing[3],
+    justifyContent: 'center',
   },
-  notesLabel: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 16,
-    lineHeight: 24,
+  controlHint: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
   },
-  savedIndicator: {
-    fontFamily: FontFamily.body,
-    fontSize: 11,
-    lineHeight: 15.4,
+  // Up next
+  nextCard: {
+    borderRadius: Radius.lg,
+    padding: Spacing[4],
+    alignItems: 'center',
+    gap: Spacing[2],
   },
-  notesInput: {
+  nextRow: { flexDirection: 'row', gap: Spacing[3], padding: Spacing[3] },
+  nextImage: { width: 56, height: 56 },
+  nextBody: { flex: 1, gap: 2 },
+  nextTitle: { fontFamily: FontFamily.bodySemiBold, fontSize: 15, lineHeight: 21 },
+  nextMeta: { fontFamily: FontFamily.body, fontSize: 12, lineHeight: 17 },
+  countdown: {
     borderRadius: Radius.md,
-    padding: Spacing[3],
-    height: 120,
-    fontFamily: FontFamily.body,
-    fontSize: 14,
-    lineHeight: 22.4,
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[2],
+    alignItems: 'center',
+    minWidth: 84,
   },
+  countdownLabel: { fontFamily: FontFamily.bodySemiBold, fontSize: 9, letterSpacing: 0.6 },
+  countdownValue: { fontFamily: FontFamily.mono, fontSize: 16, lineHeight: 22 },
+  emptyTitle: { fontFamily: FontFamily.bodySemiBold, fontSize: 15, lineHeight: 21 },
+  emptyBody: { fontFamily: FontFamily.body, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  skeletonLine: { height: 12, borderRadius: 6, alignSelf: 'flex-start' },
+  aboutCard: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+    borderRadius: Radius.lg,
+    padding: Spacing[4],
+    alignItems: 'flex-start',
+  },
+  aboutText: { flex: 1, fontFamily: FontFamily.body, fontSize: 13, lineHeight: 20 },
 });

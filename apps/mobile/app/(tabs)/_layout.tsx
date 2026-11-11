@@ -12,6 +12,7 @@ import type { TabName } from '@/components/navigation/bottom-nav-bar';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getInitials } from '@/lib/user-display';
 import { api } from '@/lib/api';
+import { RadioPlayerProvider } from '@/lib/radio-player';
 
 const TAB_ROUTES: Record<Exclude<TabName, 'more'>, string> = {
   home: '/(tabs)',
@@ -61,6 +62,9 @@ export default function TabLayout() {
   const bottomNavHeight = 56 + insets.bottom;
 
   return (
+    // The one Reign Radio player sits above the tabs, so audio keeps playing
+    // when the member leaves the Radio tab (spec 0019, AC-2).
+    <RadioPlayerProvider>
     <View style={[styles.container, { backgroundColor: Colors.surface }]}>
       <TopBar title={TAB_TITLES[pathnameToTab(pathname)]} unreadCount={unreadCount} userInitials={getInitials(user)} />
 
@@ -88,6 +92,7 @@ export default function TabLayout() {
         onMoreClose={() => setMoreVisible(false)}
       />
     </View>
+    </RadioPlayerProvider>
   );
 }
 

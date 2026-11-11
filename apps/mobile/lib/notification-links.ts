@@ -45,6 +45,10 @@ export function resolveDeepLinkHref(
       // group's heading on the Updates tab. The id is carried for
       // completeness and unused, the same way 'profile' carries one.
       return '/(tabs)/updates' as Href;
+    case 'radio_broadcast':
+      // Spec 0019's N33, a followed program going live: the Radio tab, where
+      // the player is. The broadcast id is carried and unused.
+      return '/(tabs)/radio' as Href;
     case 'program':
       return `/program-detail?id=${deepLink.id}` as Href;
     case 'role_assignment':

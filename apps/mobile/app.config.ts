@@ -98,6 +98,13 @@ export default (): ExpoConfig => {
         // prompt is the one iOS should be able to show — without this key it
         // would have nothing to display and the request would fail.
         NSCalendarsWriteOnlyAccessUsageDescription: CALENDAR_PERMISSION_COPY,
+        // Reign Radio keeps playing with the screen locked (spec 0019, AC-2).
+        // Set here rather than through the expo-audio plugin: the installed
+        // expo-audio 1.1.1 adds this mode only with `enableBackgroundRecording`,
+        // which would also add a microphone foreground service this app must
+        // not declare. Android needs nothing extra: expo-audio's own manifest
+        // already declares its media playback foreground service.
+        UIBackgroundModes: ["audio"],
       },
     },
     android,
