@@ -11,6 +11,14 @@ import {
   vLibraryStockDirection,
 } from "./lib/libraryValidators";
 import { vNotificationKind } from "./lib/notificationValidators";
+import {
+  vRadioBroadcastOrigin,
+  vRadioBroadcastStatus,
+  vRadioDetectedState,
+  vRadioInboxType,
+  vRadioOverrideState,
+  vRadioProgramRecurrence,
+} from "./lib/radioValidators";
 
 // Shared with convex/notifications.ts (the dispatch action's arg validator)
 // so the audience shape is defined exactly once — duplicating it across the
@@ -1189,4 +1197,197 @@ export default defineSchema({
     // and derives both the monthly buckets and the ninety day movers from that
     // single result (AC-21, AC-22).
     .index("by_created", ["createdAt"]),
+  // ── Radio core (spec 0019) ───────────────────────────────────────────────
+  // Seven tables, all new and additive. Feature 23 (Super T) and feature 32
+  // (Radio Insights) inherit these shapes, so treat them as a contract.
+
+  // A recurring program Media maintains (R2-01). A length in minutes rather
+  // than an end time, because Super T runs a full 1440 and an end equal to the
+  // start cannot say so; crossing midnight falls out of the arithmetic.
+  radioPrograms: defineTable({
+    name: v.string(), // within RADIO_PROGRAM_NAME_MAX_LENGTH
+    // radioProgramNameKey(name): trimmed and lowercased. The duplicate check
+    // among active programs runs in the mutation (AC-18), since Convex has no
+    // unique index.
+    nameKey: v.string(),
+    // One of RADIO_SEED_KEYS on a seeded row: what keeps the seed idempotent,
+    // what recognises Super T, and what matches the bundled art when no image
+    // has been uploaded.
+    seedKey: v.optional(v.string()),
+    description: v.string(),
+    days: v.array(v.number()), // 0 to 6, Sunday is 0
+    startTime: v.string(), // "HH:MM" Kampala
+    durationMinutes: v.number(), // 1 to 1440
+    recurrence: vRadioProgramRecurrence,
+    // Forced false on Super T (AC-24).
+    recordByDefault: v.boolean(),
+    // The follow state for anyone who never chose (AC-10).
+    followedByDefault: v.boolean(),
+    isActive: v.boolean(),
+    imageKey: v.optional(v.string()), // R2 key, resolved through the gateway
+    // Exactly one of these two, or neither (AC-22).
+    hostUserId: v.optional(v.id("users")),
+    hostGuestName: v.optional(v.string()),
+    createdBy: v.optional(v.id("users")), // absent on a seeded row
+    updatedBy: v.optional(v.id("users")),
+    updatedAt: v.number(),
+  })
+    .index("by_isActive", ["isActive"])
+    .index("by_seedKey", ["seedKey"])
+    .index("by_nameKey", ["nameKey"]),
+
+  // One airing: written ahead nightly for a weekly program, added by hand, or
+  // opened by detection (`auto`). On air and finished are read from the
+  // clock, never stored.
+  radioBroadcasts: defineTable({
+    // Exactly one of these two. An `auto` row carries the stream's own title
+    // (or "Unscheduled broadcast") as its `oneOffName` until Media renames it
+    // or attaches it to a program.
+    programId: v.optional(v.id("radioPrograms")),
+    oneOffName: v.optional(v.string()),
+    origin: vRadioBroadcastOrigin,
+    startsAt: v.number(),
+    // An `auto` row's end is extended by each live probe (AC-17).
+    endsAt: v.number(),
+    // The weekly slot the nightly job wrote this row for. Set only on rows the
+    // job writes, and never changed by an adjust. The job matches on program
+    // plus this slot, so moving Wednesday's 16:00 airing to 17:00 does not make
+    // the next run add a second 16:00 row (AC-19, AC-21). Added during the
+    // build at the engineer's call; owed to spec 0019's data model.
+    slotStartsAt: v.optional(v.number()),
+    // Neither set means inherit the program's host (AC-22).
+    hostUserId: v.optional(v.id("users")),
+    hostGuestName: v.optional(v.string()),
+    isRecorded: v.boolean(), // inherits recordByDefault, never true on Super T
+    status: vRadioBroadcastStatus,
+    // True once a person adds or edits this row, so the nightly job leaves it
+    // alone (AC-20, AC-21).
+    adjusted: v.boolean(),
+    cancelledAt: v.optional(v.number()),
+    cancelledBy: v.optional(v.id("users")),
+    // Set by the probe that first finds a source inside this row's window.
+    wentLiveAt: v.optional(v.number()),
+    // N33's once per broadcast marker, tested and set in the probe's own
+    // transaction so two probes cannot both send (AC-11).
+    livePushSentAt: v.optional(v.number()),
+    // N34's hourly digest watermark (AC-30).
+    lastDigestAt: v.optional(v.number()),
+    recording: v.optional(
+      v.object({
+        key: v.string(), // under radio/recordings/<broadcastId>/
+        durationSeconds: v.optional(v.number()),
+        sizeBytes: v.number(),
+        uploadedBy: v.id("users"),
+        uploadedAt: v.number(),
+      })
+    ),
+    // A mirror of recording.uploadedAt, so it can be indexed. Every write
+    // path sets or clears both together.
+    recordingUploadedAt: v.optional(v.number()),
+  })
+    .index("by_startsAt", ["startsAt"])
+    .index("by_programId_startsAt", ["programId", "startsAt"])
+    .index("by_programId_slotStartsAt", ["programId", "slotStartsAt"])
+    .index("by_status_startsAt", ["status", "startsAt"])
+    .index("by_recordingUploadedAt", ["recordingUploadedAt"])
+    .index("by_programId_recordingUploadedAt", [
+      "programId",
+      "recordingUploadedAt",
+    ]),
+
+  // The one status row, created lazily by the first probe; absent means Off
+  // air. Interrupted is derived on read (deriveRadioStatus), never stored and
+  // never forceable. Read with `.first()`.
+  radioStatus: defineTable({
+    detected: vRadioDetectedState,
+    lastLiveAt: v.optional(v.number()),
+    // Written by EVERY probe. That write is what tells a subscribed reader to
+    // derive again, and its age is what turns a stalled cron into Off air.
+    lastProbeAt: v.number(),
+    lastProbeOk: v.boolean(),
+    probeError: v.optional(v.string()),
+    // Distinct users with a beat in the last sixty seconds, counted by the
+    // probe so no screen subscribes to the beats themselves (AC-15).
+    inAppListeners: v.number(),
+    streamListeners: v.optional(v.number()), // Caster FM's whole stream figure
+    streamTitle: v.optional(v.string()),
+    currentBroadcastId: v.optional(v.id("radioBroadcasts")),
+    // While in the future, the minute cron schedules the two faster probes
+    // (AC-5).
+    burstUntil: v.optional(v.number()),
+    // Changes only what readers are shown (AC-6).
+    override: v.optional(
+      v.object({
+        state: vRadioOverrideState,
+        byUserId: v.id("users"),
+        setAt: v.number(),
+      })
+    ),
+  }),
+
+  // A row exists only where somebody chose; otherwise the program's own
+  // followedByDefault applies (AC-10).
+  radioProgramFollows: defineTable({
+    userId: v.id("users"),
+    programId: v.id("radioPrograms"),
+    following: v.boolean(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_programId", ["userId", "programId"])
+    .index("by_programId_following", ["programId", "following"]),
+
+  // A listening stretch, at most one open per user, device and broadcast. No
+  // location field at all, by design (AC-16).
+  listeningSessions: defineTable({
+    userId: v.id("users"),
+    deviceId: v.string(), // the id the app already stores for userDevices
+    broadcastId: v.id("radioBroadcasts"),
+    startedAt: v.number(),
+    lastBeatAt: v.number(),
+    // Server computed and only ever increasing (AC-12).
+    seconds: v.number(),
+    closedAt: v.optional(v.number()),
+    // The city the last beat passed, held ONLY while the stretch is open so a
+    // stretch the sweep closes can still reach the city counter once. Cleared
+    // in the same write that closes the stretch and adds to listeningByCity,
+    // so no closed stretch ever carries a city (AC-13, AC-16). Added during
+    // the build at the engineer's call; owed to spec 0019's AC-16 wording.
+    city: v.optional(v.string()),
+  })
+    .index("by_broadcastId", ["broadcastId"])
+    .index("by_userId_broadcastId", ["userId", "broadcastId"])
+    // The sweep and the probe's listener count read stretches by beat age.
+    .index("by_lastBeatAt", ["lastBeatAt"])
+    .index("by_user_device_broadcast_open", [
+      "userId",
+      "deviceId",
+      "broadcastId",
+      "closedAt",
+    ]),
+
+  // Seconds per city and Kampala day, added once per closed stretch. Holds no
+  // user reference of any kind, so nothing here traces to a person (AC-16).
+  listeningByCity: defineTable({
+    city: v.string(),
+    dateKey: v.string(), // Kampala "YYYY-MM-DD"
+    seconds: v.number(),
+  }).index("by_city_dateKey", ["city", "dateKey"]),
+
+  // A prayer request or testimony sent while a broadcast is on air. The
+  // sender is always stored and returned to a client only for a testimony; a
+  // prayer request's sender never leaves the backend (AC-29).
+  radioInboxItems: defineTable({
+    type: vRadioInboxType,
+    body: v.string(), // within RADIO_INBOX_BODY_MAX_LENGTH
+    senderUserId: v.id("users"),
+    broadcastId: v.id("radioBroadcasts"),
+    createdAt: v.number(),
+    prayedForAt: v.optional(v.number()),
+    prayedForBy: v.optional(v.id("users")),
+  })
+    .index("by_broadcastId_createdAt", ["broadcastId", "createdAt"])
+    .index("by_createdAt", ["createdAt"])
+    // The rolling hour rate limit and the account deletion sweep.
+    .index("by_senderUserId", ["senderUserId", "createdAt"]),
 });

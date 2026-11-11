@@ -37,6 +37,14 @@ export function toR2Key(value?: string): string | null {
   return value;
 }
 
+/**
+ * A signed url for a private R2 key with a chosen lifetime, re derived on
+ * every read and never stored (spec 0019, AC-27: recordings sign for an hour).
+ */
+export async function signedKeyUrl(key: string, expiresIn: number): Promise<string> {
+  return await r2.getUrl(key, { expiresIn });
+}
+
 /** Resolve a stored media value (R2 key or absolute URL) to a display URL. */
 export async function resolveMediaUrl(value?: string): Promise<string | undefined> {
   if (!value) return undefined;

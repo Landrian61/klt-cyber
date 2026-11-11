@@ -56,4 +56,38 @@ crons.cron(
   internal.exchangeRates.fetchUsdToUgx
 );
 
+// The radio stream probe (spec 0019, AC-5). Every minute, around the clock:
+// the status has to be true at 3AM on a Tuesday during Super T as much as at
+// a Sunday service. While the stream is Live or a broadcast window is open,
+// that same run schedules two more probes at twenty and forty seconds, so a
+// member sees a change within about twenty seconds during a broadcast and
+// within a minute otherwise. Those two never schedule more, so a probe that
+// throws costs one reading and the next minute starts the loop again.
+crons.interval(
+  "radio stream probe",
+  { minutes: 1 },
+  internal.radio.probeStream,
+  { scheduleBurst: true }
+);
+
+// The nightly broadcast materialisation (spec 0019, AC-19). 21:30 UTC is
+// 00:30 Kampala, just after the Kampala day turns, so the newly reachable
+// seventh day is written ahead first thing. Insert only and idempotent.
+crons.cron(
+  "radio broadcast materialisation",
+  "30 21 * * *",
+  internal.radio.materialiseBroadcasts
+);
+
+// The listening sweep (spec 0019, AC-13). Every minute, so a phone that died
+// or was force quit is closed within about two and a half minutes of its
+// last beat, credited only up to that last beat.
+crons.interval("radio listening sweep", { minutes: 1 }, internal.radio.sweepListening);
+
+// The Radio inbox notice, N34 (spec 0019, AC-30). Hourly at twenty past,
+// off the hour like every other job here. Each broadcast with new items gets
+// one count to Pastoral's HOD and delegates, and its watermark moves in the
+// same write, so a repeated run sends nothing twice.
+crons.cron("radio inbox digest", "20 * * * *", internal.radioInbox.sendInboxDigest);
+
 export default crons;

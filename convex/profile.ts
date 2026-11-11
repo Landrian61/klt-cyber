@@ -12,6 +12,7 @@ import {
   getAdministrationDepartmentId,
   getMediaDepartmentId,
   getCurrentUser,
+  hasRadioAuthority,
   logActivity,
   requireUser,
 } from "./lib/authz";
@@ -64,12 +65,18 @@ export async function getMyAccountCore(
           (r.roleType === "hod" || r.roleType === "department_admin")
       ));
 
+  // Spec 0019: `manageRadio`, the radio pages inside Media's portal. Wider
+  // than `hasMediaAccess` by exactly the verified Media roster, who run the
+  // radio but do not publish Devotionals or Past events.
+  const hasRadioAccess = await hasRadioAuthority(ctx, user._id);
+
   return {
     user,
     profile: profile ?? null,
     activeRoles,
     hasAdministrationAccess,
     hasMediaAccess,
+    hasRadioAccess,
     // One already-resolved photo for every avatar on every surface (AC-14).
     // Resolved per read rather than stored, because `resolveMediaUrl` returns
     // a signed R2 URL that expires — see convex/lib/identity.ts. No client
