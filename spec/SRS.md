@@ -356,7 +356,7 @@ Members are told plainly, when claiming a department or choosing a clan, that th
 | F3-09 | As anyone appointing an HOD, the appointment always names a department. | Today the backend accepts an unscoped HOD. | Change |
 | F3-10 | As a person whose role is removed, I'm told privately. | | New |
 | F3-16 | As a System Admin or the Administration HOD, I appoint a clan elder. | One elder per clan; appointing replaces the sitting elder. | Change |
-| F3-19 | As a Hospitality or Library roster member, I open my department's portal without holding a role. | Section 3.2. Media is excluded: being on Media's roster grants the roster role, but Media's portal is bespoke (Devotionals, Past events) and stays leaders only, so the hub shows Media unlinked to a plain roster member rather than offering a door that bounces. Widening it would hand publishing power over church-wide content to the roster, which is a decision and not a gap. | New |
+| F3-19 | As a Hospitality or Library roster member, I open my department's portal without holding a role. | Section 3.2. Media's roster reaches the radio pages only (spec 0019): a verified Media roster member holds `manageRadio` and enters Media's portal to its dashboard, Radio, Programs, Recordings and Radio inbox. Devotionals and Past events stay leaders only, because publishing church-wide content is authority and handing it to the roster is a decision, not a gap. | New |
 
 #### 4.3.2 Clan portal
 
@@ -1120,10 +1120,10 @@ The System Admin can switch a payment method **off** in an emergency but cannot 
 | PS1-03 | As Pastoral, I edit the vision and core values. | | New |
 | PS2-01 | As a member, my prayer request is anonymous to everyone. | The system keeps the link privately only to send PS2-05. | New |
 | PS2-02 | As a member, my testimony is sent with my name so it can be read on air. | | New |
-| PS2-03 | As Pastoral and Media, I see prayer requests and testimonies arrive live in the Radio inbox, grouped by the broadcast they came in during. | Push and web bell to Pastoral for items outside broadcasts. | New |
-| PS2-04 | As Pastoral or Media, I mark a testimony read on air and a prayer request prayed for. | Shows who and when. | New |
+| PS2-03 | As Pastoral and Media, I see prayer requests and testimonies arrive live in the Radio inbox, grouped by the broadcast they came in during. | Push and web bell to Pastoral as an hourly count per broadcast (N34). Items can only be sent while a broadcast is on air (R1-09, spec 0019). | New |
+| PS2-04 | As Pastoral or Media, I mark a testimony read on air and a prayer request prayed for. | Shows who and when. Marking a prayer request prayed for ships with Radio core (spec 0019); marking a testimony read on air belongs to feature 19. | New |
 | PS2-05 | As a member, I'm told when my prayer request has been prayed for. | "The pastoral team has prayed for your request." Mutable. | New |
-| PS2-06 | As Pastoral, I hide an inappropriate submission. | Hidden for everyone; logged. | New |
+| PS2-06 | As Pastoral, I hide an inappropriate submission. | Hidden for everyone; logged. Belongs to feature 19, not Radio core (spec 0019). | New |
 | PS3-01 | As Pastoral, I see every department (HOD, delegates, count) and clan (elder, count). | | New |
 | PS3-02 | As Pastoral, I open any roster or clan list read-only, with contact details. | | New |
 | PS3-03 | As Pastoral, I see membership totals and trends. | Administration analytics, read-only. | New |
@@ -1267,7 +1267,7 @@ Channels: **P** push, **I** in-app centre, **B** web bell, **E** email, **S** SM
 | N31 | Super T gate reminder (overnight allowed) | Assigned member | P | No | Section 4.4 |
 | N32 | Gate marked not observed | Clan elder | P, B | No | ST1-03 |
 | N33 | Followed program is live | Followers | P | Yes | R1-07 |
-| N34 | New prayer request or testimony (outside broadcasts) | Pastoral HOD and delegates | P, B | No | PS2-03 |
+| N34 | New prayer requests or testimonies in a broadcast, sent as an hourly count at most once per broadcast per hour (spec 0019) | Pastoral HOD and delegates | P, B | No | PS2-03 |
 | N35 | Prayer request prayed for | Sender (identity hidden from Pastoral) | P, I | Yes | PS2-05 |
 | N36 | Follow-up assigned | Hospitality member | P, B | No | H2-04 |
 | N37 | Clan assigned by Hospitality | Member and clan elder | P, I (elder also B) | No | H5-04 |
