@@ -26,8 +26,12 @@ export default async function MediaLayout({
   }
   if (!account) redirect("/sign-in");
 
-  const { user, activeRoles, hasMediaAccess } = account;
-  if (!hasMediaAccess) {
+  const { user, activeRoles, hasMediaAccess, hasRadioAccess } = account;
+  // Two doors into one portal (spec 0019): Media's leaders publish content,
+  // and every `manageRadio` holder, the verified roster included, runs the
+  // radio. Devotionals and Past events check `hasMediaAccess` again in their
+  // own layouts, so entering here never widens who may publish.
+  if (!hasMediaAccess && !hasRadioAccess) {
     redirect(activeRoles.length > 0 ? "/areas-of-service" : "/unauthorized");
   }
 
@@ -42,12 +46,11 @@ export default async function MediaLayout({
     // Settings) inside its own portal, so it needs the same context those
     // components read their department and capabilities from (spec 0012, AC-3).
     //
-    // The context resolves to null for anyone without a shell role here, and
-    // the shared pages then send them back to the hub. In practice the layout's
-    // own `hasMediaAccess` gate above has already turned such a caller away:
-    // that gate is System Admin or Media's HOD or delegate, so a plain roster
-    // member never reaches any Media page at all. The null branch is the
-    // belt and braces behind it, not a path anyone travels today.
+    // The context resolves to a `roster` role for a verified Media roster
+    // member, whose `can` holds `manageRadio` and no shell capability, so the
+    // shared pages that need one turn them away and the Radio page lets them
+    // in. It resolves to null for anyone with no role here at all, whom the
+    // gate above has already turned away; that branch is belt and braces.
     <DepartmentShellProvider slug="media">
       <SidebarProvider defaultOpen={defaultOpen}>
         <MediaSidebar />

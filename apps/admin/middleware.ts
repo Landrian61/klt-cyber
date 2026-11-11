@@ -102,6 +102,7 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except static assets, Next internals, and the auth proxy.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth|.*\\..*).*)"],
+  // Run on everything except static assets, Next internals, the auth proxy,
+  // and the public city lookup the phone calls once per session (spec 0019).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth|api/where|.*\\..*).*)"],
 };

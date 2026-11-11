@@ -76,13 +76,11 @@ export function isPausedSlug(slug: string): boolean {
  * a `roster` role the honest answer here was false. Now it is true for the two
  * that use the shared `[slug]` shell, and the layout lets them in.
  *
- * Media is the exception, and subtracted by name through
- * `LEADERS_ONLY_PORTAL_DEPARTMENTS`. Being on Media's roster does grant the
- * `roster` role, but Media's portal is not the shared shell: it is a bespoke
- * pair of content management pages gated on `hasMediaAccess`
- * (`convex/profile.ts`), which this change deliberately did NOT widen. Saying
- * true for Media would reintroduce exactly the bouncing door this function
- * exists to prevent, one layer further in. SRS F3-19 records the narrowing.
+ * Media's roster enters too since spec 0019: its bespoke portal now carries
+ * the radio pages, which a verified Media roster member runs through
+ * `manageRadio`, while Devotionals and Past events stay behind
+ * `hasMediaAccess` inside it. `LEADERS_ONLY_PORTAL_DEPARTMENTS` (empty today)
+ * is still subtracted, for the next portal whose roster has nothing to do.
  *
  * SRS 4.9.2 is still intact: what a `roster` role may DO inside is nothing at
  * all, bar a department-scoped capability its own department grants (today,
@@ -111,10 +109,9 @@ export function canEnterDepartment(
     roles.includes("member") &&
     department.profileVerified &&
     (ROSTER_PORTAL_DEPARTMENTS as readonly string[]).includes(department.name) &&
-    // Media grants the `roster` role but its portal is bespoke and leaders
-    // only, so offering it here would be a linked tile that Media's own layout
-    // redirects straight back out of. See LEADERS_ONLY_PORTAL_DEPARTMENTS.
-    !(LEADERS_ONLY_PORTAL_DEPARTMENTS as readonly string[]).includes(
+    // A portal whose roster has nothing to do inside. Empty today; see
+    // LEADERS_ONLY_PORTAL_DEPARTMENTS.
+    !LEADERS_ONLY_PORTAL_DEPARTMENTS.includes(
       department.name
     )
   );

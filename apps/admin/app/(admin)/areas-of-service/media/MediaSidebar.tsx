@@ -3,7 +3,17 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, MessageSquare, Settings, Users } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarDays,
+  Disc3,
+  Inbox,
+  LayoutDashboard,
+  MessageSquare,
+  Radio,
+  Settings,
+  Users,
+} from "lucide-react";
 import {
   useDepartmentShell,
   type DepartmentCapability,
@@ -36,19 +46,64 @@ interface NavGroup {
    * When true, the whole group is hidden from a caller with no shell access, so
    * nobody is shown a page the gate would bounce them back from.
    *
-   * Unreachable in practice today: the Media layout's `hasMediaAccess` gate is
-   * already System Admin or Media's HOD or delegate, which is exactly the set
-   * that gets a shell context. Kept because the two gates are separate rules
-   * that could diverge, and because this rail must not depend on them agreeing.
+   * Unreachable in practice: the Media layout admits only people who resolve
+   * to a shell role here. Kept because the two gates are separate rules that
+   * could diverge, and because this rail must not depend on them agreeing.
    */
   requiresShell?: boolean;
+  /**
+   * When true, hidden from a `roster` caller (spec 0019). Devotionals and Past
+   * events publish to the whole church and stay with Media's leaders; the
+   * roster enters this portal for the radio pages only.
+   */
+  leadersOnly?: boolean;
 }
 
 const iconClass = "h-5 w-5 shrink-0";
 
 const NAV_GROUPS: NavGroup[] = [
+  // Spec 0019. Every `manageRadio` holder sees these, the verified roster
+  // included.
+  {
+    label: "Radio",
+    requiresShell: true,
+    items: [
+      {
+        href: "/areas-of-service/media",
+        label: "Dashboard",
+        exact: true,
+        capability: "manageRadio",
+        icon: <LayoutDashboard className={iconClass} />,
+      },
+      {
+        href: "/areas-of-service/media/radio",
+        label: "Radio",
+        capability: "manageRadio",
+        icon: <Radio className={iconClass} />,
+      },
+      {
+        href: "/areas-of-service/media/programs",
+        label: "Programs",
+        capability: "manageRadio",
+        icon: <CalendarClock className={iconClass} />,
+      },
+      {
+        href: "/areas-of-service/media/recordings",
+        label: "Recordings",
+        capability: "manageRadio",
+        icon: <Disc3 className={iconClass} />,
+      },
+      {
+        href: "/areas-of-service/media/radio-inbox",
+        label: "Radio inbox",
+        capability: "manageRadio",
+        icon: <Inbox className={iconClass} />,
+      },
+    ],
+  },
   {
     label: "Content",
+    leadersOnly: true,
     items: [
       {
         href: "/areas-of-service/media/devotionals",
@@ -132,11 +187,15 @@ const SIDEBAR_GRADIENT =
 
 export function MediaSidebar() {
   const pathname = usePathname();
-  // Null for a plain Media roster member, who reaches Devotionals and Past
-  // events but holds no shell page at all.
+  // A `roster` role for a verified Media roster member, who holds
+  // `manageRadio` and no shell capability (spec 0019).
   const shell = useDepartmentShell();
+  // Undefined while loading: hide the leaders only group until the role is
+  // known, rather than flashing links a roster member cannot open.
+  const isLeader = !!shell && shell.role !== "roster";
 
   const groups = NAV_GROUPS.filter((group) => !group.requiresShell || shell)
+    .filter((group) => !group.leadersOnly || isLeader)
     .map((group) => ({
       ...group,
       items: group.items.filter(
@@ -148,7 +207,7 @@ export function MediaSidebar() {
   return (
     <Sidebar collapsible="icon" className={SIDEBAR_GRADIENT}>
       <SidebarBrandHeader
-        href="/areas-of-service/media/devotionals"
+        href="/areas-of-service/media"
         caption="Media"
       />
 
