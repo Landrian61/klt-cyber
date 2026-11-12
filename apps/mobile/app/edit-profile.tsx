@@ -24,6 +24,7 @@ import {
   type EditMentorshipStatus,
   type ProfileEditDraft,
   diffProfileEdit,
+  editValuesEqual,
   normalizeProfileEditDraft,
   profileEditDraftFrom,
   profileEditSchema,
@@ -35,6 +36,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { api, type Id } from '@/lib/api';
 import { getDisplayName } from '@/lib/user-display';
 import { setFlashMessage } from '@/lib/flash-message';
+import { isoToLocalMs, localMsToIso } from '@/lib/local-date';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -82,19 +84,6 @@ function toEditable(profile: MyProfile): EditableProfile {
     employer: profile.employer,
     skills: profile.skills,
   };
-}
-
-function isoToMs(iso?: string): number | undefined {
-  if (!iso) return undefined;
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return undefined;
-  return new Date(y, m - 1, d).getTime();
-}
-
-function msToIso(ms?: number): string | undefined {
-  if (ms === undefined) return undefined;
-  const date = new Date(ms);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 /** The message for a failed Save (AC-14): the coded copy, else the generic retry line. */
@@ -237,7 +226,10 @@ export default function EditProfileScreen() {
         : null,
     [snapshot, draft],
   );
-  const formDirty = !!diff && !diff.isEmpty;
+  // Dirty compares the form as typed, not only what Save would send: a next
+  // of kin with just a name normalizes to nothing, and if that hid the
+  // change, Save would stay disabled and its AC-9 message would never show.
+  const formDirty = !!snapshot && !!draft && !editValuesEqual(snapshot, draft);
   const uploading = photoUploading || proofUploading;
 
   // The leave guard (AC-13): ask before dropping edits, including an open row
@@ -292,11 +284,16 @@ export default function EditProfileScreen() {
   }, []);
 
   const onSave = async () => {
-    if (!draft || !diff || diff.isEmpty || saving || uploading) return;
+    if (!draft || !snapshot || !diff || !formDirty || saving || uploading) return;
 
-    // Only a field the person changed can block Save: an old stored value the
-    // rules would now refuse should not hold an unrelated edit hostage.
-    const changed = new Set<string>([...Object.keys(diff.changes), ...diff.clearFields]);
+    // Only a field the person changed (as typed) can block Save: an old stored
+    // value the rules would now refuse should not hold an unrelated edit
+    // hostage.
+    const changed = new Set<string>(
+      (Object.keys(draft) as (keyof ProfileEditDraft)[]).filter(
+        (key) => !editValuesEqual(snapshot[key], draft[key]),
+      ),
+    );
     const parsed = profileEditSchema.safeParse(draft);
     const found: FieldErrors = {};
     if (!parsed.success) {
@@ -310,6 +307,12 @@ export default function EditProfileScreen() {
     setErrors(found);
     if (Object.keys(found).length > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      return;
+    }
+
+    // Only whitespace changed: nothing to send, so just go back.
+    if (diff.isEmpty) {
+      setLeaving(true);
       return;
     }
 
@@ -412,6 +415,7 @@ export default function EditProfileScreen() {
     level: row.level,
     status: row.status,
     proofUrl: row.proofUrl,
+    completedAt: row.completedAt,
   }));
 
   const spouseLabel = draft.spouseUserId
@@ -631,8 +635,8 @@ export default function EditProfileScreen() {
                 )}
                 <DateField
                   label="Anniversary (optional)"
-                  value={msToIso(draft.anniversaryDate)}
-                  onChange={(v) => patch({ anniversaryDate: isoToMs(v) })}
+                  value={localMsToIso(draft.anniversaryDate)}
+                  onChange={(v) => patch({ anniversaryDate: isoToLocalMs(v) })}
                 />
               </>
             ) : null}

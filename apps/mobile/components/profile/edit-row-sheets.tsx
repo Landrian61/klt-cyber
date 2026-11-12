@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { useMutation } from 'convex/react';
 import * as Haptics from 'expo-haptics';
@@ -7,6 +7,7 @@ import { SEX, type Sex } from '@klt-cyber/shared';
 import { FontFamily, Radius, Spacing } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { api, type Id } from '@/lib/api';
+import { isoToLocalMs, localMsToIso } from '@/lib/local-date';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DateField } from '@/components/ui/date-field';
@@ -21,22 +22,6 @@ import { DirectorySheet } from '@/components/directory/directory-sheet';
  */
 
 const ROW_ERROR = "Couldn't save this, check your connection and try again";
-
-/** `YYYY-MM-DD` to church local midnight, as the wizard stores it. */
-function isoToMs(iso?: string): number | undefined {
-  if (!iso) return undefined;
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return undefined;
-  return new Date(y, m - 1, d).getTime();
-}
-
-function msToIso(ms?: number): string | undefined {
-  if (ms === undefined) return undefined;
-  const date = new Date(ms);
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
-}
 
 function SheetError({ message }: { message: string | null }) {
   const Colors = useThemeColors();
@@ -84,13 +69,13 @@ export function ChildSheet({ row, onClose, onDirtyChange, confirmDiscard }: Chil
     if (!visible) return;
     setName(row?.name ?? '');
     setSex(row?.sex);
-    setDobISO(msToIso(row?.dateOfBirth));
+    setDobISO(localMsToIso(row?.dateOfBirth));
     setError(null);
   }, [visible, row]);
 
   const dirty =
     visible &&
-    (name !== (row?.name ?? '') || sex !== row?.sex || dobISO !== msToIso(row?.dateOfBirth));
+    (name !== (row?.name ?? '') || sex !== row?.sex || dobISO !== localMsToIso(row?.dateOfBirth));
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   const dismiss = () => {
@@ -119,7 +104,7 @@ export function ChildSheet({ row, onClose, onDirtyChange, confirmDiscard }: Chil
       setError('Add a name and choose a sex');
       return;
     }
-    const fields = { name: name.trim(), sex, dateOfBirth: isoToMs(dobISO) };
+    const fields = { name: name.trim(), sex, dateOfBirth: isoToLocalMs(dobISO) };
     void run(() =>
       row ? updateChild({ childId: row._id, ...fields }) : addChild(fields),
     );
@@ -169,6 +154,7 @@ export interface LeadershipRow {
   level: string;
   status: string;
   proofUrl?: string;
+  completedAt?: number;
 }
 
 export interface LeadershipSheetProps {
@@ -209,10 +195,26 @@ export function LeadershipSheet({
     setError(null);
   }, [visible, row]);
 
-  // `addMine` on a level that already has a row updates that row, so the
-  // sheet says "edit" the moment such a level is picked (AC-11).
+  // A level that already has a row is an edit of that row (AC-11): the sheet
+  // says so, starts from its status and certificate, and saves through
+  // `updateMine` on it. Both row mutations overwrite `proofUrl` and
+  // `completedAt` with what they are sent, so the full values always go.
   const matching = !row && level ? existing.find((r) => r.level === level) : undefined;
-  const isEdit = !!row || !!matching;
+  const target = row ?? matching;
+  const isEdit = !!target;
+
+  const pickLevel = (next: LeadershipLevel) => {
+    setLevel(next);
+    const found = existing.find((r) => r.level === next);
+    setStatus(found ? (found.status === 'completed' ? 'completed' : 'enrolled') : undefined);
+    setProofUrl(found?.proofUrl);
+  };
+
+  // A failed upload reports `undefined`, like a removal. A ref (not state,
+  // since the field calls back from an older render) restores the
+  // certificate held before the upload, so a failure never deletes it.
+  const uploadingRef = useRef(false);
+  const proofBeforeUpload = useRef<string | undefined>(undefined);
 
   const initialStatus = row ? (row.status === 'completed' ? 'completed' : 'enrolled') : undefined;
   const dirty =
@@ -246,11 +248,15 @@ export function LeadershipSheet({
       setError('Choose a level and where you are with it');
       return;
     }
-    const proof = proofUrl ? { proofUrl } : {};
     void run(() =>
-      row
-        ? updateMine({ leadershipId: row._id, status, ...proof })
-        : addMine({ level, status, ...proof }),
+      target
+        ? updateMine({
+            leadershipId: target._id,
+            status,
+            proofUrl,
+            completedAt: target.completedAt,
+          })
+        : addMine({ level, status, ...(proofUrl ? { proofUrl } : {}) }),
     );
   };
 
@@ -269,7 +275,7 @@ export function LeadershipSheet({
           <SegmentedControl
             options={LEADERSHIP_LEVELS.map((l) => LEADERSHIP_LEVEL_LABEL[l])}
             selectedIndex={level ? LEADERSHIP_LEVELS.indexOf(level) : -1}
-            onChange={(i) => setLevel(LEADERSHIP_LEVELS[i])}
+            onChange={(i) => pickLevel(LEADERSHIP_LEVELS[i])}
           />
         )}
         {matching ? (
@@ -285,8 +291,18 @@ export function LeadershipSheet({
         <ImageUploadField
           label="Certificate (optional)"
           value={proofUrl}
-          onChange={setProofUrl}
-          onBusyChange={setUploading}
+          onChange={(key) => {
+            if (key === undefined && uploadingRef.current) {
+              setProofUrl(proofBeforeUpload.current);
+              return;
+            }
+            setProofUrl(key);
+          }}
+          onBusyChange={(busy) => {
+            if (busy) proofBeforeUpload.current = proofUrl;
+            uploadingRef.current = busy;
+            setUploading(busy);
+          }}
           emptyLabel="Add a certificate photo"
         />
         <SheetError message={error} />

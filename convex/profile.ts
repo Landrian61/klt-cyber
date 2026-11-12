@@ -220,11 +220,12 @@ export const getMyChurchLife = query({
       })
     );
 
-    const rosterDepartmentNames: string[] = [];
-    for (const membership of activeMemberships) {
-      const name = (await ctx.db.get(membership.departmentId))?.name;
-      if (name && isRosterPortalDepartment(name)) rosterDepartmentNames.push(name);
-    }
+    const membershipDepartments = await Promise.all(
+      activeMemberships.map((membership) => ctx.db.get(membership.departmentId))
+    );
+    const rosterDepartmentNames = membershipDepartments
+      .map((department) => department?.name)
+      .filter((name): name is string => !!name && isRosterPortalDepartment(name));
 
     // Roles first, then departments. A department already named as a role's
     // scope ("HOD, Media") is not named again on its own.

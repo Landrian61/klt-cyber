@@ -84,7 +84,13 @@ export default function SettingsScreen() {
     // out. Without it this device's push token would stay on the account
     // signing out, and the next person to sign in here would share it.
     await unregisterPushToken().catch(() => {});
-    await authClient.signOut();
+    try {
+      await authClient.signOut();
+    } catch {
+      // Offline or a server error: let the row be tapped again.
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   return (
