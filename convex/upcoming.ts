@@ -8,6 +8,7 @@ import {
 } from "@klt-cyber/shared";
 import { getCurrentUser } from "./lib/authz";
 import { getEligibleGroups } from "./lib/groupMembership";
+import { audienceOf, isInEventAudience } from "./lib/eventAudience";
 import { resolveMediaUrl } from "./lib/media";
 
 // One merged upcoming list (spec 0010, AC-5 and AC-6): church events and the
@@ -117,8 +118,15 @@ export const listUpcomingForMember = query({
       .filter((q) => q.eq(q.field("active"), true))
       .collect();
 
+    // The same eligible groups decide which church events the caller is in
+    // the audience of (spec 0021, AC-12) and which group activities they see.
+    const groups = await getEligibleGroups(ctx, user._id);
+
     const rows: UpcomingRow[] = await Promise.all(
-      events.filter(stillRunning).map((e) => toRow("event", e, "Church"))
+      events
+        .filter(stillRunning)
+        .filter((e) => isInEventAudience(groups, audienceOf(e)))
+        .map((e) => toRow("event", e, "Church"))
     );
 
     // ── The caller's group activities ──────────────────────────────────────
@@ -126,7 +134,6 @@ export const listUpcomingForMember = query({
     // ten small reads rather than one read across every activity in the
     // church, so the cost follows the member's own memberships rather than how
     // many groups the church has.
-    const groups = await getEligibleGroups(ctx, user._id);
 
     for (const departmentId of groups.departmentIds) {
       const department = await ctx.db.get(departmentId);

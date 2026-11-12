@@ -511,17 +511,7 @@ async function assertAdministrationAuthority(
   ctx: QueryCtx | MutationCtx,
   user: Doc<"users">
 ): Promise<Doc<"users">> {
-  if (await isActiveSystemAdmin(ctx, user._id)) return user;
-  const adminDeptId = await getAdministrationDepartmentId(ctx);
-  if (
-    adminDeptId &&
-    (await hasActiveDepartmentRole(ctx, user._id, adminDeptId, [
-      "hod",
-      "department_admin",
-    ]))
-  ) {
-    return user;
-  }
+  if (await holdsAdministrationAuthority(ctx, user)) return user;
   throw new Error(
     "Not authorized to manage Administration-department resources"
   );
@@ -549,6 +539,44 @@ export async function getAdministrationAuthorityOrNull(
   // Reuse the user we just resolved rather than calling
   // requireAdministrationAuthority, which would resolve it a second time.
   return await assertAdministrationAuthority(ctx, user);
+}
+
+/**
+ * Like {@link getAdministrationAuthorityOrNull}, but resolves null for a
+ * signed in caller WITHOUT the authority too, instead of throwing.
+ *
+ * For read queries a card or page subscribes to where "not for you" is an
+ * ordinary answer, not a violation: spec 0021 (AC-1, AC-22) requires the
+ * dashboard activity feed and the Administration listings to return `null`
+ * and never throw, so a Media HOD whose sidebar briefly shows an
+ * Administration link gets an empty state rather than an error.
+ */
+export async function getAdministrationCallerOrNull(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users"> | null> {
+  const user = await getCurrentUser(ctx);
+  if (!user) return null;
+  return (await holdsAdministrationAuthority(ctx, user)) ? user : null;
+}
+
+/**
+ * The one Administration authority rule (System Admin, or the Administration
+ * department's HOD or delegate), behind both the throwing and the null
+ * returning gates above, so they cannot drift apart.
+ */
+async function holdsAdministrationAuthority(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<"users">
+): Promise<boolean> {
+  if (await isActiveSystemAdmin(ctx, user._id)) return true;
+  const adminDeptId = await getAdministrationDepartmentId(ctx);
+  return Boolean(
+    adminDeptId &&
+      (await hasActiveDepartmentRole(ctx, user._id, adminDeptId, [
+        "hod",
+        "department_admin",
+      ]))
+  );
 }
 
 /**

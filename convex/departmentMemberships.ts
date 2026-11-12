@@ -799,10 +799,10 @@ export const listDepartmentMembersWithProfiles = query({
  * roster and the claims waiting on a decision.
  *
  * `administration` — Administration authority, which spec 0006 gave the active
- * roster of any department and which gains nothing here. SRS 4.7.2 grants the
- * claimants list to the HOD and delegate columns only, and a claimant's
- * verification state is information about a person that another department's
- * leaders have no need for.
+ * roster of any department and SRS A3-03 (spec 0021, AC-6) the pending
+ * claimants too, to read. Deciding a claim stays with the department's own HOD
+ * and delegates (SRS 4.7.2): the shell gates the claimants section and the
+ * Confirm and Decline buttons on its own capabilities, not on this scope.
  *
  * `null` — everyone else, including a plain roster member of this very
  * department, and an unauthenticated caller mid-teardown.
@@ -884,7 +884,7 @@ export const listRosterWithClaims = query({
 
     const [activeRows, pendingRows] = await Promise.all([
       rowsFor("active"),
-      scope === "full" ? rowsFor("pending_claim") : Promise.resolve([]),
+      rowsFor("pending_claim"),
     ]);
 
     const join = async (membership: Doc<"departmentMemberships">) => {

@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -29,6 +29,15 @@ type AssignRoleArgs = {
   note?: string;
 };
 
+/** True when this user is the active HOD of the Administration department. */
+async function isAdministrationHod(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  const adminDeptId = await getAdministrationDepartmentId(ctx);
+  return hasActiveDepartmentRole(ctx, userId, adminDeptId, ["hod"]);
+}
+
 // ── Core logic ────────────────────────────────────────────────────────────────
 // Authorization here is data-dependent on `args.roleType`, so the core
 // resolves its own caller via requireUser rather than taking a
@@ -37,7 +46,8 @@ type AssignRoleArgs = {
 export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
   const actor = await requireUser(ctx);
   const callerIsSystemAdmin = await isActiveSystemAdmin(ctx, actor._id);
-  const adminDeptId = await getAdministrationDepartmentId(ctx);
+  // Resolved once: the HOD and clan elder branches both ask it.
+  const callerIsAdminHod = await isAdministrationHod(ctx, actor._id);
 
   const target = await ctx.db.get(args.userId);
   if (!target) throw new Error("Target user not found");
@@ -73,12 +83,6 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
         "An HOD appointment must name a department (departmentId is required)"
       );
     }
-    const callerIsAdminHod = await hasActiveDepartmentRole(
-      ctx,
-      actor._id,
-      adminDeptId,
-      ["hod"]
-    );
     if (!callerIsSystemAdmin && !callerIsAdminHod) {
       throw new Error(
         "Only System Admin or the Administration HOD can appoint department heads"
@@ -89,8 +93,31 @@ export async function assignRoleCore(ctx: MutationCtx, args: AssignRoleArgs) {
       throw new Error("departmentId required for department_admin");
     }
     await requireDepartmentHod(ctx, args.departmentId); // throws if unauthorized
+  } else if (args.roleType === "clan_elder") {
+    // Spec 0021, AC-8: the Administration HOD staffs the clans as well as the
+    // System Admin. A delegate does not (AC-10).
+    if (!callerIsSystemAdmin && !callerIsAdminHod) {
+      throw new Error("Not authorized");
+    }
   } else {
+    // system_admin grants stay System Admin only.
     if (!callerIsSystemAdmin) throw new Error("Not authorized");
+  }
+
+  // An elder must be a verified member of the clan they lead (spec 0021,
+  // AC-8, invariant 4), for every caller, the System Admin included. Checked
+  // before the identical seat no op below, so a re appointment cannot slip a
+  // person who has since left the clan past it.
+  if (args.roleType === "clan_elder" && args.clanId) {
+    const profile = await ctx.db
+      .query("memberProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (profile?.profileStatus !== "verified" || profile.clanId !== args.clanId) {
+      throw new Error(
+        "ELDER_NOT_IN_CLAN: This person isn't a verified member of that clan."
+      );
+    }
   }
 
   // Re-appointing someone to a seat they already hold is a no op (spec 0013,
@@ -230,17 +257,11 @@ export async function revokeRoleCore(
   }
 
   const callerIsSystemAdmin = await isActiveSystemAdmin(ctx, actor._id);
+  const callerIsAdminHod = await isAdministrationHod(ctx, actor._id);
 
   // Symmetric with assignRoleCore: revoking a role requires the same
   // authority tier that would be needed to grant it.
   if (assignment.roleType === "hod") {
-    const adminDeptId = await getAdministrationDepartmentId(ctx);
-    const callerIsAdminHod = await hasActiveDepartmentRole(
-      ctx,
-      actor._id,
-      adminDeptId,
-      ["hod"]
-    );
     if (!callerIsSystemAdmin && !callerIsAdminHod) {
       throw new Error(
         "Only System Admin or the Administration HOD can revoke a department head"
@@ -253,6 +274,11 @@ export async function revokeRoleCore(
       );
     }
     await requireDepartmentHod(ctx, assignment.departmentId); // allows system_admin too
+  } else if (assignment.roleType === "clan_elder") {
+    // Spec 0021, AC-9: the Administration HOD can remove an elder too.
+    if (!callerIsSystemAdmin && !callerIsAdminHod) {
+      throw new Error("Not authorized");
+    }
   } else {
     if (!callerIsSystemAdmin) throw new Error("Not authorized");
   }
@@ -366,5 +392,25 @@ export const getMyRoles = query({
   handler: async (ctx) => {
     const user = await requireUser(ctx);
     return await getActiveRoles(ctx, user._id);
+  },
+});
+
+/**
+ * Whether the caller may appoint or remove department HODs and clan elders:
+ * the System Admin or the Administration HOD (spec 0021, AC-6, AC-8 to AC-10).
+ *
+ * For the portal to show or hide those controls. The mutations above enforce
+ * the same rule themselves; this only keeps the interface honest. False, never
+ * a throw, for anyone else.
+ */
+export const getLeadershipAuthority = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return { canAppointLeaders: false };
+    const canAppointLeaders =
+      (await isActiveSystemAdmin(ctx, user._id)) ||
+      (await isAdministrationHod(ctx, user._id));
+    return { canAppointLeaders };
   },
 });

@@ -18,6 +18,8 @@ import {
   resolveDepartmentShellRole,
 } from "./lib/authz";
 import { notificationCommon } from "./lib/reminders";
+import { audienceOf } from "./lib/eventAudience";
+import { listGroupActivitiesInRange } from "./lib/plannerRange";
 import { resolveMediaUrl } from "./lib/media";
 import {
   DAY_MS,
@@ -560,9 +562,19 @@ export const listForDepartment = query({
       }))
     );
 
-    // Church-wide events in the same window, read only: the department plans
-    // around them, it does not own them. Events restricted to selected
-    // departments join this list once feature 18 defines that audience field.
+    // Church events in the same window, read only: the department plans
+    // around them, it does not own them. Every event whose audience covers
+    // this department (spec 0021, AC-16): the whole church, everyone serving,
+    // or a list naming this department. Filtered on the department being
+    // viewed, not the caller's own seats, so a System Admin or a delegate sees
+    // the same list.
+    const coversDepartment = (event: Doc<"events">) => {
+      const audience = audienceOf(event);
+      return (
+        audience.type !== "departments" ||
+        audience.departmentIds.includes(departmentId)
+      );
+    };
     const eventRows = await ctx.db
       .query("events")
       .withIndex("by_startDateTime", (q) =>
@@ -574,6 +586,7 @@ export const listForDepartment = query({
     return {
       activities: activities.sort((a, b) => a.startDateTime - b.startDateTime),
       churchEvents: eventRows
+        .filter(coversDepartment)
         .map((e) => ({
           _id: e._id,
           title: e.title,
@@ -588,52 +601,16 @@ export const listForDepartment = query({
 });
 
 /**
- * Every department's activities in a window, with the owning department's name
- * (AC-27).
+ * Every department's and clan's activities overlapping a window, with the
+ * owner's name (spec 0012 AC-27, widened to clans by spec 0021 AC-21).
  *
- * For Administration's Year Planner to render read only. The planner interface
- * itself belongs to feature 18; only the query is in scope here, which is why
- * this returns plain rows and takes no rendering concern.
- *
- * There is deliberately no bare `["startDateTime"]` index on `groupActivities`
- * (see the schema's note), so this reads per department. Thirteen bounded range
- * reads is the price of not adding an index that would tempt every member-facing
- * read into scanning the whole church.
+ * The same shared helper the Year Planner's `getYearPlannerRange` reads, so
+ * the two cannot disagree about which activities fall in a range.
  */
 export const listAllForPlanner = query({
   args: { from: v.number(), to: v.number() },
   handler: async (ctx, { from, to }) => {
     if (!(await getAdministrationAuthorityOrNull(ctx))) return null;
-
-    const departments = await ctx.db
-      .query("departments")
-      .withIndex("by_order")
-      .collect();
-
-    const perDepartment = await Promise.all(
-      departments.map(async (department) => {
-        const rows = await ctx.db
-          .query("groupActivities")
-          .withIndex("by_department_start", (q) =>
-            q.eq("owner.departmentId", department._id).gte("startDateTime", from)
-          )
-          .filter((q) => q.lte(q.field("startDateTime"), to))
-          .collect();
-        return rows.map((a) => ({
-          _id: a._id,
-          title: a.title,
-          startDateTime: a.startDateTime,
-          endDateTime: a.endDateTime,
-          location: a.location ?? null,
-          cancelled: a.cancelledAt !== undefined,
-          departmentId: department._id,
-          departmentName: department.name,
-        }));
-      })
-    );
-
-    return perDepartment
-      .flat()
-      .sort((a, b) => a.startDateTime - b.startDateTime);
+    return listGroupActivitiesInRange(ctx, from, to);
   },
 });

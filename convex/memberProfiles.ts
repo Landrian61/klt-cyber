@@ -1156,8 +1156,8 @@ export const listVerifiedMembersWithRoles = query({
     }
 
     // One await per member, resolved together rather than in sequence. Only
-    // the photo is taken from the user row — see the projection below for why
-    // the rest never leaves the server.
+    // the photo and the email are taken from the user row — see the
+    // projection below for why the rest never leaves the server.
     const users = await Promise.all(
       verified.map((profile) => ctx.db.get(profile.userId))
     );
@@ -1168,15 +1168,14 @@ export const listVerifiedMembersWithRoles = query({
     );
 
     return verified.map((profile, index) => ({
-      // Projected, not the whole document. The full `memberProfiles` row
-      // carries phone, dateOfBirth, address, nextOfKin (name + phone),
-      // shortBio, occupation, employer, skills and the mentorship proof URL;
-      // the full `users` row carries authId, email, role and status. None of
-      // that is rendered by any consumer, and shipping it meant every
-      // Administration-authority browser received the contact details and
-      // home address of every verified member on page load. Treat this list
-      // as a projection first and a payload reduction second — widening it
-      // is a disclosure decision, not a convenience.
+      // Projected, not the whole document. Phone, email and mentorship status
+      // are included on purpose (spec 0021, AC-3): SRS §3.5 gives
+      // Administration a member's contact details, and the directory and its
+      // CSV are where Administration reaches them. Date of birth, address,
+      // next of kin, bio, occupation, employer, skills and the mentorship
+      // proof URL stay out (the detail sheet fetches the full profile for one
+      // member at a time), as do the user row's authId, role and status.
+      // Widening this further is a disclosure decision, not a convenience.
       profile: {
         _id: profile._id,
         userId: profile.userId,
@@ -1187,7 +1186,10 @@ export const listVerifiedMembersWithRoles = query({
         maritalStatus: profile.maritalStatus,
         clanId: profile.clanId,
         verifiedAt: profile.verifiedAt,
+        phone: profile.phone,
+        mentorshipStatus: profile.mentorshipStatus,
       },
+      email: users[index]?.email ?? null,
       // One already-resolved photo, flattened off the two rows so neither is
       // returned whole (spec 0014, AC-14). The profile's own upload wins and
       // the account picture is the fallback; the signing happens here because
