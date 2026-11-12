@@ -6,6 +6,8 @@ import { ConvexError, v } from "convex/values";
 import {
   PROFILE_LIFECYCLE_ERRORS,
   PROFILE_LIFECYCLE_NOTICES,
+  ROLE_COPY,
+  ROSTER_PORTAL_DEPARTMENTS,
 } from "@klt-cyber/shared";
 import {
   getActiveRoles,
@@ -170,6 +172,84 @@ export const getMyProfileStatus = query({
       .unique();
   },
 });
+
+/**
+ * "My church life" on the mobile profile (spec 0023, AC-4, AC-5, AC-26): the
+ * caller's active roles with their scope names, and whether to point them at
+ * the web portal.
+ *
+ * The pointer is UX only. The portal's own middleware and every Convex check
+ * stay the real gate; this just tells a person the portal has work for them.
+ * It shows for an active role of any kind, or an `active` (confirmed, never a
+ * `pending_claim`) membership in a department whose roster opens its portal
+ * (`ROSTER_PORTAL_DEPARTMENTS`).
+ *
+ * Null when signed out, so a subscription still mounted during sign out
+ * resolves instead of throwing. Reads only the caller's own rows.
+ */
+export const getMyChurchLife = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+
+    const [activeRoles, activeMemberships] = await Promise.all([
+      getActiveRoles(ctx, user._id),
+      ctx.db
+        .query("departmentMemberships")
+        .withIndex("by_userId_status", (q) =>
+          q.eq("userId", user._id).eq("status", "active")
+        )
+        .collect(),
+    ]);
+
+    const roles = await Promise.all(
+      activeRoles.map(async (role) => {
+        let scopeName: string | null = null;
+        if (role.departmentId) {
+          scopeName = (await ctx.db.get(role.departmentId))?.name ?? null;
+        } else if (role.clanId) {
+          scopeName = (await ctx.db.get(role.clanId))?.name ?? null;
+        }
+        return {
+          _id: role._id,
+          roleType: role.roleType,
+          label: ROLE_COPY[role.roleType].label,
+          scopeName,
+        };
+      })
+    );
+
+    const rosterDepartmentNames: string[] = [];
+    for (const membership of activeMemberships) {
+      const name = (await ctx.db.get(membership.departmentId))?.name;
+      if (name && isRosterPortalDepartment(name)) rosterDepartmentNames.push(name);
+    }
+
+    // Roles first, then departments. A department already named as a role's
+    // scope ("HOD, Media") is not named again on its own.
+    const roleScopes = new Set(
+      roles.map((role) => role.scopeName).filter((name) => name !== null)
+    );
+    const reasons: string[] = [];
+    for (const role of roles) {
+      reasons.push(role.scopeName ? `${role.label}, ${role.scopeName}` : role.label);
+    }
+    for (const name of rosterDepartmentNames) {
+      if (!roleScopes.has(name)) reasons.push(name);
+    }
+    const uniqueReasons = [...new Set(reasons)];
+
+    return {
+      roles,
+      portal: { show: uniqueReasons.length > 0, reasons: uniqueReasons },
+    };
+  },
+});
+
+function isRosterPortalDepartment(name: string): boolean {
+  return (ROSTER_PORTAL_DEPARTMENTS as readonly string[]).includes(name);
+}
 
 // ── The one self-service edit mutation ───────────────────────────────────────
 
