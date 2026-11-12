@@ -13,6 +13,7 @@ import { FontFamily, Spacing, Radius, Duration, ShadowE2 } from '@/constants/the
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
 import { Cover } from '@/components/ui/cover';
+import { Badge } from '@/components/ui/badge';
 import { ErrorState } from '@/components/ui/error-state';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 import { LiveNowCard } from '@/components/radio/live-now-card';
@@ -190,6 +191,12 @@ function EventCard({
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const cardStyle = size === 'featured' ? styles.featuredCard : styles.eventCard;
+  // A cancelled event stays listed until it ends, marked, with its reason
+  // where one was given (spec 0021, AC-19), the same as the Events screen.
+  const cancelled = event.cancelledAt !== undefined;
+  const cancelledNote = cancelled
+    ? `Cancelled${event.cancellationReason ? `. ${event.cancellationReason}` : ''}`
+    : '';
   return (
     <Animated.View entering={FadeInUp.duration(300).delay(200 + index * 60)}>
       <AnimatedPressable
@@ -201,19 +208,29 @@ function EventCard({
         }}
         style={[cardStyle, animatedStyle]}
         accessibilityRole="button"
-        accessibilityLabel={`${event.title}, ${formatEventDate(event.startDateTime)}`}
+        accessibilityLabel={`${event.title}, ${formatEventDate(event.startDateTime)}${cancelled ? `, ${cancelledNote}` : ''}`}
       >
         <Cover uri={event.coverImageUrl} index={index + 1} imageRadius={Radius.lg} style={styles.eventCardImage}>
           <View style={styles.eventCardScrim}>
-            <View style={[styles.eventDatePill, { backgroundColor: Colors.primaryLight }]}>
-              <Text style={[styles.eventDateText, { color: Colors.primary }]} numberOfLines={1}>
-                {formatEventDate(event.startDateTime)}
-              </Text>
+            <View style={styles.eventCardBadges}>
+              <View style={[styles.eventDatePill, { backgroundColor: Colors.primaryLight }]}>
+                <Text style={[styles.eventDateText, { color: Colors.primary }]} numberOfLines={1}>
+                  {formatEventDate(event.startDateTime)}
+                </Text>
+              </View>
+              {cancelled && <Badge label="Cancelled" variant="cancelled" />}
             </View>
             <View>
-              <Text style={styles.eventCardName} numberOfLines={2}>{event.title}</Text>
+              <Text
+                style={[styles.eventCardName, cancelled && styles.eventCardNameCancelled]}
+                numberOfLines={2}
+              >
+                {event.title}
+              </Text>
               <Text style={styles.eventCardMeta} numberOfLines={1}>
-                {formatClockTime(event.startDateTime)}{event.location ? ` · ${event.location}` : ''}
+                {cancelled && event.cancellationReason
+                  ? event.cancellationReason
+                  : `${formatClockTime(event.startDateTime)}${event.location ? ` · ${event.location}` : ''}`}
               </Text>
             </View>
           </View>
@@ -536,6 +553,8 @@ const styles = StyleSheet.create({
   eventDatePill: { alignSelf: 'flex-start', borderRadius: Radius.full, paddingHorizontal: Spacing[2], paddingVertical: 3 },
   eventDateText: { fontFamily: FontFamily.bodySemiBold, fontSize: 10, lineHeight: 14 },
   eventCardName: { fontFamily: FontFamily.bodySemiBold, fontSize: 15, lineHeight: 20, color: '#FFFFFF' },
+  eventCardNameCancelled: { textDecorationLine: 'line-through' },
+  eventCardBadges: { flexDirection: 'row', alignItems: 'center', gap: Spacing[2] },
   eventCardMeta: { fontFamily: FontFamily.body, fontSize: 11, lineHeight: 16, color: 'rgba(255,255,255,0.80)', marginTop: 2 },
   // Devotional card
   devotionalHeader: {
