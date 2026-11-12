@@ -366,9 +366,18 @@ SRS: A1-01, A1-02, A1-03, A1-04, A2-01, A2-02, A2-03, A2-04, A2-05, A3-01, A3-02
 ### 13. Member directory with sharing · in-progress · GA
 Track B. Replace the placeholder member list with a real, privacy-respecting directory: private by default, and only sharers see other sharers' details.
 **Done when:** M5-01/M5-02: real verified-member data replaces the placeholder list; search by name/occupation, filter by Area of Service/clan. M5-03: a sharing member opens another sharer's card and contacts them in one tap, only the fields the SRS's field-visibility table allows. M5-04: a private member sees a note that sharing unlocks others' details, with a one-tap toggle. NF-02: sharing is off by default and enforced on the server.
-- [ ] Design remaining work (spec): `/architect member directory with sharing`
-Spec: not yet captured
-SRS: M5-01, M5-02, M5-03, M5-04, M5-05, F2-13, NF-02 · code: `apps/mobile/app/members.tsx` (visitor-invite state already Built — M5-05)
+- [x] Design remaining work (spec): `/architect member directory with sharing`
+Spec: [0022](../specs/_root/0022-member-directory-sharing/index.md)
+- [x] Build it: `/develop member directory with sharing`
+  - [x] Shared contract and the thin thread: `directory.ts` in `packages/shared` (phone normalizer, search matcher, copy, error codes) with tests, the server gate in `convex/lib/directory.ts`, `directory.list`, and `members.tsx` on real rows with name search, the pinned "You" row and the contact mark, satisfies AC-1 to AC-4, AC-7, AC-8, AC-10
+  - [x] The card: `directory.getCard` and `member-detail.tsx` with Call, WhatsApp and Email, the private note and the not found state, satisfies AC-9, AC-10, AC-11, AC-14
+  - [x] Share to see unlock: the consent sheet, the list banner and card note, and the own card switch, live through reactivity, satisfies AC-12, AC-13, AC-16
+  - [x] Filters, states and the suite: Area of Service and clan chips, occupation matching between sharers, the loading, empty and error states, and `convex/directory.test.ts`, satisfies AC-5, AC-6, AC-15, AC-17
+- [ ] Verify it: `/check verify member directory with sharing`
+- [ ] Test it: `/test member directory with sharing`
+- [ ] Review it (fresh model): `/check review member directory with sharing`
+- [ ] Document it: `/document member directory with sharing`
+SRS: M5-01, M5-02, M5-03, M5-04, M5-05, F2-13, NF-02 · code: `apps/mobile/app/members.tsx` (visitor-invite state already Built — M5-05), `apps/mobile/app/member-detail.tsx` (new), `convex/directory.ts` (new), `convex/lib/directory.ts` (new), `packages/shared/src/constants/directory.ts` (new), `apps/mobile/components/directory/` (new: consent sheet, sheet, row, avatar), `convex/directory.test.ts` (new)
 
 ### 14. My Profile and settings · in-progress
 Track B. Give every user one screen to see and change everything about themselves — profile, sharing, notifications, account.
