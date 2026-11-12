@@ -283,3 +283,141 @@ describe("probeStream's mount choice (review finding)", () => {
     expect(await broadcasts(t)).toHaveLength(0);
   });
 });
+
+describe("probeStream keeps the listener pass current (Caster FM rotates it)", () => {
+  const statusUrl = "https://radio.example.org:43348/status-json.xsl";
+  const sourceUrl = "https://widgets.example.org/em_player.php?uid=1";
+  const OLD = "authn0000aaaa1111bbbb2222cccc3333dddd";
+  const NEW = "authn9999eeee8888ffff7777aaaa6666bbbb";
+
+  /** A fetch answering the stats and the player page, counting page reads. */
+  function stubFetch(opts: { pass: string | null; serverStart: string; refuse?: string }) {
+    const calls = { page: 0 };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/listen.mp3")) {
+          return opts.refuse && url.includes(opts.refuse)
+            ? new Response("You need to authenticate", { status: 401 })
+            : new Response("audio", { status: 200, headers: { "Content-Type": "audio/mpeg" } });
+        }
+        if (url === sourceUrl) {
+          calls.page += 1;
+          return opts.pass
+            ? new Response(`<source src="http://h:1/listen.mp3?${opts.pass}">`, { status: 200 })
+            : new Response("nope", { status: 503 });
+        }
+        return new Response(
+          JSON.stringify({
+            icestats: {
+              server_start: opts.serverStart,
+              source: { listenurl: "http://radio.example.org:43348/listen.mp3", listeners: 4 },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      })
+    );
+    return calls;
+  }
+
+  beforeEach(() => {
+    vi.stubEnv("RADIO_STATUS_URL", statusUrl);
+    vi.stubEnv("RADIO_STREAM_URL", `https://radio.example.org:43348/listen.mp3?${OLD}`);
+    vi.stubEnv("RADIO_PASS_SOURCE_URL", sourceUrl);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("reads the pass on the first probe, then not again until it is old", async () => {
+    const calls = stubFetch({ pass: NEW, serverStart: "A" });
+    const t = testConvex();
+    await t.action(internal.radio.probeStream, {});
+    expect(await status(t)).toMatchObject({
+      detected: "live",
+      listenerPass: NEW,
+      listenerPassCheckedAt: T0,
+      listenerPassServerStart: "A",
+    });
+
+    vi.setSystemTime(T0 + MIN);
+    await t.action(internal.radio.probeStream, {});
+    expect(calls.page).toBe(1);
+
+    vi.setSystemTime(T0 + 2 * MIN);
+    await t.action(internal.radio.probeStream, {});
+    expect(calls.page).toBe(2);
+  });
+
+  it("re-reads at once when the stream server restarts", async () => {
+    stubFetch({ pass: OLD, serverStart: "A" });
+    const t = testConvex();
+    await t.action(internal.radio.probeStream, {});
+
+    // The next minute: before the pass is old, so only the restart triggers it.
+    vi.setSystemTime(T0 + MIN);
+    stubFetch({ pass: NEW, serverStart: "B" });
+    await t.action(internal.radio.probeStream, {});
+    expect(await status(t)).toMatchObject({ listenerPass: NEW, listenerPassServerStart: "B" });
+  });
+
+  it("keeps the stored pass when the player page cannot be read", async () => {
+    stubFetch({ pass: NEW, serverStart: "A" });
+    const t = testConvex();
+    await t.action(internal.radio.probeStream, {});
+
+    vi.setSystemTime(T0 + 5 * MIN);
+    stubFetch({ pass: null, serverStart: "A" });
+    await t.action(internal.radio.probeStream, {});
+    expect(await status(t)).toMatchObject({
+      detected: "live",
+      listenerPass: NEW,
+      listenerPassCheckedAt: T0,
+    });
+  });
+
+  it("re-reads on the minute probe when the stream refuses the stored pass", async () => {
+    stubFetch({ pass: OLD, serverStart: "A" });
+    const t = testConvex();
+    await t.action(internal.radio.probeStream, { scheduleBurst: true });
+    expect((await status(t))?.listenerPass).toBe(OLD);
+
+    // Same server, pass not old yet, but Caster FM now refuses it.
+    vi.setSystemTime(T0 + MIN);
+    const calls = stubFetch({ pass: NEW, serverStart: "A", refuse: OLD });
+    await t.action(internal.radio.probeStream, { scheduleBurst: true });
+    expect(calls.page).toBe(1);
+    expect((await status(t))?.listenerPass).toBe(NEW);
+  });
+
+  it("reads a failing page at most once a minute, and keeps the server start", async () => {
+    stubFetch({ pass: NEW, serverStart: "A" });
+    const t = testConvex();
+    await t.action(internal.radio.probeStream, {});
+
+    vi.setSystemTime(T0 + 2 * MIN);
+    const calls = stubFetch({ pass: null, serverStart: "A" });
+    await t.action(internal.radio.probeStream, {});
+    vi.setSystemTime(T0 + 2 * MIN + 20_000);
+    await t.action(internal.radio.probeStream, {});
+    vi.setSystemTime(T0 + 2 * MIN + 40_000);
+    await t.action(internal.radio.probeStream, {});
+    expect(calls.page).toBe(1);
+    expect(await status(t)).toMatchObject({
+      listenerPass: NEW,
+      listenerPassServerStart: "A",
+      listenerPassTriedAt: T0 + 2 * MIN,
+    });
+  });
+
+  it("never reads a page without RADIO_PASS_SOURCE_URL", async () => {
+    vi.stubEnv("RADIO_PASS_SOURCE_URL", "");
+    const calls = stubFetch({ pass: NEW, serverStart: "A" });
+    const t = testConvex();
+    await t.action(internal.radio.probeStream, {});
+    expect(calls.page).toBe(0);
+    expect((await status(t))?.listenerPass).toBeUndefined();
+  });
+});

@@ -1315,6 +1315,16 @@ export default defineSchema({
     // While in the future, the minute cron schedules the two faster probes
     // (AC-5).
     burstUntil: v.optional(v.number()),
+    // The stream's current listener pass, read by the probe from Caster FM's
+    // player page because Caster FM changes it (convex/lib/radioPass.ts).
+    // Players get RADIO_STREAM_URL with this pass as its query.
+    listenerPass: v.optional(v.string()),
+    listenerPassCheckedAt: v.optional(v.number()),
+    // The last read of the player page, failed ones included, so a failing
+    // page is read at most once a minute.
+    listenerPassTriedAt: v.optional(v.number()),
+    // The stats' server_start when the pass was read: a restart re-reads it.
+    listenerPassServerStart: v.optional(v.string()),
     // Changes only what readers are shown (AC-6).
     override: v.optional(
       v.object({

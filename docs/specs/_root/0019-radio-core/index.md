@@ -158,7 +158,7 @@ All Convex functions, except the one portal route. `manageRadio` means the capab
 
 | Action | Value produced or displayed | Source |
 |---|---|---|
-| `getPlaybackConfig` | the stream url the player opens | Convex env var `RADIO_STREAM_URL`, served through the query so it changes without an app release |
+| `getPlaybackConfig` | the stream url the player opens | Convex env var `RADIO_STREAM_URL`, served through the query so it changes without an app release. *Amended 2026-11-12:* its query is replaced by the listener pass the probe last read from `RADIO_PASS_SOURCE_URL`, when one has been read, because Caster FM changes which pass it accepts (`convex/lib/radioPass.ts`) |
 | `getPlaybackConfig` | the city lookup url the phone calls | Convex env var `PORTAL_ORIGIN` plus the fixed path `/api/where`, omitted when that variable is unset |
 | `probeStream` | whether a source is connected | Caster FM `publicstats.json` at Convex env var `RADIO_STATUS_URL`: a `source` entry present means live. Where several mounts are returned, the one whose `listenurl` matches `RADIO_STREAM_URL`, else the first |
 | `probeStream` | the fallback reading when the statistics request fails | a ranged request to `RADIO_STREAM_URL` with a five second timeout, aborted after the first bytes, counting as live only when the response carries an audio content type. Both failing is `unknown`, not off air |
@@ -214,6 +214,7 @@ The sensitive data here is the prayer request sender link (stored, never returne
 **Configuration required**
 
 - `RADIO_STREAM_URL`: the Caster FM audio url the app plays and the probe falls back to. Convex env var, per deployment, a public value.
+- `RADIO_PASS_SOURCE_URL` (*amended 2026-11-12*, optional): Caster FM's own player page (`https://widgets.caster.fm/em_player.php?jsinit=true&uid=<station id>&t=purple&c=`). Caster FM changes the listener pass the stream accepts (on a server restart, and on its own besides), so a pass typed into `RADIO_STREAM_URL` goes stale and players get a 401 while the status still reads Live. The probe reads the current pass from this page every two minutes, on a server restart, and whenever the minute probe finds the stream refusing the stored pass (401 or 403), at most once a minute. It keeps the last pass when the page cannot be read. Unset, `RADIO_STREAM_URL` is used exactly as written, stored pass or not, so unsetting it is how an operator takes over by hand. Convex env var, per deployment, public. The page is not a published API, so if Caster FM changes it the probe keeps the last pass and playback can go stale again.
 - `RADIO_STATUS_URL`: the full `publicstats.json` url including host and port, from the church's Caster FM dashboard. Convex env var, per deployment, public, no credentials.
 - `PORTAL_ORIGIN`: the admin portal's origin, so the phone can be told where to ask for its city. Convex env var, per deployment.
 - `apps/mobile/app.config.ts`: the `expo-audio` plugin with `enableBackgroundPlayback` true, which adds the Android foreground service permissions and the iOS background audio mode. A native change, so it ships in a build and never over the air.
