@@ -111,9 +111,6 @@ const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        // No dedicated Administration-scoped Roster screen yet — this reuses
-        // the existing department-picker → department-members flow. Repoint
-        // at a purpose-built /admin/roster once that page exists.
         href: "/areas-of-service/admin/roster",
         label: "Roster",
         icon: (
@@ -131,6 +128,48 @@ const NAV_GROUPS: NavGroup[] = [
             <path d="M12 20.5v-9a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9" />
             <path d="M2.5 20.5h19" />
             <path d="M7 9h2M7 12.5h2M15.5 14h2" />
+          </svg>
+        ),
+      },
+      {
+        // Spec 0021, AC-4: every department and who leads it.
+        href: "/areas-of-service/admin/departments",
+        label: "Departments",
+        icon: (
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="9" y="3.5" width="6" height="5" rx="1" />
+            <rect x="3.5" y="15.5" width="6" height="5" rx="1" />
+            <rect x="14.5" y="15.5" width="6" height="5" rx="1" />
+            <path d="M12 8.5v3.5M6.5 15.5V12h11v3.5" />
+          </svg>
+        ),
+      },
+      {
+        // Spec 0021, AC-4: the 12 clans and their elders.
+        href: "/areas-of-service/admin/clans",
+        label: "Clans",
+        icon: (
+          <svg
+            className={iconClass}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 3.5 4.5 7v5c0 4.2 3.2 7.6 7.5 8.5 4.3-.9 7.5-4.3 7.5-8.5V7L12 3.5Z" />
+            <path d="M9 12h6M12 9v6" />
           </svg>
         ),
       },

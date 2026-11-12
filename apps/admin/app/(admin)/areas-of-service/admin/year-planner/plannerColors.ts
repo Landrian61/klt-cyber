@@ -32,9 +32,19 @@ export const PLANNER_TYPE_COLOR: Record<
     dot: "bg-crimson",
     label: "Activity",
   },
+  // A department or clan activity (spec 0021, AC-21): view only, so it takes
+  // the quiet surface tone and a dashed accent rather than a brand hue. It is
+  // somebody else's plan, shown so Administration can plan around it.
+  group: {
+    bg: "bg-surface-low",
+    text: "text-on-surface-variant",
+    border: "border-outline border-dashed",
+    dot: "bg-outline",
+    label: "Department or clan",
+  },
 };
 
-export const PLANNER_TYPES: PlannerItem["type"][] = ["program", "event", "activity"];
+export const PLANNER_TYPES: PlannerItem["type"][] = ["program", "event", "activity", "group"];
 
 /**
  * A called-off program occurrence (spec 0009) takes crimson — the design
@@ -54,9 +64,12 @@ export const PLANNER_CANCELLED_COLOR = {
   label: "Cancelled",
 } as const;
 
-/** True when this item is a program occurrence that has been called off. */
+/**
+ * True when this item has been called off: a program occurrence (spec 0009),
+ * an event (spec 0021, AC-19) or a department or clan activity (AC-21).
+ */
 export function isCancelledOccurrence(item: PlannerItem): boolean {
-  return item.type === "program" && item.cancelled;
+  return item.type !== "activity" && item.cancelled;
 }
 
 /** The palette an item actually renders in — its type's, unless it is cancelled. */
@@ -73,7 +86,7 @@ export function plannerItemColor(item: PlannerItem) {
  */
 export function plannerItemTime(item: PlannerItem): string | undefined {
   if (item.type === "program") return formatTime(item.startTime);
-  if (item.type === "event") {
+  if (item.type === "event" || (item.type === "group" && item.firstDay)) {
     return new Date(item.start).toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",

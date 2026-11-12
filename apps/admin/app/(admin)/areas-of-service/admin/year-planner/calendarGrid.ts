@@ -37,16 +37,36 @@ export function quarterOf(month: number): number {
   return Math.floor(month / 3);
 }
 
+/** Monday first, the church week (and ISO 8601). */
+export const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+/** 0 for Monday through 6 for Sunday. */
+function mondayIndex(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
+export function isWeekend(d: Date): boolean {
+  return d.getDay() === 0 || d.getDay() === 6;
+}
+
+/** The ISO 8601 week number of the week containing `d` (weeks start Monday). */
+export function isoWeek(d: Date): number {
+  const thursday = addDays(startOfDay(d), 3 - mondayIndex(d));
+  const firstThursday = new Date(thursday.getFullYear(), 0, 4);
+  const diffDays = Math.round((thursday.getTime() - firstThursday.getTime()) / 86_400_000);
+  return 1 + Math.round((diffDays - 3 + mondayIndex(firstThursday)) / 7);
+}
+
 /**
  * The local dates that fill a month's calendar grid, padded to whole weeks
- * (Sunday start) — 28 to 42 cells depending on how the month falls, never a
+ * (Monday start) — 28 to 42 cells depending on how the month falls, never a
  * trailing all-empty week.
  */
 export function monthGridDays(
   year: number,
   month: number,
 ): { date: Date; inMonth: boolean }[] {
-  const firstWeekday = new Date(year, month, 1).getDay();
+  const firstWeekday = mondayIndex(new Date(year, month, 1));
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
   const gridStart = addDays(new Date(year, month, 1), -firstWeekday);
@@ -56,9 +76,9 @@ export function monthGridDays(
   });
 }
 
-/** The 7 local dates (Sunday–Saturday) of the week containing `focus`. */
+/** The 7 local dates (Monday to Sunday) of the week containing `focus`. */
 export function weekDays(focus: Date): Date[] {
-  const start = addDays(startOfDay(focus), -focus.getDay());
+  const start = addDays(startOfDay(focus), -mondayIndex(focus));
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 

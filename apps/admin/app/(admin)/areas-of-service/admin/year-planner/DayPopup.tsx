@@ -13,7 +13,12 @@ import { Button } from "@/components/shadcn/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ActivityStatusBadge } from "../_lib/adminContent";
 import { isCancelledOccurrence, plannerItemColor, plannerItemTime } from "./plannerColors";
-import { plannerItemKey, type ActivityItem, type PlannerItem } from "./types";
+import {
+  plannerItemKey,
+  type ActivityItem,
+  type GroupItem,
+  type PlannerItem,
+} from "./types";
 import type { OccurrenceAction } from "./OccurrenceDialog";
 
 // The at-every-zoom-level day pop-up: everything on that day, each row
@@ -36,7 +41,11 @@ export function DayPopup({
   onAddActivity,
   onEditActivity,
   onOccurrenceAction,
+  onViewGroup,
+  holiday,
 }: {
+  /** The public holiday on this day, if any. */
+  holiday?: string;
   date: Date | null;
   items: PlannerItem[];
   onOpenChange: (open: boolean) => void;
@@ -46,6 +55,8 @@ export function DayPopup({
     item: Extract<PlannerItem, { type: "program" }>,
     action: OccurrenceAction,
   ) => void;
+  /** A department or clan activity opens a read only detail (spec 0021, AC-21). */
+  onViewGroup: (item: GroupItem) => void;
 }) {
   return (
     <Dialog open={!!date} onOpenChange={onOpenChange}>
@@ -60,6 +71,11 @@ export function DayPopup({
                 })
               : ""}
           </DialogTitle>
+          {holiday && (
+            <p className="w-fit rounded-full bg-royal-light px-2.5 py-0.5 font-body text-xs font-semibold text-royal">
+              {holiday}
+            </p>
+          )}
         </DialogHeader>
         {items.length === 0 ? (
           <EmptyState
@@ -120,6 +136,22 @@ export function DayPopup({
                     className={cn(rowClass, "transition-colors hover:bg-surface-high")}
                   >
                     {row}
+                  </button>
+                );
+              }
+
+              if (item.type === "group") {
+                return (
+                  <button
+                    key={plannerItemKey(item)}
+                    type="button"
+                    onClick={() => onViewGroup(item)}
+                    className={cn(rowClass, "flex-col items-stretch gap-1 transition-colors hover:bg-surface-high")}
+                  >
+                    <span className="flex w-full items-center gap-3">{row}</span>
+                    <span className="font-body text-xs text-on-surface-variant">
+                      {item.activity.ownerName} · view only
+                    </span>
                   </button>
                 );
               }

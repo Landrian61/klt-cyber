@@ -8,7 +8,6 @@ import {
   Calendar,
   Megaphone,
   ArrowRight,
-  Repeat,
 } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
@@ -17,7 +16,6 @@ import { cn } from "@/lib/utils";
 import { Heading } from "@/components/ui/Heading";
 import { StatCard } from "@/components/ui/StatCard";
 import { Avatar } from "@/components/shadcn/avatar";
-import { Badge } from "@/components/shadcn/badge";
 import { buttonVariants } from "@/components/shadcn/button";
 import {
   Card,
@@ -49,6 +47,9 @@ import { MinistryMilestonesFunnel } from "./MinistryMilestonesFunnel";
 import { MinistryEngagementHeatmap } from "./MinistryEngagementHeatmap";
 import { DashboardFilterBar } from "./DashboardFilterBar";
 import { DashboardRosterTable } from "./DashboardRosterTable";
+import { ThisWeekCard } from "./ThisWeekCard";
+import { describeActivity } from "@/lib/activity";
+import { displayName, formatRelativeTime } from "@/lib/format";
 import { useDashboardFilters } from "./useDashboardFilters";
 import {
   bucketDepartments,
@@ -60,8 +61,6 @@ import {
   isNotYetVerified,
   NOT_YET_VERIFIED_LABEL,
 } from "./demographicsUtils";
-
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Tonal icon chips — semantic token pairs, never a raw Tailwind palette.
 const CHIP_TONES = {
@@ -130,13 +129,12 @@ export function AdminDashboardClient() {
   );
   const programs = useAuthQuery(api.weeklyPrograms.listActivePrograms);
   const announcements = useAuthQuery(api.announcements.listActiveAnnouncements);
-  const upcomingEvents = useAuthQuery(api.events.listUpcomingEvents, {
-    limit: 5,
-  });
-
-  // Act 1 (unfiltered) sources.
-  const recentActivity = useAuthQuery(api.admin.listRecentActivity, {
-    limit: 5,
+  // Act 1 (unfiltered) sources. Both are Administration side reads (spec
+  // 0021, AC-1, AC-2): every event whatever its audience, and only the church
+  // actions an Administration viewer may see.
+  const thisWeek = useAuthQuery(api.admin.getThisWeek, {});
+  const recentActivity = useAuthQuery(api.admin.listChurchActivity, {
+    limit: 6,
   });
 
   // Act 2 (Zone 1-4, filtered) sources — one query for charts/KPIs (narrow,
@@ -209,28 +207,10 @@ export function AdminDashboardClient() {
 
   const recentPending = pending?.slice(0, 5);
 
-  const upcoming = [
-    ...(programs?.map((p) => ({
-      key: `program-${p._id}`,
-      title: p.title,
-      recurring: true as const,
-      weekday: DAY_LABELS[p.daysOfWeek?.[0] ?? p.dayOfWeek ?? 0],
-    })) ?? []),
-    ...(upcomingEvents?.map((e) => ({
-      key: `event-${e._id}`,
-      title: e.title,
-      recurring: false as const,
-      month: new Date(e.startDateTime).toLocaleDateString(undefined, {
-        month: "short",
-      }),
-      day: new Date(e.startDateTime).getDate(),
-    })) ?? []),
-  ];
-
   // AC-2: useQuery/useAuthQuery keeps serving their last known value while
   // offline, so once anything has loaded, offline only needs a banner — the
   // full offline ErrorState is reserved for the no-data-yet case.
-  const hasAnyData = [pending, roster, programs, announcements, upcomingEvents, recentActivity, analytics, profileRoster, clans, departments].some(
+  const hasAnyData = [pending, roster, programs, announcements, thisWeek, recentActivity, analytics, profileRoster, clans, departments].some(
     (v) => v !== undefined,
   );
   if (isOffline && !hasAnyData) {
@@ -304,77 +284,40 @@ export function AdminDashboardClient() {
                   </div>
                 ) : recentActivity === null ? (
                   <p className="font-body text-xs text-on-surface-variant">
-                    Not available for your role yet — requires System Admin
-                    access.
+                    Church activity is shown to Administration only.
                   </p>
-                ) : (
+                ) : recentActivity.length === 0 ? (
                   <EmptyState
                     title="Nothing recent"
                     message="Activity will appear here."
                   />
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="gap-3 border-t-4 border-t-primary p-5">
-              <CardHeader className="p-0">
-                <CardTitle className="font-body text-base font-semibold text-on-surface">
-                  Upcoming
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {programs === undefined || upcomingEvents === undefined ? (
-                  <div className="flex flex-col gap-2" aria-hidden="true">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Skeleton key={i} className="h-9 rounded-lg" />
-                    ))}
-                  </div>
-                ) : upcoming.length === 0 ? (
-                  <EmptyState
-                    title="Nothing scheduled"
-                    message="Programs and events will appear here."
-                  />
                 ) : (
-                  <Reveal as="ul" className="flex flex-col gap-1" replayKey={upcoming.length}>
-                    {upcoming.slice(0, 6).map((item) => (
+                  <Reveal as="ul" className="flex flex-col gap-1" replayKey={recentActivity.length}>
+                    {recentActivity.map((entry) => (
                       <li
-                        key={item.key}
-                        className="flex items-center gap-3 rounded-lg px-1 py-1.5 transition-colors hover:bg-surface-low"
+                        key={entry._id}
+                        className="flex items-center gap-3 rounded-lg px-1 py-1.5"
                       >
-                        <div className="flex size-10 shrink-0 flex-col items-center justify-center rounded-md border border-border bg-surface-low">
-                          {item.recurring ? (
-                            <>
-                              <Repeat
-                                className="size-3.5 text-royal"
-                                aria-hidden="true"
-                              />
-                              <span className="mt-0.5 font-body text-[10px] font-semibold uppercase leading-none text-on-surface-variant">
-                                {item.weekday}
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-body text-[9px] font-semibold uppercase leading-none text-crimson">
-                                {item.month}
-                              </span>
-                              <span className="mt-0.5 font-mono text-sm font-bold leading-none text-on-surface">
-                                {item.day}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        <p className="min-w-0 flex-1 truncate font-body text-sm font-medium text-on-surface">
-                          {item.title}
-                        </p>
-                        <Badge variant="neutral" className="shrink-0">
-                          {item.recurring ? "Weekly" : "Event"}
-                        </Badge>
+                        <Avatar
+                          name={displayName(entry.actor)}
+                          email={entry.actor?.email}
+                          src={entry.actor?.photoUrl ?? undefined}
+                          size="sm"
+                        />
+                        <span className="min-w-0 flex-1 truncate font-body text-sm text-on-surface">
+                          {describeActivity(entry)}
+                        </span>
+                        <span className="whitespace-nowrap font-body text-xs text-outline">
+                          {formatRelativeTime(entry._creationTime)}
+                        </span>
                       </li>
                     ))}
                   </Reveal>
                 )}
               </CardContent>
             </Card>
+
+            <ThisWeekCard data={thisWeek} />
           </div>
 
           <div className="space-y-4">

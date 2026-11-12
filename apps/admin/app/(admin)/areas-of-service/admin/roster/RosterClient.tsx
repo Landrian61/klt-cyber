@@ -44,6 +44,7 @@ import { MembershipTitleEditor } from "@/components/admin/MembershipTitleEditor"
 import { Skeleton } from "@/components/shadcn/skeleton";
 import { errorMessage } from "../verification/shared";
 import { ProfileDetails } from "../verification/ProfileDetails";
+import { AppointHodDialog } from "../_lib/AppointHodDialog";
 const PAGE_SIZE = 10;
 
 // Row shape comes straight from the joined Convex query — no hand-rolled
@@ -77,9 +78,6 @@ export function RosterClient() {
    const administrationDept = roster?.department;
    const rosterRows = roster?.members;
 
-   // Needed for "Name a department HOD" — reaches into the wider directory,
-   // not just this roster.
-   const departments = useAuthQuery(api.departments.listDepartments);
    const myRoles = useAuthQuery(api.roles.getMyRoles);
    const administrationHods = useAuthQuery(
      api.departmentMemberships.listDepartmentHods,
@@ -114,10 +112,6 @@ export function RosterClient() {
  const [error, setError] = useState<string | null>(null);
 
  const [nameHodOpen, setNameHodOpen] = useState(false);
- const [nameHodDeptId, setNameHodDeptId] = useState<Id<"departments"> | "">("");
- const [nameHodUserId, setNameHodUserId] = useState<Id<"users"> | "">("");
- const [nameHodError, setNameHodError] = useState<string | null>(null);
- const [nameHodBusy, setNameHodBusy] = useState(false);
 
   const [bootstrapOpen, setBootstrapOpen] = useState(false);
  const [bootstrapUserId, setBootstrapUserId] = useState<Id<"users"> | "">("");
@@ -137,7 +131,7 @@ export function RosterClient() {
   // this screen never open it. Declared after `addOpen` for that reason.
   const allMembers = useAuthQuery(
     api.memberProfiles.listVerifiedMembersWithRoles,
-     addOpen || nameHodOpen || bootstrapOpen ? {} : "skip",
+     addOpen || bootstrapOpen ? {} : "skip",
   );
 
   const rows = useMemo(() => {
@@ -214,26 +208,6 @@ export function RosterClient() {
       setBusy(false);
     }
   }
-    async function handleNameHod() {
-      if (!nameHodDeptId || !nameHodUserId) return;
-      setNameHodBusy(true);
-      setNameHodError(null);
-      try {
-        await assignRole({
-          roleType: "hod",
-          userId: nameHodUserId,
-          departmentId: nameHodDeptId,
-        });
-        setNameHodOpen(false);
-        setNameHodDeptId("");
-        setNameHodUserId("");
-      } catch (err) {
-        setNameHodError(errorMessage(err));
-      } finally {
-        setNameHodBusy(false);
-      }
-    }
-
     async function handleBootstrap() {
       if (!bootstrapUserId || !administrationDept) return;
       setBootstrapBusy(true);
@@ -434,83 +408,7 @@ export function RosterClient() {
           </DialogContent>
         </Dialog>
 
-        {/* Name a department HOD — reaches into the wider directory, not
-          just this roster. */}
-        <Dialog open={nameHodOpen} onOpenChange={setNameHodOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Name a department HOD</DialogTitle>
-              <DialogDescription>
-                Choose a department and a verified member to appoint as its Head
-                of Department.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex flex-col gap-4">
-              <Field label="Department" htmlFor="hod-department">
-                <Select
-                  value={nameHodDeptId}
-                  onValueChange={(v) =>
-                    setNameHodDeptId(v as Id<"departments">)
-                  }
-                >
-                  <SelectTrigger id="hod-department">
-                    <SelectValue placeholder="Choose a department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments?.map((d) => (
-                      <SelectItem key={d._id} value={d._id}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field label="Member" htmlFor="hod-member">
-                <Select
-                  value={nameHodUserId}
-                  onValueChange={(v) => setNameHodUserId(v as Id<"users">)}
-                >
-                  <SelectTrigger id="hod-member">
-                    <SelectValue placeholder="Choose a verified member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allMembers?.map((entry) => (
-                      <SelectItem
-                        key={entry.profile._id}
-                        value={entry.profile.userId}
-                      >
-                        {fullName(entry.profile)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              {nameHodError && (
-                <p className="text-sm text-destructive">{nameHodError}</p>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="secondary"
-                onClick={() => setNameHodOpen(false)}
-                disabled={nameHodBusy}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleNameHod}
-                disabled={nameHodBusy || !nameHodDeptId || !nameHodUserId}
-                loading={nameHodBusy}
-              >
-                Appoint HOD
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <AppointHodDialog open={nameHodOpen} onOpenChange={setNameHodOpen} />
 
         {/* Bootstrap: name Administration's first HOD. System Admin only. */}
         <Dialog open={bootstrapOpen} onOpenChange={setBootstrapOpen}>

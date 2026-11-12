@@ -10,7 +10,14 @@ import { Heading } from "@/components/ui/Heading";
 import { Avatar } from "@/components/shadcn/avatar";
 import { Badge } from "@/components/shadcn/badge";
 import { Button } from "@/components/shadcn/button";
-import { DataTable, type Column } from "@/components/ui/DataTable";
+import { type Column } from "@/components/ui/DataTable";
+import { ResponsiveTable, RowCard } from "@/components/ui/ResponsiveTable";
+import { MENTORSHIP_STATUS_LABEL } from "@klt-cyber/shared";
+import {
+  ColumnPicker,
+  useColumnVisibility,
+  type PickableColumn,
+} from "@/components/ui/ColumnPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -39,6 +46,23 @@ import {
 
 
 const PAGE_SIZE = 10;
+
+// What the Columns menu offers. Name is always shown, so a row is never
+// unidentifiable. Mentorship starts hidden: it is also a filter, and the
+// table is wide enough already.
+const PICKABLE_COLUMNS: PickableColumn[] = [
+  { key: "photo", label: "Photo" },
+  { key: "name", label: "Name", locked: true },
+  { key: "phone", label: "Phone" },
+  { key: "email", label: "Email" },
+  { key: "sex", label: "Sex" },
+  { key: "marital", label: "Marital status" },
+  { key: "clan", label: "Clan" },
+  { key: "mentorship", label: "Mentorship" },
+  { key: "areaOfService", label: "Area(s) of service" },
+  { key: "verified", label: "Verified" },
+];
+const DEFAULT_HIDDEN_COLUMNS = ["mentorship"];
 const ALL = "all";
 
 
@@ -75,8 +99,14 @@ export function MembersClient() {
   const [maritalFilter, setMaritalFilter] = useState(ALL);
   const [clanFilter, setClanFilter] = useState(ALL);
   const [departmentFilter, setDepartmentFilter] = useState(ALL);
+  const [mentorshipFilter, setMentorshipFilter] = useState(ALL);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const columnState = useColumnVisibility(
+    "klt.admin.members.columns",
+    PICKABLE_COLUMNS,
+    DEFAULT_HIDDEN_COLUMNS,
+  );
   const [selectedProfileId, setSelectedProfileId] =
     useState<Id<"memberProfiles"> | null>(null);
 
@@ -121,6 +151,7 @@ export function MembersClient() {
       maritalFilter,
       clanFilter,
       departmentFilter,
+      mentorshipFilter,
     ].filter((v) => v !== ALL).length;
 
     function clearFilters() {
@@ -128,8 +159,33 @@ export function MembersClient() {
       setMaritalFilter(ALL);
       setClanFilter(ALL);
       setDepartmentFilter(ALL);
+      setMentorshipFilter(ALL);
       setPage(1);
     }
+
+  /**
+   * Everything a member serves in, as labels: leadership roles first, then
+   * roster seats. Deduplicated by label, because Convex has no unique indexes
+   * and one person can hold two identical active rows (the same delegate seat
+   * twice, say); showing it twice says nothing new.
+   */
+  function serviceAreas(entry: MemberEntry): { label: string; leader: boolean }[] {
+    const seen = new Set<string>();
+    const out: { label: string; leader: boolean }[] = [];
+    for (const role of entry.activeRoles) {
+      const label = roleLabel(role);
+      if (seen.has(label)) continue;
+      seen.add(label);
+      out.push({ label, leader: true });
+    }
+    for (const membership of entry.departmentMemberships) {
+      const label = membershipLabel(membership);
+      if (seen.has(label)) continue;
+      seen.add(label);
+      out.push({ label, leader: false });
+    }
+    return out;
+  }
 
   // A member's full set of department IDs — leadership roles scoped to a
   // department plus ordinary roster membership — used by both the Area of
@@ -156,9 +212,22 @@ export function MembersClient() {
         !memberDepartmentIds(m).has(departmentFilter as Id<"departments">)
       )
         return false;
+      if (
+        mentorshipFilter !== ALL &&
+        m.profile.mentorshipStatus !== mentorshipFilter
+      )
+        return false;
       return true;
     });
-  }, [members, search, sexFilter, maritalFilter, clanFilter, departmentFilter]);
+  }, [
+    members,
+    search,
+    sexFilter,
+    maritalFilter,
+    clanFilter,
+    departmentFilter,
+    mentorshipFilter,
+  ]);
 
   const sorted = useMemo(() => {
     if (!filtered) return undefined;
@@ -219,28 +288,48 @@ export function MembersClient() {
     if (!sorted) return;
     downloadCsv(
       "members.csv",
-      ["Name", "Sex", "Marital status", "Clan", "Area(s) of Service", "Verified"],
-      sorted.map(({ profile, activeRoles, departmentMemberships }) => [
+      [
+        "Name",
+        "Phone",
+        "Email",
+        "Sex",
+        "Marital status",
+        "Clan",
+        "Mentorship",
+        "Area(s) of Service",
+        "Verified",
+      ],
+      // Contact details are for Administration (SRS §3.5, spec 0021 AC-3).
+      // Age and date of birth stay out of the export, as they stay out of
+      // the table.
+      sorted.map((entry) => {
+        const { profile, email } = entry;
+        return [
         fullName(profile),
+        profile.phone ?? "",
+        email ?? "",
         profile.sex,
         profile.maritalStatus,
         profile.clanId ? clanNameById.get(profile.clanId) ?? "" : "",
-        [
-          ...activeRoles.map(roleLabel),
-          ...departmentMemberships.map(membershipLabel),
-        ].join("; "),
+        MENTORSHIP_STATUS_LABEL[profile.mentorshipStatus] ?? profile.mentorshipStatus,
+        serviceAreas(entry)
+          .map((area) => area.label)
+          .join("; "),
         profile.verifiedAt
           ? new Date(profile.verifiedAt).toLocaleDateString()
           : "",
-      ]),
+        ];
+      }),
     );
   }
 
-  const columns: Column<MemberEntry>[] = [
+  const allColumns: Column<MemberEntry>[] = [
     {
       key: "photo",
       header: "Photo",
-      render: ({ profile }) => <Avatar name={fullName(profile)} size="md" />,
+      render: ({ profile, photoUrl }) => (
+        <Avatar name={fullName(profile)} src={photoUrl ?? undefined} size="md" />
+      ),
     },
     {
       key: "name",
@@ -251,6 +340,38 @@ export function MembersClient() {
           {fullName(profile)}
         </span>
       ),
+    },
+    {
+      key: "phone",
+      header: "Phone",
+      render: ({ profile }) =>
+        profile.phone ? (
+          <a
+            href={`tel:${profile.phone}`}
+            onClick={(e) => e.stopPropagation()}
+            className="whitespace-nowrap font-mono text-sm text-on-surface hover:text-primary"
+          >
+            {profile.phone}
+          </a>
+        ) : (
+          <span className="text-on-surface-variant">—</span>
+        ),
+    },
+    {
+      key: "email",
+      header: "Email",
+      render: ({ email }) =>
+        email ? (
+          <a
+            href={`mailto:${email}`}
+            onClick={(e) => e.stopPropagation()}
+            className="block max-w-[14rem] truncate text-sm text-on-surface hover:text-primary"
+          >
+            {email}
+          </a>
+        ) : (
+          <span className="text-on-surface-variant">—</span>
+        ),
     },
     {
       key: "sex",
@@ -283,25 +404,65 @@ export function MembersClient() {
       ),
     },
     {
+      key: "mentorship",
+      header: "Mentorship",
+      render: ({ profile }) => (
+        <span className="whitespace-nowrap text-on-surface-variant">
+          {MENTORSHIP_STATUS_LABEL[profile.mentorshipStatus] ?? profile.mentorshipStatus}
+        </span>
+      ),
+    },
+    {
       key: "areaOfService",
       header: "Area(s) of Service",
-      render: ({ activeRoles, departmentMemberships }) =>
-        activeRoles.length === 0 && departmentMemberships.length === 0 ? (
-          <span className="text-on-surface-variant">—</span>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {activeRoles.map((role) => (
-              <Badge key={role._id} variant="role">
-                {roleLabel(role)}
-              </Badge>
-            ))}
-            {departmentMemberships.map((membership) => (
-              <Badge key={membership._id} variant="neutral">
-                {membershipLabel(membership)}
-              </Badge>
-            ))}
+      // One line, whatever someone holds: the first area, then a "+N" that
+      // opens the full list. Leadership roles come first.
+      render: (entry) => {
+        const areas = serviceAreas(entry);
+        if (areas.length === 0) {
+          return <span className="text-on-surface-variant">—</span>;
+        }
+        const [first, ...rest] = areas;
+        return (
+          <div className="flex max-w-[16rem] items-center gap-1.5">
+            <Badge variant={first.leader ? "role" : "neutral"} className="min-w-0 truncate">
+              <span className="truncate" title={first.label}>
+                {first.label}
+              </span>
+            </Badge>
+            {rest.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Show all ${areas.length} areas of service`}
+                    className="shrink-0 rounded-full bg-surface-high px-2 py-0.5 font-mono text-[11px] font-semibold text-on-surface-variant transition-colors hover:bg-primary-light hover:text-primary"
+                  >
+                    +{rest.length}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-72 space-y-2"
+                  align="start"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p className="font-body text-xs font-semibold uppercase tracking-wide text-outline">
+                    Areas of service
+                  </p>
+                  <ul className="flex flex-col gap-1.5">
+                    {areas.map((area) => (
+                      <li key={area.label}>
+                        <Badge variant={area.leader ? "role" : "neutral"}>{area.label}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
-        ),
+        );
+      },
     },
     {
       key: "verified",
@@ -316,12 +477,16 @@ export function MembersClient() {
       ),
     },
   ];
+  const columns = allColumns.filter((column) => columnState.isVisible(column.key));
 
   const rangeStart = (clampedPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = sorted
     ? Math.min(clampedPage * PAGE_SIZE, sorted.length)
     : 0;
 
+  const selectedMember = members?.find(
+    (m) => m.profile._id === selectedProfileId,
+  );
   const selectedProfile = useAuthQuery(
     api.memberProfiles.getProfileForReview,
     selectedProfileId ? { profileId: selectedProfileId } : "skip",
@@ -462,8 +627,32 @@ export function MembersClient() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-1.5">
+              <p className="font-body text-xs uppercase tracking-wide text-outline">
+                Mentorship
+              </p>
+              <Select
+                value={mentorshipFilter}
+                onValueChange={(v) => updateFilter(setMentorshipFilter, v)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All mentorship statuses</SelectItem>
+                  {Object.entries(MENTORSHIP_STATUS_LABEL).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </PopoverContent>
         </Popover>
+
+        <ColumnPicker columns={PICKABLE_COLUMNS} state={columnState} />
 
         <Button
           size="sm"
@@ -476,11 +665,50 @@ export function MembersClient() {
         </Button>
       </div>
 
-      <DataTable<MemberEntry>
+      <ResponsiveTable<MemberEntry>
         columns={columns}
         rows={paginated}
         rowKey={({ profile }) => profile._id}
         onRowClick={({ profile }) => setSelectedProfileId(profile._id)}
+        card={(entry) => (
+          <RowCard onClick={() => setSelectedProfileId(entry.profile._id)}>
+            <div className="flex items-center gap-3">
+              <Avatar
+                name={fullName(entry.profile)}
+                src={entry.photoUrl ?? undefined}
+                size="md"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-body text-sm font-semibold text-on-surface">
+                  {fullName(entry.profile)}
+                </p>
+                <p className="font-body text-xs text-on-surface-variant">
+                  {entry.profile.clanId
+                    ? clanNameById.get(entry.profile.clanId) ?? "No clan"
+                    : "No clan"}
+                </p>
+              </div>
+            </div>
+            <dl className="mt-3 grid grid-cols-1 gap-2">
+              <div>
+                <dt className="font-body text-xs uppercase tracking-wide text-outline">
+                  Phone
+                </dt>
+                <dd className="font-mono text-sm text-on-surface">
+                  {entry.profile.phone ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-body text-xs uppercase tracking-wide text-outline">
+                  Email
+                </dt>
+                <dd className="truncate font-body text-sm text-on-surface">
+                  {entry.email ?? "—"}
+                </dd>
+              </div>
+            </dl>
+          </RowCard>
+        )}
         sortKey={sortKey}
         sortDirection={sortDirection}
         onSortChange={handleSortChange}
@@ -530,7 +758,22 @@ export function MembersClient() {
                 Profile unavailable.
               </p>
             ) : (
-              <ProfileDetails profile={selectedProfile} />
+              <div className="space-y-4">
+                {selectedMember?.email && (
+                  <div className="rounded-md bg-surface-lowest p-4 shadow-e1">
+                    <p className="font-body text-xs uppercase tracking-wide text-outline">
+                      Email
+                    </p>
+                    <a
+                      href={`mailto:${selectedMember.email}`}
+                      className="mt-1 block break-all font-body text-sm text-on-surface hover:text-primary"
+                    >
+                      {selectedMember.email}
+                    </a>
+                  </div>
+                )}
+                <ProfileDetails profile={selectedProfile} />
+              </div>
             )}
           </div>
         </SheetContent>

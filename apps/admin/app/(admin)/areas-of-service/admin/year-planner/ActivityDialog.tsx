@@ -24,6 +24,16 @@ import {
 import { FilterChip } from "@/components/ui/FilterBar";
 import { DatePicker } from "@/components/ui/DatePicker";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/shadcn/alert-dialog";
+import {
   ACTIVITY_STATUS_OPTIONS,
   Field,
   errorMessage,
@@ -81,6 +91,9 @@ export function ActivityDialog({
   const [form, setForm] = useState<FormState>(() => emptyForm(defaultDate));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteActivity = useMutation(api.plannedActivities.deleteActivity);
 
   // The Dialog stays mounted between opens — re-seed the form each time it
   // opens for a (possibly different) edit target or pre-filled day.
@@ -144,6 +157,23 @@ export function ActivityDialog({
       onOpenChange(false);
     } catch (mutationError) {
       setError(errorMessage(mutationError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Deleting is final (spec 0021, AC-20): the row is removed, with a snapshot
+  // kept in the activity log, so it asks first.
+  async function doDelete() {
+    if (!activity) return;
+    setBusy(true);
+    setDeleteError(null);
+    try {
+      await deleteActivity({ activityId: activity.activityId });
+      setConfirmingDelete(false);
+      onOpenChange(false);
+    } catch (mutationError) {
+      setDeleteError(errorMessage(mutationError));
     } finally {
       setBusy(false);
     }
@@ -223,6 +253,20 @@ export function ActivityDialog({
           )}
         </div>
         <DialogFooter>
+          {activity && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-error sm:mr-auto"
+              disabled={busy}
+              onClick={() => {
+                setDeleteError(null);
+                setConfirmingDelete(true);
+              }}
+            >
+              Delete
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => !busy && onOpenChange(false)}>
             Cancel
           </Button>
@@ -231,6 +275,28 @@ export function ActivityDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog
+        open={confirmingDelete}
+        onOpenChange={(next) => !busy && setConfirmingDelete(next)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this activity?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{activity?.title}&rdquo; is removed from the planner for everyone. This
+              can&rsquo;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && <p className="font-body text-sm text-error">{deleteError}</p>}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Keep it</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" loading={busy} onClick={doDelete}>
+              Delete activity
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

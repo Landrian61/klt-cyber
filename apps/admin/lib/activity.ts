@@ -101,10 +101,49 @@ export function describeActivity(entry: ActivityEntry): string {
       return `${actor} suspended ${target}'s account`;
     case "user.unsuspended":
       return `${actor} reactivated ${target}'s account`;
-    default:
+    default: {
+      const church = CHURCH_ACTION_PHRASES[entry.action];
+      if (church) return church(actor, target);
       return `${actor} — ${entry.action}`;
+    }
   }
 }
+
+/**
+ * Church activity the Administration dashboard shows (spec 0021, AC-1; the
+ * allowlist is `CHURCH_ACTIVITY_ACTIONS` in @klt-cyber/shared). The summary
+ * stays a client concern, as it always has been.
+ */
+const CHURCH_ACTION_PHRASES: Record<string, (actor: string, target: string) => string> = {
+  "profile.submitted": (a) => `${a} submitted their member profile`,
+  "profile.resubmitted": (a) => `${a} resubmitted their member profile`,
+  "profile.verified": (a, t) => `${a} verified ${t}'s profile`,
+  "profile.sent_back": (a, t) => `${a} sent ${t}'s profile back for changes`,
+  "department.claim_confirmed": (a, t) => `${a} confirmed ${t}'s department claim`,
+  "department.claim_declined": (a, t) => `${a} declined ${t}'s department claim`,
+  "department.member_added": (a, t) => `${a} added ${t} to a department`,
+  "department.delegate_appointed": (a, t) => `${a} appointed ${t} as a delegate`,
+  "department.delegate_removed": (a, t) => `${a} removed ${t} as a delegate`,
+  "content.event_created": (a) => `${a} created an event`,
+  "content.event_updated": (a) => `${a} updated an event`,
+  "content.event_cancelled": (a) => `${a} cancelled an event`,
+  "content.event_archived": (a) => `${a} archived an event`,
+  "content.announcement_created": (a) => `${a} drafted an announcement`,
+  "content.announcement_updated": (a) => `${a} updated an announcement`,
+  "content.announcement_published": (a) => `${a} published an announcement`,
+  "content.program_created": (a) => `${a} added a weekly program`,
+  "content.program_updated": (a) => `${a} updated a weekly program`,
+  "content.program_activated": (a) => `${a} switched a weekly program on`,
+  "content.program_deactivated": (a) => `${a} switched a weekly program off`,
+  "content.program_occurrence_cancelled": (a) => `${a} called off a program occurrence`,
+  "content.program_occurrence_restored": (a) => `${a} restored a program occurrence`,
+  "content.activity_created": (a) => `${a} planned an activity`,
+  "content.activity_updated": (a) => `${a} updated a planned activity`,
+  "content.activity_deleted": (a) => `${a} deleted a planned activity`,
+  "department.activity_created": (a) => `${a} scheduled a department activity`,
+  "department.activity_updated": (a) => `${a} updated a department activity`,
+  "department.activity_cancelled": (a) => `${a} cancelled a department activity`,
+};
 
 /**
  * The user a feed row should link to: the person the event was about,

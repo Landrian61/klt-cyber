@@ -8,7 +8,12 @@ export function errorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
   const uncaught = raw.match(/Uncaught (?:Convex)?Error:\s*(.+)/);
   const line = (uncaught?.[1] ?? raw).split("\n")[0]?.trim() ?? "";
-  const cleaned = line.replace(/\s+at\s+\S[\s\S]*$/, "").trim();
+  const cleaned = line
+    .replace(/\s+at\s+\S[\s\S]*$/, "")
+    // Coded server errors read "CODE: message" (e.g. EVENT_ALREADY_ENDED);
+    // the code is for matching, the message is for people.
+    .replace(/^[A-Z][A-Z0-9_]+:\s*/, "")
+    .trim();
   return cleaned || "Something went wrong. Please try again.";
 }
 
