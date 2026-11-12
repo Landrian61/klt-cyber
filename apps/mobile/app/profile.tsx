@@ -1,8 +1,10 @@
-import { Children, cloneElement, isValidElement, useState, type ReactNode } from 'react';
 import {
-  View, Text, StyleSheet, ActivityIndicator, Pressable, Switch,
+  Children, cloneElement, isValidElement, useCallback, useEffect, useState, type ReactNode,
+} from 'react';
+import {
+  View, Text, StyleSheet, ActivityIndicator, Pressable,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -10,12 +12,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, FadeOut, useReducedMotion } from 'react-native-reanimated';
 
 import {
   CLAN_UNASSIGNED_COPY,
   MENTORSHIP_STATUS_LABEL,
   PROFILE_LIFECYCLE_COPY,
+  SETTINGS_COPY,
   profileLifecycleErrorMessage,
 } from '@klt-cyber/shared';
 
@@ -24,12 +27,12 @@ import {
 } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Button } from '@/components/ui/button';
-import { authClient } from '@/lib/auth';
 import { api, type Id } from '@/lib/api';
 import { useMyAccount } from '@/hooks/use-my-account';
 import { getDisplayName, getInitials } from '@/lib/user-display';
-import { NotificationPermissionRow } from '@/components/notification-permission-row';
 import { MyAreasOfService } from '@/components/my-areas-of-service';
+import { PortalPointerCard } from '@/components/profile/portal-pointer-card';
+import { takeFlashMessage } from '@/lib/flash-message';
 import { SelectList } from '@/components/ui/select-list';
 
 const SEX_LABEL: Record<string, string> = { male: 'Male', female: 'Female' };
@@ -115,10 +118,23 @@ export default function ProfileScreen() {
   const photoUrl = account?.photoUrl ?? undefined;
   const myProfile = useQuery(api.profile.getMyProfile);
   const clans = useQuery(api.clans.listClans);
+  const churchLife = useQuery(api.profile.getMyChurchLife);
   const reduceMotion = useReducedMotion();
 
-  const unregisterPushToken = useMutation(api.notifications.unregisterMyPushNotificationToken);
-  const setDirectorySharing = useMutation(api.profile.setDirectorySharing);
+  // "Profile updated" after the edit screen saves (spec 0023, AC-8).
+  const [flash, setFlash] = useState<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const message = takeFlashMessage();
+      if (message) setFlash(message);
+    }, []),
+  );
+  useEffect(() => {
+    if (!flash) return;
+    const timer = setTimeout(() => setFlash(null), 3000);
+    return () => clearTimeout(timer);
+  }, [flash]);
+
   const changeMyClan = useMutation(api.profile.changeMyClan);
   const [clanPickerOpen, setClanPickerOpen] = useState(false);
   const [clanBusy, setClanBusy] = useState(false);
@@ -142,36 +158,26 @@ export default function ProfileScreen() {
       setClanBusy(false);
     }
   };
-  const [sharingBusy, setSharingBusy] = useState(false);
-
-  const onSharingChange = async (next: boolean) => {
-    // Optimistic feels wrong for a disclosure choice: the switch waits for the
-    // server, so what it shows is always what is actually stored.
-    setSharingBusy(true);
+  // The Edit target comes from the stored profile state (spec 0023, AC-2):
+  // a waiting or verified profile edits field by field, while a sent back
+  // profile, or nobody's profile yet, goes through the wizard, because only
+  // the wizard resubmits. Disabled until `getMyProfile` resolves, so the tap
+  // is never dead and never guesses.
+  const editLoading = myProfile === undefined;
+  const onEditTap = () => {
+    if (editLoading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      await setDirectorySharing({ directorySharing: next });
-    } catch {
-      // The reactive query still holds the stored value, so the switch springs
-      // back on its own and nothing needs undoing here.
-    } finally {
-      setSharingBusy(false);
+    const status = myProfile?.profileStatus;
+    if (status === 'pending_verification' || status === 'verified') {
+      router.push('/edit-profile' as any);
+    } else {
+      router.push('/profile-completion' as any);
     }
   };
 
-  const signOut = async () => {
-    // Best-effort — a failed unregister shouldn't block sign-out. Without
-    // this, this device's push token stays attached to the account signing
-    // out, and the next account that signs in here would share it (see
-    // convex/notifications.ts's doc comment on this mutation).
-    await unregisterPushToken().catch(() => {});
-    await authClient.signOut();
-  };
-
-  const onEditTap = () => {
-    // Member profile editing is not yet a dedicated screen; give tactile
-    // feedback so the affordance feels alive until that flow ships.
+  const onSettingsTap = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/settings' as any);
   };
 
   if (isLoading) {
@@ -209,6 +215,14 @@ export default function ProfileScreen() {
       : 'Not provided';
   const hasFamily = isMarried || children.length > 0 || !!profile?.nextOfKin;
   const showProfile = !!profile;
+  // Every active role, "HOD, Media" style (spec 0023, AC-4).
+  const roleRows = (churchLife?.roles ?? []).map((role, i) => (
+    <DetailRow
+      key={role._id}
+      label={i === 0 ? SETTINGS_COPY.churchLife.roles : ''}
+      value={role.scopeName ? `${role.label}, ${role.scopeName}` : role.label}
+    />
+  ));
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.surface }]}>
@@ -242,11 +256,21 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }} />
             <Pressable
               onPress={onEditTap}
-              style={styles.circleBtn}
+              disabled={editLoading}
+              style={[styles.circleBtn, editLoading && styles.dimmed]}
               accessibilityRole="button"
               accessibilityLabel="Edit profile"
+              accessibilityState={{ disabled: editLoading }}
             >
               <Ionicons name="pencil" size={18} color="#FFFFFF" />
+            </Pressable>
+            <Pressable
+              onPress={onSettingsTap}
+              style={[styles.circleBtn, styles.headerGap]}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
+              <Ionicons name="settings-outline" size={19} color="#FFFFFF" />
             </Pressable>
           </View>
 
@@ -271,6 +295,7 @@ export default function ProfileScreen() {
               )}
               <Pressable
                 onPress={onEditTap}
+                disabled={editLoading}
                 style={[styles.cameraBadge, { backgroundColor: Colors.surfaceLowest }]}
                 accessibilityRole="button"
                 accessibilityLabel="Change photo"
@@ -303,6 +328,18 @@ export default function ProfileScreen() {
         </LinearGradient>
 
         <View style={styles.body}>
+          {flash ? (
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.duration(240)}
+              exiting={reduceMotion ? undefined : FadeOut.duration(200)}
+              style={[styles.pendingBanner, { backgroundColor: Colors.successLight }]}
+              accessibilityLiveRegion="polite"
+              accessibilityRole="alert"
+            >
+              <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+              <Text style={[styles.pendingText, { color: Colors.onSurface }]}>{flash}</Text>
+            </Animated.View>
+          ) : null}
           {/* Visitor: prompt to complete profile */}
           {isVisitor && !isPending && !isSentBack && (
             <View style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}>
@@ -394,7 +431,7 @@ export default function ProfileScreen() {
                 </DetailCard>
               )}
 
-              <DetailCard title="CLAN" delay={160}>
+              <DetailCard title={SETTINGS_COPY.churchLife.title} delay={160}>
                 {/* A verified member with no clan is waiting on Hospitality,
                     not on themselves, so "Not set" would read as a field they
                     forgot to fill in (spec 0014, AC-24). */}
@@ -413,6 +450,7 @@ export default function ProfileScreen() {
                     profile.mentorshipStatus
                   }
                 />
+                {roleRows}
               </DetailCard>
 
               {/* A verified member changes their own clan whenever they like
@@ -481,6 +519,14 @@ export default function ProfileScreen() {
                   (F2-07). Member only: a request to serve is only actionable
                   once the person asking has been verified. */}
               {isMember && <MyAreasOfService />}
+              {/* A pending visitor sees the areas they asked for, read only
+                  (spec 0023, AC-4): a request to serve is only actionable
+                  once they are verified. */}
+              {isPending && <MyAreasOfService readOnly />}
+
+              {churchLife?.portal.show ? (
+                <PortalPointerCard reasons={churchLife.portal.reasons} delay={180} />
+              ) : null}
 
               {leadership.length > 0 && (
                 <DetailCard title="LEADERSHIP" delay={200}>
@@ -503,101 +549,19 @@ export default function ProfileScreen() {
             </>
           )}
 
-          {/* Notification settings — independent of visitor/pending/member
-              lifecycle, so it's always rendered rather than gated on `showProfile`. */}
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(280)}
-            style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}
-          >
-            <Text style={[styles.cardLabel, { color: Colors.primary }]}>NOTIFICATIONS</Text>
-            <NotificationPermissionRow />
-          </Animated.View>
-
-          {/* The member-facing directory toggle (spec 0014, AC-17). It has to
-              live here as well as on the portal Settings page, because the
-              portal is for role holders: a plain member can only reach this
-              choice on their phone. Saves on the switch, not behind a button
-              — it is one decision, not a form. */}
-          {isMember && profile && (
-            <Animated.View
-              entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(320)}
-              style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}
-            >
-              <Text style={[styles.cardLabel, { color: Colors.primary }]}>
-                MEMBER DIRECTORY
-              </Text>
-              <View style={styles.sharingRow}>
-                <View style={styles.sharingText}>
-                  <Text style={[styles.sharingTitle, { color: Colors.onSurface }]}>
-                    Let other members find me
-                  </Text>
-                  <Text style={[styles.sharingBody, { color: Colors.onSurfaceVariant }]}>
-                    Your name, photo and areas of service show in the church
-                    directory. Your phone number, address and family details
-                    never do.
-                  </Text>
-                </View>
-                <Switch
-                  value={profile.directorySharing === true}
-                  disabled={sharingBusy}
-                  onValueChange={onSharingChange}
-                  trackColor={{ false: Colors.surfaceHigh, true: Colors.primaryFixedDim }}
-                  thumbColor={
-                    profile.directorySharing === true ? Colors.primary : Colors.outline
-                  }
-                  accessibilityLabel="Let other members find me in the directory"
-                />
-              </View>
-            </Animated.View>
+          {/* Roles held by someone with no profile yet (the seed bootstrapped
+              admin is a visitor and a System Admin at once): they still see
+              what they hold and where the portal is. */}
+          {!showProfile && roleRows.length > 0 && (
+            <>
+              <DetailCard title={SETTINGS_COPY.churchLife.title} delay={160}>
+                {roleRows}
+              </DetailCard>
+              {churchLife?.portal.show ? (
+                <PortalPointerCard reasons={churchLife.portal.reasons} delay={180} />
+              ) : null}
+            </>
           )}
-
-          {/* Followed radio programs (spec 0019, AC-9, M6-05). Everyone signed
-              in, visitors included: following is never gated on users.role. */}
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInUp.duration(320).delay(360)}
-            style={[styles.card, ShadowE1, { backgroundColor: Colors.surfaceLowest }]}
-          >
-            <Text style={[styles.cardLabel, { color: Colors.primary }]}>REIGN RADIO</Text>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/radio-follows' as any);
-              }}
-              style={styles.sharingRow}
-              accessibilityRole="button"
-              accessibilityLabel="Followed radio programs"
-              accessibilityHint="Choose which programs send you a push when they go live"
-            >
-              <View style={styles.sharingText}>
-                <Text style={[styles.sharingTitle, { color: Colors.onSurface }]}>
-                  Followed radio programs
-                </Text>
-                <Text style={[styles.sharingBody, { color: Colors.onSurfaceVariant }]}>
-                  Get a push when a program you follow goes live.
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.outline} />
-            </Pressable>
-          </Animated.View>
-
-          {/* Actions */}
-          <View style={styles.actions}>
-            <Button label="Sign out" variant="destructive" fullWidth onPress={signOut} />
-            {/* Account deletion (SRS F1-06, spec 0008). Reachable from inside
-                the app because Apple and Google both require it to be, and
-                styled as a quiet text link rather than a second red button:
-                it sits next to sign out, and the two must not look equally
-                routine. Everything that explains and confirms the deletion
-                lives on the screen it opens (AC-1). */}
-            <Button
-              label="Delete account"
-              variant="textLink"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/delete-account');
-              }}
-            />
-          </View>
         </View>
       </Animated.ScrollView>
     </View>
@@ -758,32 +722,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
-  actions: {
-    marginTop: Spacing[2],
-  },
-  sharingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[4],
-    marginTop: Spacing[2],
-  },
-  sharingText: { flex: 1 },
+  headerGap: { marginLeft: Spacing[2] },
+  dimmed: { opacity: 0.5 },
   clanPicker: { gap: Spacing[2] },
   clanError: {
     fontFamily: FontFamily.body,
     fontSize: 13,
     lineHeight: 20,
     marginTop: Spacing[3],
-  },
-  sharingTitle: {
-    fontFamily: FontFamily.bodySemiBold,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  sharingBody: {
-    fontFamily: FontFamily.body,
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 2,
   },
 });

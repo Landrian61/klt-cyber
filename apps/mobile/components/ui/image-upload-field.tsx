@@ -20,6 +20,8 @@ export interface ImageUploadFieldProps {
   circular?: boolean;
   /** Copy on the empty-state tap target. */
   emptyLabel?: string;
+  /** Told when an upload starts and ends, so a parent can hold its Save. */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 /**
@@ -44,6 +46,7 @@ export function ImageUploadField({
   onChange,
   circular = false,
   emptyLabel = 'Add image',
+  onBusyChange,
 }: ImageUploadFieldProps) {
   const Colors = useThemeColors();
   const upload = useR2Upload();
@@ -67,6 +70,7 @@ export function ImageUploadField({
     setError(undefined);
     setPreviewUri(asset.uri);
     setBusy(true);
+    onBusyChange?.(true);
     try {
       const key = await upload(asset.uri, asset.mimeType ?? 'image/jpeg');
       onChange(key);
@@ -76,6 +80,7 @@ export function ImageUploadField({
       onChange(undefined);
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   };
 
