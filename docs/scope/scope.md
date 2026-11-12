@@ -382,9 +382,17 @@ SRS: M5-01, M5-02, M5-03, M5-04, M5-05, F2-13, NF-02 · code: `apps/mobile/app/m
 ### 14. My Profile and settings · in-progress
 Track B. Give every user one screen to see and change everything about themselves — profile, sharing, notifications, account.
 **Done when:** M6-01: My Profile shows the real mentorship status (F2-11). M6-02: editing details/photo (F2-03, F2-06 to F2-08); a change to mentorship "Completed" shows "Awaiting confirmation" (F2-14). M6-03: departments, pending claims, clan (or "to be assigned"), and roles are visible; role holders get a pointer to the web portal. M6-04: directory sharing toggles on/off. M6-05: notification categories and followed radio programs are chosen here (F4-19, R1-07). M6-06: change password, sign out, delete account. M6-07: Help & Support reaches Andrew (F5-11).
-- [ ] Design remaining work (spec): `/architect My Profile and settings`
-Spec: not yet captured
-SRS: M6-01, M6-02, M6-03, M6-04, M6-05, M6-06, M6-07, F5-11
+- [x] Design remaining work (spec): `/architect My Profile and settings`
+Spec: [0023](../specs/_root/0023-my-profile-settings/index.md)
+- [x] Build it: `/develop My Profile and settings`
+  - [x] Thin thread: the Settings shell, `getMyChurchLife`, the roles list and the portal pointer end to end, satisfies AC-1, AC-4, AC-5, AC-6, AC-17, AC-26, AC-27
+  - [x] Move sharing, notifications, sign out and delete account into Settings; read only areas for pending visitors, satisfies AC-3, AC-4, AC-18, AC-19, AC-20, AC-25
+  - [x] The edit screen: `profileEditSchema`, the snapshot diff, sections, photo, row sheets, mentorship lock, leave guard, errors, sent back takeover, satisfies AC-2, AC-7 to AC-16, AC-25, AC-27
+  - [x] Change password and Help & Support, satisfies AC-21 to AC-25, AC-27
+- [ ] Verify it: `/check verify My Profile and settings`
+- [ ] Test it: `/test My Profile and settings`
+- [ ] Document it: `/document My Profile and settings`
+SRS: M6-01, M6-02, M6-03, M6-04, M6-05, M6-06, M6-07, F5-11 · code: `apps/mobile/app/profile.tsx`, `apps/mobile/app/edit-profile.tsx`, `apps/mobile/app/settings/{_layout,index,notifications,change-password,help}.tsx`, `apps/mobile/app/_layout.tsx` (routes, `NO_MINI_PLAYER_ROUTES`), `apps/mobile/components/settings/settings-ui.tsx`, `apps/mobile/components/profile/{portal-pointer-card,edit-row-sheets}.tsx`, `apps/mobile/components/my-areas-of-service.tsx` (`readOnly`), `apps/mobile/components/ui/image-upload-field.tsx` (`onBusyChange`), `apps/mobile/lib/flash-message.ts`, `convex/profile.ts` (`getMyChurchLife`), `convex/profileChurchLife.test.ts`, `packages/shared/src/constants/settings.ts` (plus its test), `packages/shared/src/schemas/{profile,profileEdit}.ts` (plus `profileEdit.test.ts`)
 
 ### 24. Hospitality core: visitors, follow-ups, regulars, clan placement, reports · in-progress · GA
 Track B. Give Hospitality one place to record every visitor (app or walk-in), follow up with first-timers, spot regulars heading toward membership, and place unassigned members into a clan.
