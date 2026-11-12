@@ -534,4 +534,32 @@ describe("radio.getPlaybackConfig artwork (spec 0020, AC-7)", () => {
     as(null);
     expect(await t.query(api.radio.getPlaybackConfig, {})).toBeNull();
   });
+
+  it("hands players the probe's current listener pass in place of the typed one", async () => {
+    const t = testConvex();
+    const member = await createUser(t, "Plain");
+    as(member.authId);
+    vi.stubEnv("RADIO_STREAM_URL", "https://h.example:43348/listen.mp3?authn0000aaaa1111bbbb2222cccc3333dddd");
+    vi.stubEnv("RADIO_PASS_SOURCE_URL", "https://widgets.example/em_player.php");
+
+    // No pass read yet: the env url exactly as written.
+    expect((await t.query(api.radio.getPlaybackConfig, {}))?.streamUrl).toBe(
+      "https://h.example:43348/listen.mp3?authn0000aaaa1111bbbb2222cccc3333dddd"
+    );
+
+    await t.mutation(internal.radio.recordProbe, {
+      outcome: "live",
+      listenerPass: "authn9999eeee8888ffff7777aaaa6666bbbb",
+      listenerPassCheckedAt: Date.now(),
+    });
+    expect((await t.query(api.radio.getPlaybackConfig, {}))?.streamUrl).toBe(
+      "https://h.example:43348/listen.mp3?authn9999eeee8888ffff7777aaaa6666bbbb"
+    );
+
+    // Without a source page the env url wins as typed, stored pass or not.
+    vi.stubEnv("RADIO_PASS_SOURCE_URL", "");
+    expect((await t.query(api.radio.getPlaybackConfig, {}))?.streamUrl).toBe(
+      "https://h.example:43348/listen.mp3?authn0000aaaa1111bbbb2222cccc3333dddd"
+    );
+  });
 });
