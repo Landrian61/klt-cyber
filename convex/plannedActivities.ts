@@ -7,14 +7,9 @@ import {
   logActivity,
 } from "./lib/authz";
 import {
-  DAY_MS,
-  KAMPALA_OFFSET_MS,
-  kampalaParts,
-  occurrenceInstant,
-  ymd,
-} from "./calendar";
-import { weeklyProgramOccursOn } from "./lib/recurrence";
-import { cancellationKey, getCancellationsInRange } from "./lib/occurrences";
+  buildPlannerItems,
+  listGroupActivitiesInRange,
+} from "./lib/plannerRange";
 
 // Year Planner. Internal planning records, never shown
 // to members — distinct from the member-facing `weeklyPrograms`/`events`
@@ -56,146 +51,12 @@ export const getYearPlannerRange = query({
       throw new Error("endDate must be on or after startDate");
     }
 
-    const rangeStart = kampalaParts(startDate);
-    const rangeEnd = kampalaParts(endDate);
-
-    const [programs, eventsInRange, activitiesInRange, cancellations] = await Promise.all([
-      ctx.db
-        .query("weeklyPrograms")
-        .withIndex("by_active", (q) => q.eq("active", true))
-        .collect(),
-      ctx.db
-        .query("events")
-        .withIndex("by_startDateTime", (q) =>
-          q.gte("startDateTime", startDate).lte("startDateTime", endDate)
-        )
-        .collect(),
-      ctx.db
-        .query("plannedActivities")
-        .withIndex("by_targetDate", (q) =>
-          q.gte("targetDate", startDate).lte("targetDate", endDate)
-        )
-        .collect(),
-      // Called-off program occurrences in the same window (spec 0009), through
-      // the same helper the member-facing calendar uses so the planner and the
-      // app cannot disagree about what is off.
-      getCancellationsInRange(
-        ctx,
-        ymd(rangeStart.year, rangeStart.month, rangeStart.day),
-        ymd(rangeEnd.year, rangeEnd.month, rangeEnd.day)
-      ),
+    const [items, groupActivities] = await Promise.all([
+      buildPlannerItems(ctx, startDate, endDate),
+      // Department and clan activities, shown read only (spec 0021, AC-21).
+      listGroupActivitiesInRange(ctx, startDate, endDate),
     ]);
-
-    type PlannerItem =
-      | {
-          type: "program";
-          date: string;
-          start: number;
-          occurrenceKey: string;
-          programId: string;
-          title: string;
-          startTime: string;
-          endTime?: string;
-          location?: string;
-          // Spec 0009. `notifiedAt` is planner-only (the member calendar has no
-          // use for it): it is what lets the restore dialog warn that members
-          // have already been told the occurrence was off.
-          cancelled: boolean;
-          cancellationReason?: string;
-          notifiedAt?: number;
-        }
-      | {
-          type: "event";
-          date: string;
-          start: number;
-          eventId: string;
-          title: string;
-          location?: string;
-        }
-      | {
-          type: "activity";
-          date: string;
-          start: number;
-          activityId: string;
-          title: string;
-          description?: string;
-          status: Doc<"plannedActivities">["status"];
-          departmentIds: Doc<"plannedActivities">["departmentIds"];
-        };
-
-    const items: PlannerItem[] = [];
-
-    // Walk each Kampala-local calendar day in the range, expanding active
-    // programs onto matching weekdays — identical approach to
-    // calendar.getCalendarRange, kept separate because this query also needs
-    // to layer in plannedActivities (an admin-only table the public calendar
-    // must never see).
-    const firstDay = kampalaParts(startDate);
-    let dayCursor =
-      Date.UTC(firstDay.year, firstDay.month, firstDay.day) - KAMPALA_OFFSET_MS;
-    for (; dayCursor <= endDate; dayCursor += DAY_MS) {
-      const parts = kampalaParts(dayCursor);
-      for (const program of programs) {
-        if (!weeklyProgramOccursOn(program, dayCursor, parts)) continue;
-        const startTime = program.startTime ?? program.time;
-        if (!startTime) continue; // shouldn't happen post-migration; defensive
-        const instant = occurrenceInstant(
-          parts.year,
-          parts.month,
-          parts.day,
-          startTime
-        );
-        if (instant < startDate || instant > endDate) continue;
-        const date = ymd(parts.year, parts.month, parts.day);
-        const cancellation = cancellations.get(cancellationKey(program._id, date));
-        items.push({
-          type: "program",
-          date,
-          start: instant,
-          occurrenceKey: `${program._id}_${date}`,
-          programId: program._id,
-          title: program.title,
-          startTime,
-          ...(program.endTime ? { endTime: program.endTime } : {}),
-          ...(program.location ? { location: program.location } : {}),
-          cancelled: cancellation !== undefined,
-          ...(cancellation?.reason ? { cancellationReason: cancellation.reason } : {}),
-          ...(cancellation?.notifiedAt !== undefined
-            ? { notifiedAt: cancellation.notifiedAt }
-            : {}),
-        });
-      }
-    }
-
-    for (const event of eventsInRange) {
-      if (!event.active) continue;
-      const parts = kampalaParts(event.startDateTime);
-      items.push({
-        type: "event",
-        date: ymd(parts.year, parts.month, parts.day),
-        start: event.startDateTime,
-        eventId: event._id,
-        title: event.title,
-        ...(event.location ? { location: event.location } : {}),
-      });
-    }
-
-    for (const activity of activitiesInRange) {
-      const parts = kampalaParts(activity.targetDate);
-      items.push({
-        type: "activity",
-        date: ymd(parts.year, parts.month, parts.day),
-        start: activity.targetDate,
-        activityId: activity._id,
-        title: activity.title,
-        ...(activity.description ? { description: activity.description } : {}),
-        status: activity.status,
-        departmentIds: activity.departmentIds,
-      });
-    }
-
-    items.sort((a, b) => a.start - b.start);
-    return items;
+    return { items, groupActivities };
   },
 });
 
@@ -280,5 +141,38 @@ export const updateActivity = mutation({
       targetId: activityId,
     });
     return { ok: true as const };
+  },
+});
+
+/**
+ * Deletes a planned activity outright (spec 0021, AC-20). The planner asks for
+ * confirmation first; the row is gone afterwards, so the audit entry carries
+ * a snapshot of what was deleted.
+ *
+ * The snapshot records the row's real fields. The spec names `startDate` and
+ * `endDate`, but a planned activity has one `targetDate`, so that is what is
+ * kept.
+ */
+export const deleteActivity = mutation({
+  args: { activityId: v.id("plannedActivities") },
+  handler: async (ctx, { activityId }) => {
+    const actor = await canManageContent(ctx);
+    const existing = await ctx.db.get(activityId);
+    if (!existing) throw new Error("NOT_FOUND: Activity not found.");
+
+    await ctx.db.delete(activityId);
+    await logActivity(ctx, {
+      actorUserId: actor._id,
+      action: "content.activity_deleted",
+      targetType: "plannedActivities",
+      targetId: activityId,
+      metadata: {
+        title: existing.title,
+        targetDate: existing.targetDate,
+        departmentIds: existing.departmentIds,
+        status: existing.status,
+      },
+    });
+    return null;
   },
 });

@@ -11,6 +11,7 @@ import {
   vLibraryStockDirection,
 } from "./lib/libraryValidators";
 import { vNotificationKind } from "./lib/notificationValidators";
+import { eventAudienceValidator } from "./lib/eventAudience";
 import {
   vRadioBroadcastOrigin,
   vRadioBroadcastStatus,
@@ -602,7 +603,12 @@ export default defineSchema({
     // every read path here only reports them.
     cancelledAt: v.optional(v.number()), // set = cancelled; absent = it is on
     cancelledBy: v.optional(v.id("users")),
-    cancellationReason: v.optional(v.string()), // shown to members, capped at CANCELLATION_REASON_MAX_LENGTH
+    cancellationReason: v.optional(v.string()), // shown to members, capped at EVENT_CANCELLATION_REASON_MAX_LENGTH
+    // Who the event is for (spec 0021, AC-11): whole church, everyone serving,
+    // or chosen departments. Optional only for the widen and backfill window
+    // (spec 0021 migration plan); read as `church` while missing. Made
+    // required once `eventAudienceMigration:backfillEventAudience` has run.
+    audience: v.optional(eventAudienceValidator),
   })
     .index("by_startDateTime", ["startDateTime"])
     .index("by_featured", ["featured", "startDateTime"]),

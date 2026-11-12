@@ -1,9 +1,13 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { resolveCoverUrls } from "./lib/media";
 import { weeklyProgramOccursOn } from "./lib/recurrence";
 import { cancellationKey, getCancellationsInRange } from "./lib/occurrences";
 import { KAMPALA_UTC_OFFSET_MS } from "@klt-cyber/shared";
+import { getCurrentUser } from "./lib/authz";
+import { getEligibleGroups } from "./lib/groupMembership";
+import { audienceOf, isInEventAudience } from "./lib/eventAudience";
 
 // Calendar is a query, not a table — it avoids a redundant store that could
 // drift from `events` / `weeklyPrograms`. It expands active weekly programs into
@@ -73,6 +77,19 @@ export function kampalaMonthStart(instant: number): number {
   return Date.UTC(year, month, 1) - KAMPALA_OFFSET_MS;
 }
 
+/**
+ * The church week containing `instant`, Monday 00:00 to the last millisecond
+ * of Sunday, in Kampala (spec 0021, AC-2). Built on `kampalaDayStart`, so the
+ * offset is still written down in one place.
+ */
+export function kampalaWeekBounds(instant: number): { start: number; end: number } {
+  const dayStart = kampalaDayStart(instant);
+  // getUTCDay on the shifted instant is the Kampala weekday, Sunday = 0.
+  const daysSinceMonday = (kampalaParts(instant).dayOfWeek + 6) % 7;
+  const start = dayStart - daysSinceMonday * DAY_MS;
+  return { start, end: start + 7 * DAY_MS - 1 };
+}
+
 /** The "YYYY-MM-DD" key of the Kampala-local date containing `instant`. */
 export function kampalaDateKey(instant: number): string {
   const { year, month, day } = kampalaParts(instant);
@@ -87,6 +104,10 @@ export function kampalaDateKey(instant: number): string {
  * each carries a stable `occurrenceKey` of `${programId}_${YYYY-MM-DD}` (per
  * the occurrence-key convention). Events are those whose `startDateTime`
  * falls in range. Both are tagged with `type`.
+ *
+ * Events are filtered to the caller's audience (spec 0021, AC-12): a signed in
+ * caller sees the events they are in the audience of, and a caller who is not
+ * signed in sees `church` events only.
  */
 export const getCalendarRange = query({
   args: { startDate: v.number(), endDate: v.number() },
@@ -97,6 +118,13 @@ export const getCalendarRange = query({
 
     const rangeStart = kampalaParts(startDate);
     const rangeEnd = kampalaParts(endDate);
+
+    const user = await getCurrentUser(ctx);
+    const groups = user ? await getEligibleGroups(ctx, user._id) : null;
+    const inAudience = (event: Doc<"events">) =>
+      groups
+        ? isInEventAudience(groups, audienceOf(event))
+        : audienceOf(event).type === "church";
 
     const [programs, eventsInRange, cancellations] = await Promise.all([
       ctx.db
@@ -150,6 +178,9 @@ export const getCalendarRange = query({
           startDateTime: number;
           endDateTime: number;
           featured: boolean;
+          // Spec 0021, AC-19: a cancelled event stays on the calendar, marked.
+          cancelled: boolean;
+          cancellationReason?: string;
         };
 
     const items: CalendarItem[] = [];
@@ -196,7 +227,7 @@ export const getCalendarRange = query({
     }
 
     for (const event of eventsInRange) {
-      if (!event.active) continue;
+      if (!event.active || !inAudience(event)) continue;
       items.push({
         type: "event",
         start: event.startDateTime,
@@ -208,6 +239,10 @@ export const getCalendarRange = query({
         startDateTime: event.startDateTime,
         endDateTime: event.endDateTime,
         featured: event.featured,
+        cancelled: event.cancelledAt !== undefined,
+        ...(event.cancellationReason
+          ? { cancellationReason: event.cancellationReason }
+          : {}),
       });
     }
 

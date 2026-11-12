@@ -2,8 +2,15 @@ import { query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { getSystemAdminOrNull } from "./lib/authz";
+import {
+  getAdministrationCallerOrNull,
+  getSystemAdminOrNull,
+} from "./lib/authz";
 import { resolvePhotoUrlForUser } from "./lib/identity";
+import { CHURCH_ACTIVITY_ACTIONS } from "@klt-cyber/shared";
+import { kampalaWeekBounds } from "./calendar";
+import { buildPlannerItems } from "./lib/plannerRange";
+import { audienceOf } from "./lib/eventAudience";
 
 // ── Dashboard read queries (system_admin only) ───────────────────────────────
 // Pure reads powering the /system-admin dashboard. All direct-count / in-memory
@@ -65,7 +72,10 @@ async function enrichAssignments(
  * target user (resolved from targetType/targetId or metadata.userId), and the
  * clan name when the event is clan-scoped.
  */
-async function hydrateActivity(ctx: QueryCtx, logs: Doc<"activityLogs">[]) {
+export async function hydrateActivity(
+  ctx: QueryCtx,
+  logs: Doc<"activityLogs">[]
+) {
   const clanNames = await clanNameMap(ctx);
   const userCache = new Map<
     Id<"users">,
@@ -403,5 +413,133 @@ export const listRecentActivity = query({
     const pageLogs = logs.slice(offset, offset + limit);
 
     return { entries: await hydrateActivity(ctx, pageLogs), total };
+  },
+});
+
+// ── Administration dashboard (spec 0021) ─────────────────────────────────────
+
+/** A `role.*` entry about the System Admin role, never shown outside System Admin (AC-1). */
+function isSystemAdminRoleEntry(log: Doc<"activityLogs">): boolean {
+  if (log.action !== "role.assigned" && log.action !== "role.revoked") return false;
+  const metadata = (log.metadata ?? {}) as Record<string, unknown>;
+  return metadata.roleType === "system_admin";
+}
+
+/**
+ * Recent church activity for the Administration dashboard (spec 0021, AC-1).
+ *
+ * Open to anyone with Administration authority (HOD, delegate, System Admin),
+ * unlike `listRecentActivity`, which is System Admin only and is what made
+ * the card error for everyone else. Only actions in the shared
+ * `CHURCH_ACTIVITY_ACTIONS` allowlist are read, one bounded indexed read per
+ * action, merged newest first, and grants of the System Admin role are always
+ * left out (invariant 5). `null`, never a throw, for anyone else.
+ */
+export const listChurchActivity = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    if (!(await getAdministrationCallerOrNull(ctx))) return null;
+    const max = Math.min(Math.max(Math.floor(limit ?? 10), 1), 50);
+
+    const perAction = await Promise.all(
+      CHURCH_ACTIVITY_ACTIONS.map(async (action) => {
+        const kept: Doc<"activityLogs">[] = [];
+        // Walked rather than `take(max)`, so System Admin role entries that are
+        // filtered out do not leave the role actions short.
+        for await (const log of ctx.db
+          .query("activityLogs")
+          .withIndex("by_action", (q) => q.eq("action", action))
+          .order("desc")) {
+          if (isSystemAdminRoleEntry(log)) continue;
+          kept.push(log);
+          if (kept.length >= max) break;
+        }
+        return kept;
+      })
+    );
+
+    const merged = perAction
+      .flat()
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .slice(0, max);
+    return hydrateActivity(ctx, merged);
+  },
+});
+
+/** How far ahead the This week card looks for planned activities, in days. */
+const PLANNED_ACTIVITY_HORIZON_DAYS = 14;
+
+/** How many upcoming church events the This week card lists. */
+const THIS_WEEK_EVENT_COUNT = 5;
+
+/**
+ * The dashboard's This week card (spec 0021, AC-2): the current church week's
+ * program occurrences, the next five church events whatever their audience,
+ * and planned activities starting in the next 14 days.
+ *
+ * Read through the planner's own range logic (`buildPlannerItems`), never the
+ * member audience filter, so an Administration viewer with no roster seat
+ * still sees every event. The week is evaluated with the server clock.
+ */
+export const getThisWeek = query({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await getAdministrationCallerOrNull(ctx))) return null;
+    const now = Date.now();
+    const week = kampalaWeekBounds(now);
+
+    const [weekItems, upcomingEvents, planned] = await Promise.all([
+      buildPlannerItems(ctx, week.start, week.end),
+      ctx.db
+        .query("events")
+        .withIndex("by_startDateTime", (q) => q.gte("startDateTime", now))
+        .order("asc")
+        .filter((q) => q.eq(q.field("active"), true))
+        .take(THIS_WEEK_EVENT_COUNT),
+      ctx.db
+        .query("plannedActivities")
+        .withIndex("by_targetDate", (q) =>
+          q
+            .gte("targetDate", now)
+            .lte("targetDate", now + PLANNED_ACTIVITY_HORIZON_DAYS * DAY_MS)
+        )
+        .collect(),
+    ]);
+
+    return {
+      weekStart: week.start,
+      weekEnd: week.end,
+      programs: weekItems.flatMap((item) =>
+        item.type === "program"
+          ? [
+              {
+                occurrenceKey: item.occurrenceKey,
+                title: item.title,
+                start: item.start,
+                date: item.date,
+                location: item.location ?? null,
+                cancelled: item.cancelled,
+                cancellationReason: item.cancellationReason ?? null,
+              },
+            ]
+          : []
+      ),
+      events: upcomingEvents.map((event) => ({
+        _id: event._id,
+        title: event.title,
+        startDateTime: event.startDateTime,
+        location: event.location ?? null,
+        audience: audienceOf(event),
+        cancelled: event.cancelledAt !== undefined,
+      })),
+      plannedActivities: planned
+        .sort((a, b) => a.targetDate - b.targetDate)
+        .map((activity) => ({
+          _id: activity._id,
+          title: activity.title,
+          targetDate: activity.targetDate,
+          status: activity.status,
+        })),
+    };
   },
 });
