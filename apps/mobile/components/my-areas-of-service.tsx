@@ -34,8 +34,12 @@ import { api, type Id } from '@/lib/api';
  * The cap counts both kinds of row together, which is what the server
  * enforces: counting only confirmed seats would let somebody queue ten
  * requests and land on ten rosters once each head said yes.
+ *
+ * `readOnly` (spec 0023, AC-4) is the pending visitor's view: the same list,
+ * with no add, Withdraw or Leave, because a request to serve is only
+ * actionable once the person asking has been verified.
  */
-export function MyAreasOfService() {
+export function MyAreasOfService({ readOnly = false }: { readOnly?: boolean } = {}) {
   const Colors = useThemeColors();
   const reduceMotion = useReducedMotion();
 
@@ -84,9 +88,9 @@ export function MyAreasOfService() {
 
       {mine.length === 0 ? (
         <Text style={[styles.empty, { color: Colors.onSurfaceVariant }]}>
-          You are not serving anywhere yet. Ask to join up to{' '}
-          {MAX_ACTIVE_DEPARTMENTS} areas, and each one&apos;s head will confirm
-          you.
+          {readOnly
+            ? 'You chose no areas of service. You can ask to join some once your profile is verified.'
+            : `You are not serving anywhere yet. Ask to join up to ${MAX_ACTIVE_DEPARTMENTS} areas, and each one's head will confirm you.`}
         </Text>
       ) : (
         <View style={styles.rows}>
@@ -111,7 +115,7 @@ export function MyAreasOfService() {
                 </Text>
               </View>
 
-              {row.status === 'pending_claim' ? (
+              {readOnly ? null : row.status === 'pending_claim' ? (
                 <Button
                   label="Withdraw"
                   variant="textLink"
@@ -145,7 +149,7 @@ export function MyAreasOfService() {
         </Text>
       ) : null}
 
-      {picking ? (
+      {readOnly ? null : picking ? (
         <Animated.View
           entering={reduceMotion ? undefined : FadeIn.duration(200)}
           style={styles.picker}

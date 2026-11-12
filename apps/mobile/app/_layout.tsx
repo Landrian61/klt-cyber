@@ -159,6 +159,8 @@ function RootLayoutInner() {
           <Stack.Screen name="notifications" />
           <Stack.Screen name="profile" />
           <Stack.Screen name="delete-account" />
+          <Stack.Screen name="edit-profile" />
+          <Stack.Screen name="settings" />
           <Stack.Screen name="giving" />
           <Stack.Screen name="members" />
           <Stack.Screen name="member-detail" />
@@ -204,7 +206,9 @@ function RootLayoutInner() {
  * Screens where the floating mini player would cover the main action, so it
  * stays away: finishing a profile, deleting an account and paying (spec 0020).
  */
-const NO_MINI_PLAYER_ROUTES = new Set(['profile-completion', 'delete-account', 'give']);
+const NO_MINI_PLAYER_ROUTES = new Set([
+  'profile-completion', 'delete-account', 'give', 'edit-profile', 'settings',
+]);
 
 /**
  * The mini player on screens outside the tabs (spec 0020, AC-5). The tabs
