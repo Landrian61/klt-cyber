@@ -13,6 +13,7 @@ export * from './constants/realEstate';
 export * from './constants/radio';
 export * from './constants/churchActivity';
 export * from './constants/publicHolidays';
+export * from './constants/directory';
 export * from './enums/user';
 export * from './enums/roles';
 export * from './enums/departments';
