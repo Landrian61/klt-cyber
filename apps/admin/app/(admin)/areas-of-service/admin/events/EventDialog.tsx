@@ -21,7 +21,27 @@ import { Textarea } from "@/components/shadcn/textarea";
 import { Badge } from "@/components/shadcn/badge";
 import { DateTimePicker } from "@/components/ui/DatePicker";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/shadcn/alert-dialog";
+import {
+  EVENT_CANCELLATION_REASON_MAX_LENGTH,
+  eventAudienceSchema,
+  sameEventAudience,
+} from "@klt-cyber/shared";
 import { Field, SwitchField, errorMessage, formatDateTime } from "../_lib/adminContent";
+import {
+  AudienceBadge,
+  AudienceField,
+  type AudienceValue,
+} from "./AudienceField";
 
 // Row shape comes straight from the Convex query — coverImageUrl arrives
 // already resolved to a display-ready URL (or undefined), no hand-rolled drift.
@@ -36,6 +56,7 @@ interface FormState {
   coverImageUrl: string;
   featured: boolean;
   active: boolean;
+  audience: AudienceValue;
 }
 
 function emptyForm(): FormState {
@@ -48,6 +69,7 @@ function emptyForm(): FormState {
     coverImageUrl: "",
     featured: false,
     active: true,
+    audience: { type: "church" },
   };
 }
 
@@ -61,7 +83,13 @@ function formFromEvent(event: Event): FormState {
     coverImageUrl: event.coverImageUrl ?? "",
     featured: event.featured,
     active: event.active,
+    audience: event.audience,
   };
+}
+
+/** Cancelled events are final and read only (spec 0021, AC-18, AC-19). */
+export function isCancelled(event: Event): boolean {
+  return event.cancelledAt !== undefined;
 }
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
@@ -99,11 +127,24 @@ function EventOverview({ event }: { event: Event }) {
         <DetailRow label="Title">{event.title}</DetailRow>
         <DetailRow label="Status">
           <div className="flex flex-wrap gap-1.5">
-            <Badge variant={event.active ? "verified" : "neutral"}>
-              {event.active ? "Active" : "Archived"}
-            </Badge>
+            {isCancelled(event) && <Badge variant="rejected">Cancelled</Badge>}
+            {(!isCancelled(event) || !event.active) && (
+              <Badge variant={event.active ? "verified" : "neutral"}>
+                {event.active ? "Active" : "Archived"}
+              </Badge>
+            )}
             {event.featured && <Badge variant="member">Featured</Badge>}
           </div>
+        </DetailRow>
+        {isCancelled(event) && (
+          <DetailRow label="Cancellation reason">
+            {event.cancellationReason ? (
+              <span className="text-error">{event.cancellationReason}</span>
+            ) : undefined}
+          </DetailRow>
+        )}
+        <DetailRow label="Audience">
+          <AudienceBadge audience={event.audience} />
         </DetailRow>
         <DetailRow label="Starts">{formatDateTime(event.startDateTime)}</DetailRow>
         <DetailRow label="Ends">{formatDateTime(event.endDateTime)}</DetailRow>
@@ -132,12 +173,16 @@ export function EventDialog({
   const createEvent = useMutation(api.events.createEvent);
   const updateEvent = useMutation(api.events.updateEvent);
   const archiveEvent = useMutation(api.events.archiveEvent);
+  const cancelEvent = useMutation(api.events.cancelEvent);
 
   const [tab, setTab] = useState<"overview" | "edit">("overview");
   const [form, setForm] = useState<FormState>(emptyForm);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelError, setCancelError] = useState<string | null>(null);
   // listAllEvents resolves coverImageUrl to a temporary signed URL (7-day
   // expiry) for display — it is never the durable R2 key. Track whether the
   // admin actually touched the image so an untouched edit omits the field
@@ -173,6 +218,13 @@ export function EventDialog({
       setError("End must be on or after start.");
       return;
     }
+    // The shared contract (spec 0021, AC-11); the server adds the paused and
+    // existence checks.
+    const audienceCheck = eventAudienceSchema.safeParse(form.audience);
+    if (!audienceCheck.success) {
+      setError(audienceCheck.error.issues[0]?.message ?? "Choose who this event is for.");
+      return;
+    }
     setBusy(true);
     try {
       const payload = {
@@ -183,6 +235,8 @@ export function EventDialog({
         endDateTime: form.endDateTime,
         featured: form.featured,
         active: form.active,
+        // Always sent: updateEvent requires it (spec 0021, AC-15).
+        audience: form.audience,
       };
       if (event) {
         await updateEvent({
@@ -221,6 +275,34 @@ export function EventDialog({
       setBusy(false);
     }
   }
+
+  async function doCancel() {
+    if (!event) return;
+    const reason = cancelReason.trim();
+    if (reason.length > EVENT_CANCELLATION_REASON_MAX_LENGTH) {
+      setCancelError(
+        `A reason can be at most ${EVENT_CANCELLATION_REASON_MAX_LENGTH} characters.`,
+      );
+      return;
+    }
+    setBusy(true);
+    setCancelError(null);
+    try {
+      await cancelEvent({ eventId: event._id, reason: reason || undefined });
+      setConfirmingCancel(false);
+      setCancelReason("");
+    } catch (mutationError) {
+      setCancelError(errorMessage(mutationError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const cancelled = event ? isCancelled(event) : false;
+  const canCancel =
+    event !== null && event.active && !cancelled && event.endDateTime > Date.now();
+  const audienceChanged =
+    event !== null && !sameEventAudience(event.audience, form.audience);
 
   const editForm = (
     <div className="space-y-5">
@@ -285,6 +367,22 @@ export function EventDialog({
         </div>
       </div>
 
+      <Field label="Audience" hint="Who sees this event and is notified about it.">
+        <AudienceField
+          value={form.audience}
+          onChange={(value) => set("audience", value)}
+          disabled={busy}
+        />
+      </Field>
+      {audienceChanged && (
+        <p
+          role="status"
+          className="rounded-md bg-warning-light px-3 py-2 font-body text-sm text-warning"
+        >
+          People outside the new audience will stop seeing this event.
+        </p>
+      )}
+
       <Field label="Cover image" hint="Shown at the top of the card (optional).">
         <ImageUpload
           value={form.coverImageUrl || undefined}
@@ -314,7 +412,11 @@ export function EventDialog({
             <DialogTitle>{event ? event.title : "Add event"}</DialogTitle>
           </DialogHeader>
 
-          {event ? (
+          {event && cancelled ? (
+            <div className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
+              <EventOverview event={event} />
+            </div>
+          ) : event ? (
             <Tabs
               value={tab}
               onValueChange={(value) => setTab(value as "overview" | "edit")}
@@ -336,8 +438,21 @@ export function EventDialog({
           )}
 
           <DialogFooter>
-            {event && tab === "overview" ? (
+            {event && (cancelled || tab === "overview") ? (
               <>
+                {canCancel && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-error"
+                    onClick={() => {
+                      setCancelError(null);
+                      setConfirmingCancel(true);
+                    }}
+                  >
+                    Cancel event
+                  </Button>
+                )}
                 {event.active && (
                   <Button
                     variant="ghost"
@@ -347,9 +462,11 @@ export function EventDialog({
                     Archive
                   </Button>
                 )}
-                <Button size="sm" onClick={() => setTab("edit")}>
-                  Edit
-                </Button>
+                {!cancelled && (
+                  <Button size="sm" onClick={() => setTab("edit")}>
+                    Edit
+                  </Button>
+                )}
               </>
             ) : (
               <>
@@ -387,6 +504,42 @@ export function EventDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={confirmingCancel}
+        onOpenChange={(next) => !busy && setConfirmingCancel(next)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this event?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{event?.title}&rdquo; stays listed, marked Cancelled, until it ends. Its
+              audience is notified now and its reminders stop. This can&rsquo;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Field
+            label="Reason"
+            htmlFor="event-cancel-reason"
+            hint={`Optional, shown to members. ${cancelReason.trim().length} of ${EVENT_CANCELLATION_REASON_MAX_LENGTH}.`}
+          >
+            <Textarea
+              id="event-cancel-reason"
+              rows={3}
+              maxLength={EVENT_CANCELLATION_REASON_MAX_LENGTH}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="For example: moved because of the weather"
+            />
+          </Field>
+          {cancelError && <p className="font-body text-sm text-error">{cancelError}</p>}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Keep event</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" loading={busy} onClick={doCancel}>
+              Cancel event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

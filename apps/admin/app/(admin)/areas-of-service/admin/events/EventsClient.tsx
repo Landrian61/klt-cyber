@@ -8,7 +8,9 @@ import { Button } from "@/components/shadcn/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentedFilter } from "@/components/ui/FilterBar";
 import { CardGrid, ContentCard, formatDateTime } from "../_lib/adminContent";
-import { EventDialog, type Event } from "./EventDialog";
+import { Badge } from "@/components/shadcn/badge";
+import { EventDialog, isCancelled, type Event } from "./EventDialog";
+import { AudienceBadge } from "./AudienceField";
 
 type Tab = "upcoming" | "past";
 
@@ -102,6 +104,19 @@ export function EventsClient() {
                 event.location ? ` · ${event.location}` : ""
               }`}
               marker={event.featured ? "★" : undefined}
+              badges={
+                <>
+                  {isCancelled(event) && (
+                    <Badge variant="rejected">Cancelled</Badge>
+                  )}
+                  <AudienceBadge audience={event.audience} />
+                  {isCancelled(event) && event.cancellationReason && (
+                    <span className="w-full font-body text-xs text-error">
+                      {event.cancellationReason}
+                    </span>
+                  )}
+                </>
+              }
               onClick={() => openEdit(event)}
             />
           ))}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download } from "lucide-react";
+import { Clock, Crown, Download } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api } from "@/lib/api";
@@ -24,6 +24,8 @@ import {
 } from "@/components/shadcn/sheet";
 import { MembershipTitleEditor } from "@/components/admin/MembershipTitleEditor";
 import { downloadCsv } from "../../csv";
+import { Badge } from "@/components/shadcn/badge";
+import { AppointHodDialog } from "../../_lib/AppointHodDialog";
 
 const PAGE_SIZE = 10;
 
@@ -64,6 +66,16 @@ export function DepartmentMembersClient({
     { departmentId: id },
   );
   const rosterRows = roster?.members;
+  // Who leads it and who is asking to serve (spec 0021, AC-6, SRS A3-03):
+  // read only here, because deciding a claim is the department's own call.
+  const leadership = useAuthQuery(
+    api.departmentMemberships.listRosterWithClaims,
+    { departmentId: id },
+  );
+  const authority = useAuthQuery(api.roles.getLeadershipAuthority, {});
+  const canAppoint = authority?.canAppointLeaders ?? false;
+  const hod = leadership?.active.find((row) => row.isHod) ?? null;
+  const [appointOpen, setAppointOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<MemberRowWithProfile | null>(null);
@@ -206,6 +218,87 @@ export function DepartmentMembersClient({
           members serving here
         </p>
       </header>
+
+      <section
+        aria-label="Head of Department"
+        className="flex flex-wrap items-center gap-3 rounded-md bg-surface-lowest p-4 shadow-e1"
+      >
+        <Crown className="size-5 text-primary" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="font-body text-xs uppercase tracking-wide text-outline">
+            Head of Department
+          </p>
+          {leadership === undefined ? (
+            <Skeleton className="mt-1 h-5 w-40" />
+          ) : hod ? (
+            <p className="flex items-center gap-2 font-body text-sm font-semibold text-on-surface">
+              <Avatar name={hod.displayName} src={hod.photoUrl ?? undefined} size="sm" />
+              {hod.displayName}
+            </p>
+          ) : (
+            <p className="font-body text-sm font-semibold text-error">No HOD</p>
+          )}
+        </div>
+        {canAppoint && department && (
+          <Button size="sm" variant="secondary" onClick={() => setAppointOpen(true)}>
+            {hod ? "Replace HOD" : "Appoint HOD"}
+          </Button>
+        )}
+      </section>
+
+      {leadership && leadership.pending.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="flex items-center gap-2 font-body text-sm font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
+            <Clock className="size-4 text-primary" aria-hidden="true" />
+            Asking to serve here
+            <Badge variant="pending">
+              <span className="font-mono">{leadership.pending.length}</span>
+            </Badge>
+          </h2>
+          <ul className="space-y-2">
+            {leadership.pending.map((row) => (
+              <li
+                key={row.membershipId}
+                className="flex flex-wrap items-center gap-3 rounded-md bg-surface-lowest p-3 shadow-e1"
+              >
+                <Avatar name={row.displayName} src={row.photoUrl ?? undefined} size="md" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-body text-sm font-semibold text-on-surface">
+                    {row.displayName}
+                  </p>
+                  <p className="font-body text-xs text-on-surface-variant">
+                    Asked on{" "}
+                    <span className="font-mono">
+                      {new Date(row.claimedAt).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                    {row.clanName ? ` · ${row.clanName}` : ""}
+                  </p>
+                </div>
+                <Badge variant={row.profileStatus === "verified" ? "pending" : "neutral"}>
+                  {row.profileStatus === "verified" ? "Awaiting the HOD" : "Not verified yet"}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+          <p className="font-body text-xs text-outline">
+            Confirming or declining a request is this department&apos;s HOD or
+            delegate to decide.
+          </p>
+        </section>
+      )}
+
+      {department && (
+        <AppointHodDialog
+          open={appointOpen}
+          onOpenChange={setAppointOpen}
+          department={{ _id: id, name: department.name }}
+          currentHodName={hod?.displayName ?? null}
+        />
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <SearchInput

@@ -14,6 +14,10 @@ export interface ResponsiveTableProps<Row> {
   onRowClick?: (row: Row) => void;
   empty?: ReactNode;
   skeletonRows?: number;
+  /** Desktop table sorting, passed straight to DataTable. */
+  sortKey?: string | null;
+  sortDirection?: "asc" | "desc";
+  onSortChange?: (key: string) => void;
 }
 
 /**
@@ -38,6 +42,9 @@ export function ResponsiveTable<Row>({
   onRowClick,
   empty,
   skeletonRows = 5,
+  sortKey,
+  sortDirection,
+  onSortChange,
 }: ResponsiveTableProps<Row>) {
   return (
     <>
@@ -49,6 +56,9 @@ export function ResponsiveTable<Row>({
           onRowClick={onRowClick}
           empty={empty}
           skeletonRows={skeletonRows}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onSortChange={onSortChange}
         />
       </div>
 

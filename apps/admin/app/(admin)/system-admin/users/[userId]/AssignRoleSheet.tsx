@@ -23,6 +23,7 @@ import {
 } from "@/components/shadcn/select";
 import { Textarea } from "@/components/shadcn/textarea";
 import { errorMessage } from "./shared";
+import { hasErrorCode } from "@klt-cyber/shared";
 
 type RoleChoice = "" | "system_admin" | "clan_elder";
 
@@ -118,8 +119,13 @@ export function AssignRoleSheet({
       onClose();
     } catch (mutationError) {
       // Server rejections (incomplete profile, race conditions) stay inline —
-      // the sheet remains open so the admin can adjust.
-      setError(errorMessage(mutationError));
+      // the sheet remains open so the admin can adjust. An elder must be a
+      // verified member of their own clan (spec 0021, AC-8).
+      setError(
+        hasErrorCode(mutationError, "ELDER_NOT_IN_CLAN")
+          ? "This person isn't a verified member of that clan."
+          : errorMessage(mutationError),
+      );
     } finally {
       setBusy(false);
     }

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuthQuery } from "@/lib/useAuthQuery";
 import { api, type Id } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { Heading } from "@/components/ui/Heading";
 import { Button } from "@/components/shadcn/button";
 import { SegmentedFilter } from "@/components/ui/FilterBar";
@@ -29,8 +28,17 @@ import {
   type OccurrenceAction,
   type TargetOccurrence,
 } from "./OccurrenceDialog";
-import { PLANNER_TYPE_COLOR, PLANNER_TYPES } from "./plannerColors";
-import type { ActivityItem, PlannerItem, PlannerView } from "./types";
+import { publicHolidayMap } from "@klt-cyber/shared";
+import { PLANNER_TYPES } from "./plannerColors";
+import { PlannerSidebar } from "./PlannerSidebar";
+import { GroupActivityDetail } from "./GroupActivityDetail";
+import {
+  groupActivityDays,
+  type ActivityItem,
+  type GroupItem,
+  type PlannerItem,
+  type PlannerView,
+} from "./types";
 
 // Timezone note (spec-accepted v1 simplification): every date here is plain
 // browser-local `Date` — grid boundaries, day-cell dates, and the fetched
@@ -54,7 +62,8 @@ const SKELETON_COUNT: Record<PlannerView, number> = {
 
 export function YearPlannerClient() {
   const today = useMemo(() => new Date(), []);
-  const [view, setView] = useState<PlannerView>("year");
+  // Month first: the wall calendar layout is the planner's working view.
+  const [view, setView] = useState<PlannerView>("month");
   const [focus, setFocus] = useState<Date>(
     () => new Date(today.getFullYear(), today.getMonth(), today.getDate()),
   );
@@ -79,10 +88,73 @@ export function YearPlannerClient() {
     }
   }, [view, focus]);
 
-  const items = useAuthQuery(api.plannedActivities.getYearPlannerRange, {
+  const planner = useAuthQuery(api.plannedActivities.getYearPlannerRange, {
     startDate: range.start,
     endDate: range.end,
   });
+
+  // Department and clan activities are read only (spec 0021, AC-21), each
+  // shown on every day it covers. The side panel's Show checkboxes hide any
+  // type, which is how the department and clan rows are switched off.
+  const [visibleTypes, setVisibleTypes] = useState<Set<PlannerItem["type"]>>(
+    () => new Set(PLANNER_TYPES),
+  );
+  const [viewingGroup, setViewingGroup] = useState<GroupItem | null>(null);
+
+  const allItems = useMemo<PlannerItem[] | undefined>(() => {
+    if (!planner) return planner === null ? [] : undefined;
+    const groupDays = planner.groupActivities.flatMap((activity) =>
+      groupActivityDays(activity, range.start, range.end),
+    );
+    return [...planner.items, ...groupDays].sort((a, b) => a.start - b.start);
+  }, [planner, range.start, range.end]);
+
+  const items = useMemo(
+    () => allItems?.filter((item) => visibleTypes.has(item.type)),
+    [allItems, visibleTypes],
+  );
+
+  const counts = useMemo(() => {
+    const result = { program: 0, event: 0, activity: 0, group: 0 } as Record<
+      PlannerItem["type"],
+      number
+    >;
+    // A multi day group activity counts once, not once per day it covers.
+    const seenGroups = new Set<string>();
+    for (const item of allItems ?? []) {
+      if (item.type === "group") {
+        if (seenGroups.has(item.activity._id)) continue;
+        seenGroups.add(item.activity._id);
+      }
+      result[item.type] += 1;
+    }
+    return result;
+  }, [allItems]);
+
+  // Uganda public holidays (packages/shared). The year either side covers
+  // the spill over days a month or week grid shows.
+  const holidays = useMemo(() => {
+    const year = focus.getFullYear();
+    return publicHolidayMap([year - 1, year, year + 1]);
+  }, [focus]);
+
+  const holidaysInView = useMemo(() => {
+    const from = localYmd(new Date(range.start));
+    const to = localYmd(new Date(range.end));
+    return [...holidays.entries()]
+      .filter(([date]) => date >= from && date <= to)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, name]) => ({ date, name }));
+  }, [holidays, range.start, range.end]);
+
+  function toggleType(type: PlannerItem["type"], on: boolean) {
+    setVisibleTypes((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(type);
+      else next.delete(type);
+      return next;
+    });
+  }
 
   const byDate = useMemo(() => {
     const map = new Map<string, PlannerItem[]>();
@@ -152,7 +224,8 @@ export function YearPlannerClient() {
             Year planner
           </Heading>
           <p className="font-body text-base text-on-surface-variant">
-            Weekly programs, events, and planned activities, merged into one calendar.
+            Weekly programs, events, planned activities, and what every department and
+            clan has scheduled, in one calendar.
           </p>
         </div>
         <Button size="sm" onClick={() => openAddActivity(today)}>
@@ -160,117 +233,144 @@ export function YearPlannerClient() {
         </Button>
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedFilter
-          options={VIEW_OPTIONS}
-          value={view}
-          onChange={(value) => setView(value as PlannerView)}
-          ariaLabel="Calendar zoom level"
-        />
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Previous period"
-            onClick={() => setFocus((f) => stepFocus(f, view, -1))}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <p className="min-w-32 text-center font-body text-sm font-semibold text-on-surface">
-            {periodLabel(view, focus)}
-          </p>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Next period"
-            onClick={() => setFocus((f) => stepFocus(f, view, 1))}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Legend for the color-coded chips (plannerColors.ts) — mirrors the
-          reference layout's type key so the mapping is discoverable rather
-          than assumed. */}
-      <div className="flex flex-wrap items-center justify-end gap-4">
-        {PLANNER_TYPES.map((type) => (
-          <div key={type} className="flex items-center gap-1.5">
-            <span
-              className={cn("h-2 w-2 rounded-full", PLANNER_TYPE_COLOR[type].dot)}
-              aria-hidden="true"
-            />
-            <span className="font-body text-xs text-on-surface-variant">
-              {PLANNER_TYPE_COLOR[type].label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {items === undefined ? (
-        <div
-          className={
-            view === "year"
-              ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-              : view === "quarter"
-                ? "grid grid-cols-1 gap-3 sm:grid-cols-3"
-                : "grid grid-cols-7 gap-1.5"
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <PlannerSidebar
+          focus={focus}
+          onFocusChange={(date) =>
+            setFocus(new Date(date.getFullYear(), date.getMonth(), date.getDate()))
           }
-        >
-          {Array.from({ length: SKELETON_COUNT[view] }).map((_, i) => (
-            <div key={i} className="aspect-square animate-pulse rounded-lg bg-surface-lowest" />
-          ))}
-        </div>
-      ) : (
-        <Reveal replayKey={`${view}-${focus.getTime()}`} y={8} duration={360} gap={0}>
-          <div>
-            {view === "year" && (
-              <MiniMonthGrid
-                months={Array.from({ length: 12 }, (_, m) => ({
-                  year: focus.getFullYear(),
-                  month: m,
-                }))}
-                columns={4}
-                byDate={byDate}
-                today={today}
-                onDayClick={setSelectedDay}
-              />
-            )}
-            {view === "quarter" && (
-              <MiniMonthGrid
-                months={Array.from({ length: 3 }, (_, i) => ({
-                  year: focus.getFullYear(),
-                  month: quarterOf(focus.getMonth()) * 3 + i,
-                }))}
-                columns={3}
-                byDate={byDate}
-                today={today}
-                onDayClick={setSelectedDay}
-              />
-            )}
-            {view === "month" && (
-              <MonthView
-                year={focus.getFullYear()}
-                month={focus.getMonth()}
-                byDate={byDate}
-                today={today}
-                onDayClick={setSelectedDay}
-              />
-            )}
-            {view === "week" && (
-              <WeekView focus={focus} byDate={byDate} today={today} onDayClick={setSelectedDay} />
-            )}
+          visibleTypes={visibleTypes}
+          onToggleType={toggleType}
+          counts={counts}
+          holidaysInView={holidaysInView}
+        />
+
+        <div className="min-w-0 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Previous period"
+                onClick={() => setFocus((f) => stepFocus(f, view, -1))}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Next period"
+                onClick={() => setFocus((f) => stepFocus(f, view, 1))}
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+              <Heading as="h2" size="lg" className="ml-2">
+                {periodLabel(view, focus)}
+              </Heading>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="ml-3"
+                onClick={() =>
+                  setFocus(new Date(today.getFullYear(), today.getMonth(), today.getDate()))
+                }
+              >
+                Today
+              </Button>
+            </div>
+            <SegmentedFilter
+              options={VIEW_OPTIONS}
+              value={view}
+              onChange={(value) => setView(value as PlannerView)}
+              ariaLabel="Calendar zoom level"
+            />
           </div>
-        </Reveal>
-      )}
+
+          {items === undefined ? (
+            <div
+              className={
+                view === "year"
+                  ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                  : view === "quarter"
+                    ? "grid grid-cols-1 gap-3 sm:grid-cols-3"
+                    : "grid grid-cols-7 gap-1.5"
+              }
+            >
+              {Array.from({ length: SKELETON_COUNT[view] }).map((_, i) => (
+                <div key={i} className="aspect-square animate-pulse rounded-lg bg-surface-lowest" />
+              ))}
+            </div>
+          ) : (
+            <Reveal replayKey={`${view}-${focus.getTime()}`} y={8} duration={360} gap={0}>
+              <div>
+                {view === "year" && (
+                  <MiniMonthGrid
+                    months={Array.from({ length: 12 }, (_, m) => ({
+                      year: focus.getFullYear(),
+                      month: m,
+                    }))}
+                    columns={4}
+                    byDate={byDate}
+                    holidays={holidays}
+                    today={today}
+                    onDayClick={setSelectedDay}
+                  />
+                )}
+                {view === "quarter" && (
+                  <MiniMonthGrid
+                    months={Array.from({ length: 3 }, (_, i) => ({
+                      year: focus.getFullYear(),
+                      month: quarterOf(focus.getMonth()) * 3 + i,
+                    }))}
+                    columns={3}
+                    byDate={byDate}
+                    holidays={holidays}
+                    today={today}
+                    onDayClick={setSelectedDay}
+                  />
+                )}
+                {view === "month" && (
+                  <MonthView
+                    year={focus.getFullYear()}
+                    month={focus.getMonth()}
+                    byDate={byDate}
+                    holidays={holidays}
+                    today={today}
+                    onDayClick={setSelectedDay}
+                  />
+                )}
+                {view === "week" && (
+                  <WeekView
+                    focus={focus}
+                    byDate={byDate}
+                    holidays={holidays}
+                    today={today}
+                    onDayClick={setSelectedDay}
+                  />
+                )}
+              </div>
+            </Reveal>
+          )}
+        </div>
+      </div>
 
       <DayPopup
         date={selectedDay}
+        holiday={selectedDay ? holidays.get(localYmd(selectedDay)) : undefined}
         items={selectedItems}
         onOpenChange={(open) => !open && setSelectedDay(null)}
         onAddActivity={() => selectedDay && openAddActivity(selectedDay)}
         onEditActivity={openEditActivity}
         onOccurrenceAction={openOccurrenceAction}
+        onViewGroup={(item) => {
+          setSelectedDay(null);
+          setViewingGroup(item);
+        }}
+      />
+
+      <GroupActivityDetail
+        item={viewingGroup}
+        onOpenChange={(open) => !open && setViewingGroup(null)}
       />
 
       <OccurrenceDialog

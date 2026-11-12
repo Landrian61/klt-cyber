@@ -13,80 +13,96 @@ import {
 } from "./plannerColors";
 import type { PlannerItem } from "./types";
 
-// Year/Quarter view's shared building block — the real shadcn Calendar
-// (react-day-picker) rather than a
-// grid of blank marker squares, so each tile shows actual date numbers, not
-// just coloured planks. A custom, compact DayButton marks a busy day with up
-// to 3 small type-colored dots (program/event/activity — see
-// plannerColors.ts) rather than a solid gold fill, since a fill can't convey
-// what kind of thing is on that day and would compete with the chips used
-// everywhere else. The calendar's own caption/nav/weekday header are hidden
-// since the card renders its own "Jan"/"Feb" label and there's nothing to
-// navigate — the parent Year/Quarter grid already shows every month at once.
+// Year and Quarter views' building block: a real month (react-day-picker),
+// Monday first with weekday initials, weekends a step lower in tone, public
+// holidays washed in royal with their name on hover. A busy day carries small
+// type coloured dots rather than a fill, since a fill cannot say what kind of
+// thing is on that day. The calendar's own caption and navigation are hidden:
+// the card names its month and the parent grid shows every month at once.
+
+const HolidaysContext = React.createContext<Map<string, string>>(new Map());
+
 export function MiniMonth({
   year,
   month,
   byDate,
+  holidays,
   onDayClick,
   isCurrent,
 }: {
   year: number;
   month: number;
   byDate: Map<string, PlannerItem[]>;
+  holidays: Map<string, string>;
   onDayClick: (date: Date) => void;
   isCurrent?: boolean;
 }) {
   const dayPickerDefaults = getDefaultClassNames();
 
-  function hasType(date: Date, type: PlannerItem["type"]): boolean {
-    return !!byDate.get(localYmd(date))?.some((item) => item.type === type);
+  function has(date: Date, test: (item: PlannerItem) => boolean): boolean {
+    return !!byDate.get(localYmd(date))?.some(test);
   }
 
+  const monthHolidays = [...holidays.entries()].filter(([date]) =>
+    date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`),
+  ).length;
+
   return (
-    <div
-      className={cn(
-        "rounded-md border border-border p-2.5 shadow-e1",
-        isCurrent ? "bg-primary-light" : "bg-surface-lowest",
-      )}
-    >
-      <p
+    <HolidaysContext.Provider value={holidays}>
+      <div
         className={cn(
-          "mb-1 font-body text-xs font-semibold",
-          isCurrent ? "text-primary" : "text-on-surface-variant",
+          "rounded-md p-2.5 shadow-e1",
+          isCurrent ? "bg-primary-light" : "bg-surface-lowest",
         )}
       >
-        {MONTH_LABELS[month].slice(0, 3)}
-      </p>
-      <Calendar
-        month={new Date(year, month, 1)}
-        showOutsideDays={false}
-        onDayClick={(date, modifiers) => {
-          if (modifiers.outside || modifiers.hidden) return;
-          onDayClick(date);
-        }}
-        modifiers={{
-          // "Has a program" means one that is still running: a day holding a
-          // cancelled program and another that is on has to be able to say
-          // both things, and cancelled ones get their own dot below.
-          hasProgram: (date) =>
-            !!byDate
-              .get(localYmd(date))
-              ?.some((item) => item.type === "program" && !isCancelledOccurrence(item)),
-          hasEvent: (date) => hasType(date, "event"),
-          hasActivity: (date) => hasType(date, "activity"),
-          hasCancelledProgram: (date) =>
-            !!byDate.get(localYmd(date))?.some(isCancelledOccurrence),
-        }}
-        components={{ Nav: () => <></>, DayButton: MiniMonthDayButton }}
-        classNames={{
-          root: cn("w-full", dayPickerDefaults.root),
-          month_caption: "hidden",
-          nav: "hidden",
-          weekdays: "hidden",
-        }}
-        className="bg-transparent p-0 [--cell-size:1.75rem]"
-      />
-    </div>
+        <div className="mb-1 flex items-baseline justify-between">
+          <p
+            className={cn(
+              "font-display text-sm font-bold",
+              isCurrent ? "text-primary" : "text-on-surface",
+            )}
+          >
+            {MONTH_LABELS[month]}
+          </p>
+          {monthHolidays > 0 && (
+            <span className="font-body text-[10px] text-royal">
+              <span className="font-mono">{monthHolidays}</span> holiday
+              {monthHolidays === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+        <Calendar
+          month={new Date(year, month, 1)}
+          weekStartsOn={1}
+          showOutsideDays={false}
+          onDayClick={(date, modifiers) => {
+            if (modifiers.outside || modifiers.hidden) return;
+            onDayClick(date);
+          }}
+          modifiers={{
+            // "Has a program" means one still running: a day holding a
+            // cancelled program and another that is on has to say both.
+            hasProgram: (date) =>
+              has(date, (item) => item.type === "program" && !isCancelledOccurrence(item)),
+            hasEvent: (date) => has(date, (item) => item.type === "event"),
+            hasActivity: (date) => has(date, (item) => item.type === "activity"),
+            hasGroup: (date) => has(date, (item) => item.type === "group"),
+            hasCancelled: (date) => has(date, isCancelledOccurrence),
+            holiday: (date) => holidays.has(localYmd(date)),
+            weekend: (date) => date.getDay() === 0 || date.getDay() === 6,
+          }}
+          components={{ Nav: () => <></>, DayButton: MiniMonthDayButton }}
+          classNames={{
+            root: cn("w-full", dayPickerDefaults.root),
+            month_caption: "hidden",
+            nav: "hidden",
+            weekday:
+              "flex-1 select-none pb-1 text-center font-body text-[10px] font-semibold uppercase text-outline",
+          }}
+          className="bg-transparent p-0 [--cell-size:1.75rem]"
+        />
+      </div>
+    </HolidaysContext.Provider>
   );
 }
 
@@ -96,46 +112,45 @@ function MiniMonthDayButton({
   modifiers,
   ...props
 }: React.ComponentProps<typeof DayButton>) {
+  const holidays = React.useContext(HolidaysContext);
   const blank = modifiers.outside || modifiers.hidden;
+  const holiday = modifiers.holiday ? holidays.get(localYmd(day.date)) : undefined;
 
-  // At year and quarter zoom a day is a few pixels of dot, so "cancelled" can
-  // only be a hint (spec 0009, AC-9): a called-off occurrence adds a crimson
-  // dot of its own, and opening the day spells out which occurrence and why.
-  // A separate dot rather than recolouring the program one, because a day can
-  // hold a cancelled program AND one still running — recolouring the single
-  // dot then said the running one was off too. The dots are decorative to
-  // assistive tech either way (the row below is aria-hidden); month and week
-  // views carry the real marked-up treatment via PlannerChip.
+  // At this zoom "cancelled" can only be a hint: a called off item adds a
+  // crimson dot of its own, and opening the day spells out which and why.
   const dots: { key: string; dot: string }[] = [];
   if (modifiers.hasProgram) dots.push({ key: "program", dot: PLANNER_TYPE_COLOR.program.dot });
-  if (modifiers.hasCancelledProgram) {
-    dots.push({ key: "cancelled", dot: PLANNER_CANCELLED_COLOR.dot });
-  }
+  if (modifiers.hasCancelled) dots.push({ key: "cancelled", dot: PLANNER_CANCELLED_COLOR.dot });
   if (modifiers.hasEvent) dots.push({ key: "event", dot: PLANNER_TYPE_COLOR.event.dot });
-  if (modifiers.hasActivity) {
-    dots.push({ key: "activity", dot: PLANNER_TYPE_COLOR.activity.dot });
-  }
+  if (modifiers.hasActivity) dots.push({ key: "activity", dot: PLANNER_TYPE_COLOR.activity.dot });
+  if (modifiers.hasGroup) dots.push({ key: "group", dot: PLANNER_TYPE_COLOR.group.dot });
 
   return (
     <button
       type="button"
       disabled={blank}
+      title={holiday}
+      aria-label={holiday ? `${day.date.getDate()}, ${holiday}` : undefined}
       className={cn(
         "flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-[3px] font-mono text-[10px] transition-colors",
         blank && "invisible pointer-events-none",
-        !blank && "text-on-surface-variant hover:bg-surface-high",
+        !blank &&
+          (holiday
+            ? "bg-royal-light font-semibold text-royal hover:bg-surface-high"
+            : modifiers.weekend
+              ? "bg-surface-low text-on-surface-variant hover:bg-surface-high"
+              : "text-on-surface hover:bg-surface-high"),
+        modifiers.today && "font-bold text-primary",
         className,
       )}
       {...props}
     >
       <span>{day.date.getDate()}</span>
-      {dots.length > 0 && (
-        <span className="flex items-center gap-0.5" aria-hidden="true">
-          {dots.map(({ key, dot }) => (
-            <span key={key} className={cn("h-1 w-1 rounded-full", dot)} />
-          ))}
-        </span>
-      )}
+      <span className="flex h-1 items-center gap-0.5" aria-hidden="true">
+        {dots.map(({ key, dot }) => (
+          <span key={key} className={cn("h-1 w-1 rounded-full", dot)} />
+        ))}
+      </span>
     </button>
   );
 }
