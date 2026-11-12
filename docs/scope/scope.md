@@ -351,8 +351,16 @@ SRS: R1-01, R1-02, R1-03, R1-04, R1-05, R1-06, R1-07, R1-08, R2-01, R2-02, R2-03
 ### 18. Administration core: dashboard fix, directory contacts, departments and clans pages, events with times, audiences and cancel, year planner delete · in-progress
 Track A. Fix what Administration's dashboard gets wrong today and finish the pages every other department's shell also needs: real audiences on events, single-occurrence program control, and a clans page.
 **Done when:** A1-03: the dashboard's recent-activity card stops erroring for non-System Admins (bug — today it uses a System Admin-only query). A3-01: the members directory shows contact details (age stays out of the table). A3-05: a clans page lists all 12 with elders, appoint/replace (F3-16). A5-02: an event's audience is whole church, everyone serving anywhere, or selected departments — only that audience is notified. A5-04: an event can be cancelled, staying visible marked "Cancelled". A6-02: publishing an announcement notifies only the first time. A7-03: a planned activity can be deleted, with confirmation and logging.
-- [ ] Design remaining work (spec): `/architect Administration core`
-Spec: not yet captured
+- [x] Design remaining work (spec): `/architect Administration core`
+- [ ] Build it: `/develop Administration core`
+  - [ ] Event audiences end to end: shared contracts, the optional `events.audience` field, member read filtering, push fan out, the portal picker, then the backfill and the required field, satisfies AC-11, AC-12, AC-13
+  - [x] Event edits, reminders and cancel: the relevant change rule with N16 for newcomers and N17, `deliverEventReminder`, final cancel with its refusals, the shell Activities page widening, satisfies AC-14 to AC-19
+  - [x] Dashboard and directory: `listChurchActivity` fixing the recent activity card, the This week card, phone, email and mentorship in the directory and CSV, satisfies AC-1, AC-2, AC-3
+  - [x] Departments and clans: sidebar entries, the Departments page with HOD and no leader flags, the Clans page, the Administration HOD appointing and removing elders from their own clan, satisfies AC-4 to AC-10
+  - [x] Year planner and the suite: delete planned activities with a logged snapshot, department and clan activities shown read only, the Convex tests, satisfies AC-20, AC-21, AC-22
+- [ ] Verify it: `/check verify Administration core`
+- [ ] Test it: `/test Administration core`
+Spec: [0021](../specs/_root/0021-administration-core/index.md)
 SRS: A1-01, A1-02, A1-03, A1-04, A2-01, A2-02, A2-03, A2-04, A2-05, A3-01, A3-02, A3-03, A3-04, A3-05, A3-06, A4-01, A4-02, A4-03, A5-01, A5-02, A5-03, A5-04, A5-05, A6-01, A6-02, A6-03, A7-01, A7-02, A7-03, F3-16, F4-15 · code: `apps/admin/app/(admin)/admin/` (dashboard, verification, weekly-program, events, announcements, year-planner all exist)
 
 ### 13. Member directory with sharing · in-progress · GA
