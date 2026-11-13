@@ -8,9 +8,12 @@ import { cn } from "@/lib/utils";
 
 export function Table({
   className,
+  caption,
   children,
 }: {
   className?: string;
+  /** Names the table for screen readers; not shown. */
+  caption?: string;
   children: ReactNode;
 }) {
   return (
@@ -20,7 +23,10 @@ export function Table({
         className,
       )}
     >
-      <table className="w-full text-left">{children}</table>
+      <table className="w-full text-left">
+        {caption && <caption className="sr-only">{caption}</caption>}
+        {children}
+      </table>
     </div>
   );
 }

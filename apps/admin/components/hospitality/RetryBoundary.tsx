@@ -32,6 +32,11 @@ export class RetryBoundary extends Component<
         <ErrorState retry={this.retry} />
       );
     }
-    return <div key={this.state.attempt}>{this.props.children(this.retry)}</div>;
+    // `min-w-0` so a wide table inside never stretches its grid column (AC-20).
+    return (
+      <div key={this.state.attempt} className="min-w-0">
+        {this.props.children(this.retry)}
+      </div>
+    );
   }
 }

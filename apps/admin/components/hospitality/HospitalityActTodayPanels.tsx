@@ -50,7 +50,7 @@ export function Panel({
   return (
     <section
       aria-labelledby={id}
-      className="min-w-0 rounded-md border border-border bg-surface-lowest p-6 shadow-e1"
+      className="min-w-0 rounded-md border border-border bg-surface-lowest p-4 shadow-e1 sm:p-6"
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
@@ -174,7 +174,10 @@ export function FollowUpHealthPanel({ today, period, basePath, retry }: PanelPro
                     <span className="w-28 shrink-0 font-body text-sm text-on-surface">
                       {FOLLOW_UP_AGE_BUCKET_LABELS[bucket.key]}
                     </span>
-                    <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-low">
+                    <span
+                      className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-low"
+                      aria-hidden
+                    >
                       <span
                         className={cn("block h-full rounded-full", overdue ? "bg-crimson" : "bg-primary")}
                         style={{ width: `${(bucket.count / total) * 100}%` }}
@@ -227,7 +230,7 @@ export function TeamLoadPanel({ today, period, retry }: PanelProps) {
           message="Assigned and closed follow ups appear here."
         />
       ) : (
-        <Table className="shadow-none">
+        <Table className="shadow-none" caption={`Open follow ups per person, and done in the last ${span}`}>
           <THead>
             <TR>
               <TH>Person</TH>
@@ -280,6 +283,9 @@ export function ClanBalancePanel({ basePath, retry }: Pick<PanelProps, "basePath
 
   const largest = Math.max(1, ...balance.clans.map((clan) => clan.verifiedCount));
   const placement = `${basePath}/clan-placement`;
+  // Nothing to balance yet: no clans, or nobody placed and nobody waiting (AC-18).
+  const allZero =
+    balance.waitingForClan === 0 && balance.clans.every((clan) => clan.verifiedCount === 0);
 
   return (
     <Panel
@@ -304,11 +310,20 @@ export function ClanBalancePanel({ basePath, retry }: Pick<PanelProps, "basePath
           </span>{" "}
           {balance.waitingForClan === 1 ? "member is" : "members are"} waiting for a clan
         </p>
-        {balance.clans.length === 0 ? (
+        {balance.clans.length === 0 || allZero ? (
           <EmptyState
             className="py-6"
             icon={<Network className="h-5 w-5" aria-hidden />}
-            title="No clans are set up yet"
+            title={
+              balance.clans.length === 0
+                ? "No clans are set up yet"
+                : "No verified members in a clan yet"
+            }
+            message={
+              balance.clans.length === 0
+                ? undefined
+                : "Clan sizes appear here once verified members are placed."
+            }
           />
         ) : (
           <ul className="space-y-2">
@@ -317,7 +332,10 @@ export function ClanBalancePanel({ basePath, retry }: Pick<PanelProps, "basePath
                 <span className="w-28 shrink-0 truncate font-body text-sm text-on-surface">
                   {clan.name}
                 </span>
-                <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-low">
+                <span
+                  className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-low"
+                  aria-hidden
+                >
                   <span
                     className={cn(
                       "block h-full rounded-full",
