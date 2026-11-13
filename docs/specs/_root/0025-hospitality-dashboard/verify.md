@@ -103,9 +103,27 @@ _Steps derived from spec 0025 acceptance criteria. `/check verify` runs these; `
 - [ ] outcomes: `at` inside the window's Kampala day bounds; a call at 23:30 Kampala on the window's first day counts, one the day before does not; a removed visitor's contacts still count
 - [ ] invited: `invitedByUserId` wins over `invitedByText`; a blank typed name reads "Not recorded"
 
+## Slice 5: finish
+
+### UI / manual
+- [ ] Search the code for `HospitalityDashboardExtras`, `getDashboardExtras` and `dashboardExtras` → no results outside `_generated` → AC-4
+- [ ] Make one panel's query throw (for example, temporarily throw inside `getContactOutcomes`) → only that panel shows the error card with "Try again"; every other panel still renders; "Try again" reloads it → AC-18
+- [ ] Make the overview query throw → the error card shows above the other panels, which still render → AC-18
+- [ ] While the page loads, each panel shows its own skeleton → AC-18
+- [ ] On a deployment with visits, choose a period with none → the headline says "No visits were recorded in the last …" and the trend, journey, outcomes and mix panels show their empty states → AC-18
+- [ ] With clans but no verified member in any clan and nobody waiting → Clan balance reads "No verified members in a clan yet" → AC-18
+- [ ] With a screen reader, every table announces its caption, the bar tracks are skipped, and each count is read as text → AC-19
+- [ ] Turn off colour (a greyscale filter) → overdue, smallest clan, up and down changes and channels are still told apart by their words, arrows, legend or table → AC-19
+- [ ] With reduced motion on, the headline numbers appear at once, nothing slides in, and the trend chart draws without animating → AC-19
+- [ ] At 375 pixels wide, the Dashboard is one column, every chart fits its card, and the page never scrolls sideways (the outcomes table scrolls inside its own card) → AC-20
+
+### Commands
+- [ ] `pnpm --filter @klt-cyber/shared test -- hospitalityDashboard` → every AC-24 helper (periods, window, days between, age bucket, on time days, overdue days, attention size, personal channels, badge cap, median, change) passes → AC-24
+- [ ] `pnpm run test:convex` → every Dashboard query's numbers, the day 2 / day 3 boundary, the cohort status rule, the shared bin helper matching Reports, the unassigned badge, badge `null` cases and refusal for a non operator (`hospitality.test.ts`) pass → AC-24
+
 ## Acceptance-criteria coverage
 - AC-1 … steps 1, 4 · AC-2 … step 2 · AC-3 … step 3 · AC-4 … commands step 3 (removal landed early, see the build report) · AC-5 … step 5 · AC-6 … steps 6, 7 · AC-7 … step 8 · AC-8 … steps 9, 10 · AC-10 … step 11 · AC-17 … step 12
 - AC-21 … slice 2 steps 1 to 5 · AC-22 … slice 2 steps 2, 4, 6 to 9 · AC-23 … slice 2 step 4 and commands
 - AC-9 … slice 3 steps 1 to 4 · AC-15 … slice 3 steps 5, 6 · AC-16 … slice 3 step 7
 - AC-11 … slice 4 steps 1 to 4 · AC-12 … slice 4 steps 5, 6 · AC-13 … slice 4 step 7 · AC-14 … slice 4 steps 8, 9
-- The finish slice (AC-18 to AC-20, AC-24) adds its steps here as it lands.
+- AC-4 … slice 5 step 1 · AC-18 … slice 5 steps 2 to 6 · AC-19 … slice 5 steps 7 to 9 · AC-20 … slice 5 step 10 · AC-24 … slice 5 commands

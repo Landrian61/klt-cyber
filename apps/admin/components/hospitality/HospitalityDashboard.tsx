@@ -183,6 +183,12 @@ function Overview({
         <p className="font-body text-xs text-outline">
           {range}, compared with the {span} before
         </p>
+        {/* Visits exist, just none in this period: say so plainly (AC-18). */}
+        {current.visitors === 0 && (
+          <p role="status" className="font-body text-sm text-on-surface-variant">
+            No visits were recorded in the last {span}. Try a longer period.
+          </p>
+        )}
         <Reveal as="div" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Visitors"

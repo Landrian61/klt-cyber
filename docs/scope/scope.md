@@ -417,12 +417,12 @@ Track B. Give the Hospitality team a Dashboard about visitors instead of roster 
 **Done when:** a Hospitality operator lands on Hospitality content, not roster stats, and every operator sees the same Dashboard. A period switch (4 weeks, 12 weeks, 6 months) drives the headline numbers (each compared with the period before), the attendance trend, the visitor journey, contact outcomes and visitor mix. Follow up health, needs attention, team load and clan balance always show the present. First timers count as contacted on time only through a personal contact within 2 days, and nobody inside that window is counted late. Hospitality's sidebar reads Dashboard, Welcome and care, Insights, Team, with Settings at the bottom and badges for unassigned follow ups, members waiting for a clan and requests waiting. Every other department's Dashboard and sidebar are unchanged.
 - [x] Design it (spec): `/architect Hospitality dashboard and sidebar`
 Spec: [0025](../specs/_root/0025-hospitality-dashboard/index.md)
-- [ ] Build it: `/develop Hospitality dashboard and sidebar`
+- [x] Build it: `/develop Hospitality dashboard and sidebar`
   - [x] Thin thread: SRS 4.7.1 and 4.10 edits, the shared period and contact helpers, the Hospitality Dashboard replacing the shared one with the period switch, headline numbers and welcome panel, satisfies AC-1 to AC-3, AC-5 to AC-8, AC-10, AC-17
   - [x] Grouped sidebar and count badges, satisfies AC-21 to AC-23
   - [x] Act today: follow up health, needs attention, team load and clan balance, satisfies AC-9, AC-15, AC-16
   - [x] Trends: attendance trend on the shared bin helper, visitor journey, contact outcomes, visitor mix, satisfies AC-11 to AC-14
-  - [ ] Finish: remove the spec 0024 AC-35 cards, per panel error boundaries, accessibility and 375 pixel pass, tests, satisfies AC-4, AC-18 to AC-20, AC-24
+  - [x] Finish: remove the spec 0024 AC-35 cards, per panel error boundaries, accessibility and 375 pixel pass, tests, satisfies AC-4, AC-18 to AC-20, AC-24
 - [ ] Verify it: `/check verify Hospitality dashboard and sidebar`
 - [ ] Test it: `/test Hospitality dashboard and sidebar`
 SRS: H1-03, H2-01, H2-04, H4-01, H4-03, H5-02, H5-03, H6-01, 4.7.1, 4.10 (both to be amended by this feature) · code: `convex/hospitality.ts`, `convex/lib/hospitalityStats.ts`, `packages/shared/src/constants/hospitality.ts`, `apps/admin/components/hospitality/`, `apps/admin/app/(admin)/areas-of-service/[slug]/DepartmentSidebar.tsx`, `apps/admin/app/(admin)/areas-of-service/[slug]/dashboard/page.tsx`

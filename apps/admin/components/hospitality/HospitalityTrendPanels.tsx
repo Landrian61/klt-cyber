@@ -83,7 +83,7 @@ function CountBar({
   const percent = percentOf(count, of);
   return (
     <li className="flex items-center gap-3">
-      <span className="w-32 shrink-0 font-body text-sm text-on-surface sm:w-40">{label}</span>
+      <span className="w-28 shrink-0 font-body text-sm text-on-surface sm:w-40">{label}</span>
       <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-low" aria-hidden>
         <span
           className={cn("block h-full rounded-full", tone === "royal" ? "bg-royal" : "bg-primary")}
@@ -140,7 +140,7 @@ export function AttendanceTrendPanel({ today, period, basePath, retry }: PanelPr
             <TrendChart data={chart} animate={!reducedMotion} />
           </div>
           {/* The numbers behind the chart, readable without it (AC-19). */}
-          <Table className="shadow-none">
+          <Table className="shadow-none" caption={`Visitors per ${unit}`}>
             <THead>
               <TR>
                 <TH>{weekly ? "Week of" : "Month"}</TH>
@@ -331,7 +331,7 @@ export function ContactOutcomesPanel({ today, period, retry }: PanelProps) {
               const total = totalOf(row.byChannel);
               return (
                 <li key={row.outcome} className="flex items-center gap-3">
-                  <span className="w-32 shrink-0 font-body text-sm text-on-surface sm:w-40">
+                  <span className="w-28 shrink-0 font-body text-sm text-on-surface sm:w-40">
                     {CONTACT_OUTCOME_LABELS[row.outcome]}
                   </span>
                   <span
@@ -354,7 +354,7 @@ export function ContactOutcomesPanel({ today, period, retry }: PanelProps) {
             })}
           </ul>
           {/* Every number behind the bars, plus the reach rate per channel. */}
-          <Table className="shadow-none">
+          <Table className="shadow-none" caption="Contacts by outcome and channel, with the reach rate">
             <THead>
               <TR>
                 <TH>Outcome</TH>
