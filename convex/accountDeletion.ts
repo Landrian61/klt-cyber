@@ -25,6 +25,7 @@ import { getCurrentUser, isActiveSystemAdmin, logActivity } from "./lib/authz";
 import { reportError } from "./lib/sentry";
 import { toR2Key } from "./lib/media";
 import { endRoleAssignment } from "./lib/roleNotices";
+import { anonymiseVisitorsForDeletedUser } from "./lib/visitorAccount";
 
 // Account deletion (SRS F1-06, spec 0008).
 //
@@ -708,6 +709,11 @@ export const performDeletion = internalMutation({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
     for (const device of deviceRows) await ctx.db.delete(device._id);
+
+    // Hospitality's visitor row (spec 0024, AC-26): the same anonymisation a
+    // removed walk in gets, plus the link to this account cut. Visit dates
+    // stay, so the church's visitor totals remain true.
+    await anonymiseVisitorsForDeletedUser(ctx, userId);
 
     const moreNotifications = await deleteNotificationPage(ctx, userId);
 
