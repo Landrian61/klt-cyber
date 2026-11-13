@@ -67,6 +67,9 @@ export function resolveDeepLinkHref(
     case 'library_low_stock':
     // Spec 0019's N34, the hourly inbox count: read on the portal.
     case 'radio_inbox':
+    // Spec 0024's N36, a visitor follow up assigned to you: the calling and
+    // logging happen on the portal's Follow ups page.
+    case 'hospitality_follow_up':
       // Work done on the web portal. The screen explains what is waiting and
       // links there; the id is not needed to say that.
       return `/portal-work?type=${deepLink.type}` as Href;
