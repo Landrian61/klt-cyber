@@ -34,6 +34,7 @@ _This scope transcribes the already-agreed `spec/BUILD-PLAN.md` into the living 
 | 13 | Member directory with sharing | Week 4 | in-progress |
 | 14 | My Profile and settings | Week 4 | in-progress |
 | 24 | Hospitality core: visitors, follow-ups, regulars, clan placement, reports | Week 4 | in-progress |
+| 34 | Hospitality dashboard and grouped sidebar | Week 4 | in-progress |
 | 28 | Notification settings, web bell, images | Week 4 | in-progress |
 | 16 | Give and Finance giving settings | Week 5 | in-progress |
 | 19 | Pastoral: Home content, church overview, Radio inbox | Week 5 | in-progress |
@@ -397,9 +398,34 @@ SRS: M6-01, M6-02, M6-03, M6-04, M6-05, M6-06, M6-07, F5-11 · code: `apps/mobil
 ### 24. Hospitality core: visitors, follow-ups, regulars, clan placement, reports · in-progress · GA
 Track B. Give Hospitality one place to record every visitor (app or walk-in), follow up with first-timers, spot regulars heading toward membership, and place unassigned members into a clan.
 **Done when:** H1-01: a walk-in is added with name, phone, gender, age group, visit date, invited-by, notes; a phone number requires the consent tick. H1-03: walk-in and app visitors appear in one list, first-timers and regulars flagged (3+ visits in a calendar month). H2-02/H2-03: one-tap call/WhatsApp/SMS from a template; outcome recorded (reached, no answer, wrong number, asked-not-to-be-contacted — which withdraws consent). H5-01: the profile wizard offers a clan or "I don't know my clan". H5-02/H5-04: Hospitality sees unassigned verified members oldest-first, clan sizes, and assigns — member and elder notified, logged.
-- [ ] Design remaining work (spec): `/architect Hospitality core`
-Spec: not yet captured
-SRS: H1-01, H1-02, H1-03, H1-04, H1-05, H1-06, H1-07, H1-08, H2-01, H2-02, H2-03, H2-04, H2-05, H4-01, H4-02, H4-03, H5-01, H5-02, H5-03, H5-04, H6-01, H6-02 · code: `apps/mobile/app/profile-completion/clan.tsx` (the "I don't know my clan" wizard step already exists)
+- [x] Design remaining work (spec): `/architect Hospitality core`
+Spec: [0024](../specs/_root/0024-hospitality-core/index.md)
+- [x] Build it: `/develop Hospitality core`
+  - [x] Thin thread and shared contract: schema, `manageHospitality`, add a walk in and see them listed, satisfies AC-1 to AC-6, AC-22, AC-39
+  - [x] Visitors end to end: app visitor rows (sign up, backfill, verification, deletion), visits, regulars, search and filters, the visitor record, consent and removal, satisfies AC-7 to AC-14, AC-23 to AC-26, AC-31
+  - [x] Follow ups and contact: one tap buttons and templates, outcomes, assignment (N36), in app message (N41), satisfies AC-15 to AC-21
+  - [x] Join, toward membership and clan placement (N37), satisfies AC-27 to AC-30, AC-32 to AC-34
+  - [x] Dashboard extras, reports and print to PDF, phone layout pass and tests, satisfies AC-35 to AC-39
+- [ ] Verify it: `/check verify Hospitality core`
+- [ ] Test it: `/test Hospitality core`
+- [ ] Review it (fresh model): `/check review Hospitality core`
+- [ ] Document it: `/document Hospitality core`
+SRS: H1-01, H1-02, H1-03, H1-04, H1-05, H1-06, H1-07, H1-08, H2-01, H2-02, H2-03, H2-04, H2-05, H4-01, H4-02, H4-03, H5-01, H5-02, H5-03, H5-04, H6-01, H6-02 · code: `convex/hospitality.ts`, `convex/lib/hospitality.ts`, `convex/lib/visitorAccount.ts`, `convex/hospitalityMigration.ts`, `packages/shared/src/constants/hospitality.ts`, `apps/admin/components/hospitality/`, `apps/mobile/app/profile-completion/clan.tsx` (the "I don't know my clan" wizard step already exists)
+
+### 34. Hospitality dashboard and grouped sidebar · in-progress
+Track B. Give the Hospitality team a Dashboard about visitors instead of roster upkeep: what to act on today first (follow ups waiting, unassigned or overdue), then the trends that guide decisions (attendance, the journey toward membership, contact outcomes, team load, who is visiting, clan balance). Group Hospitality's sidebar by purpose, with count badges for the work waiting. From spec 0025, which came out of feature 24.
+**Done when:** a Hospitality operator lands on Hospitality content, not roster stats, and every operator sees the same Dashboard. A period switch (4 weeks, 12 weeks, 6 months) drives the headline numbers (each compared with the period before), the attendance trend, the visitor journey, contact outcomes and visitor mix. Follow up health, needs attention, team load and clan balance always show the present. First timers count as contacted on time only through a personal contact within 2 days, and nobody inside that window is counted late. Hospitality's sidebar reads Dashboard, Welcome and care, Insights, Team, with Settings at the bottom and badges for unassigned follow ups, members waiting for a clan and requests waiting. Every other department's Dashboard and sidebar are unchanged.
+- [x] Design it (spec): `/architect Hospitality dashboard and sidebar`
+Spec: [0025](../specs/_root/0025-hospitality-dashboard/index.md)
+- [ ] Build it: `/develop Hospitality dashboard and sidebar`
+  - [x] Thin thread: SRS 4.7.1 and 4.10 edits, the shared period and contact helpers, the Hospitality Dashboard replacing the shared one with the period switch, headline numbers and welcome panel, satisfies AC-1 to AC-3, AC-5 to AC-8, AC-10, AC-17
+  - [x] Grouped sidebar and count badges, satisfies AC-21 to AC-23
+  - [x] Act today: follow up health, needs attention, team load and clan balance, satisfies AC-9, AC-15, AC-16
+  - [x] Trends: attendance trend on the shared bin helper, visitor journey, contact outcomes, visitor mix, satisfies AC-11 to AC-14
+  - [ ] Finish: remove the spec 0024 AC-35 cards, per panel error boundaries, accessibility and 375 pixel pass, tests, satisfies AC-4, AC-18 to AC-20, AC-24
+- [ ] Verify it: `/check verify Hospitality dashboard and sidebar`
+- [ ] Test it: `/test Hospitality dashboard and sidebar`
+SRS: H1-03, H2-01, H2-04, H4-01, H4-03, H5-02, H5-03, H6-01, 4.7.1, 4.10 (both to be amended by this feature) · code: `convex/hospitality.ts`, `convex/lib/hospitalityStats.ts`, `packages/shared/src/constants/hospitality.ts`, `apps/admin/components/hospitality/`, `apps/admin/app/(admin)/areas-of-service/[slug]/DepartmentSidebar.tsx`, `apps/admin/app/(admin)/areas-of-service/[slug]/dashboard/page.tsx`
 
 ### 28. Notification settings, web bell, images · in-progress
 Track B. Let every user control which push categories they get, give portal users the web bell as a real inbox of their portal work, and put images in notifications wherever the SRS's catalogue calls for one.

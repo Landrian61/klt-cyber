@@ -615,7 +615,7 @@ Members are told plainly, when claiming a department or choosing a clan, that th
 
 Each department is represented by a **fixed built-in icon**.
 
-The **Dashboard** is the one page a department may replace with its own. Media (4.11) and the Library (4.13) do; every other department renders the shared Dashboard described above. The other four pages always come from the shared set.
+The **Dashboard** is the one page a department may replace with its own. Media (4.11), Hospitality (4.10) and the Library (4.13) do; every other department renders the shared Dashboard described above. The other four pages always come from the shared set.
 
 #### 4.7.2 HOD and delegate powers
 
@@ -960,13 +960,14 @@ Radio Insights are also available to the **Pastoral HOD and delegates** and the 
 
 | Page | Contents |
 |---|---|
+| **Dashboard** | Hospitality's own dashboard, not the shared department one (4.7.1). What to act on today (follow-ups waiting, unassigned or overdue, team load, clan balance), then trends over 4 weeks, 12 weeks or 6 months (visitors, first-timers, came back, contacted within 2 days, attendance, the journey toward membership, contact outcomes, visitor mix) |
 | Visitors | Both kinds, first-timers and regulars flagged; add walk-in; record visit |
 | Follow-ups | Outstanding and done; outcomes; assignments |
 | SMS | Send to one or many from templates; history with delivery status; credit |
 | Clan placement | Verified members without a clan; clan sizes; assign |
 | Reports | Visitors, follow-ups and SMS by date range; PDF |
 
-**Dashboard cards:** visitors this month, first-timers this week, returning and regular visitors, follow-ups outstanding, members waiting for a clan, clan sizes, SMS credit.
+The sidebar groups these pages by purpose: Dashboard; Welcome and care (Visitors, Follow-ups, Clan placement); Insights (Reports); Team (Roster, Activities, Messages); Settings at the bottom, with count badges for unassigned follow-ups, members waiting for a clan and requests waiting. SMS credit joins the Dashboard with the SMS feature.
 
 #### 4.10.4 Stories
 
