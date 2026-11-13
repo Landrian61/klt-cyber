@@ -19,6 +19,7 @@ import {
   requireUser,
 } from "./lib/authz";
 import { resolvePhotoUrl, syncIdentityToUser } from "./lib/identity";
+import { syncVisitorFromAccount } from "./lib/visitorAccount";
 import { findLiveMemberships } from "./lib/departmentMembership";
 import { assertMentorshipChangeAllowed } from "./lib/profileLifecycle";
 import { notificationCommon } from "./lib/reminders";
@@ -420,6 +421,9 @@ export const updateMyProfile = mutation({
       firstName: args.firstName,
       lastName: args.lastName,
     });
+    // Hospitality's copy: new names on an app row, and the new profile phone
+    // as the join suggestion key (spec 0024, AC-8, AC-31).
+    await syncVisitorFromAccount(ctx, user._id);
 
     await logActivity(ctx, {
       actorUserId: user._id,

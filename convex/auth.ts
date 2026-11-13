@@ -60,6 +60,14 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         await ctx.scheduler.runAfter(0, internal.emails.sendWelcome, {
           userId,
         });
+
+        // The person's app visitor row for Hospitality (spec 0024, AC-8).
+        // Scheduled for the same reason as the email: a fault in Hospitality
+        // code must never be able to fail a sign up. It is idempotent, and
+        // `hospitalityMigration.backfillAppVisitors` catches anyone it missed.
+        await ctx.scheduler.runAfter(0, internal.hospitality.ensureAppVisitor, {
+          userId,
+        });
       },
     },
   },

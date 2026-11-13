@@ -11,6 +11,17 @@ import {
   vLibraryStockDirection,
 } from "./lib/libraryValidators";
 import { vNotificationKind } from "./lib/notificationValidators";
+import {
+  vAgeBracket,
+  vContactChannel,
+  vContactOutcome,
+  vFollowUpOutcome,
+  vFollowUpStatus,
+  vSex,
+  vVisitorConsent,
+  vVisitorKind,
+  vVisitorListStatus,
+} from "./lib/hospitalityValidators";
 import { eventAudienceValidator } from "./lib/eventAudience";
 import {
   vRadioBroadcastOrigin,
@@ -248,7 +259,11 @@ export default defineSchema({
     // who have merely claimed the clan in the wizard, and reading the whole
     // clan and filtering in memory would make that an easy mistake to make.
     .index("by_clanId_profileStatus", ["clanId", "profileStatus"])
-    .index("by_spouseUserId", ["spouseUserId"]),
+    .index("by_spouseUserId", ["spouseUserId"])
+    // Spec 0024, AC-32. Hospitality's clan placement queue: verified profiles
+    // oldest `verifiedAt` first. A legacy verified row with no `verifiedAt`
+    // sorts first, since an absent value is lowest in index order.
+    .index("by_profileStatus_verifiedAt", ["profileStatus", "verifiedAt"]),
 
   // Per-level leadership-institute progress. A separate table (not an array on
   // the profile) since proof is tracked per level. No row for a level = not
@@ -1403,4 +1418,103 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"])
     // The rolling hour rate limit and the account deletion sweep.
     .index("by_senderUserId", ["senderUserId", "createdAt"]),
+
+  // -- Hospitality (spec 0024) ----------------------------------------------
+
+  // Every visitor, walk in or app, as one row (H1-01, H1-03). Visits, follow
+  // ups and contacts all point here, so one list can search, flag and track.
+  visitors: defineTable({
+    kind: vVisitorKind,
+    // App rows, and walk ins once joined to an account. At most one row with a
+    // given userId is `active` or `member`; the writers keep that true.
+    userId: v.optional(v.id("users")),
+    firstName: v.string(),
+    lastName: v.optional(v.string()),
+    // Folded "first last", plus the email when there is an account.
+    searchName: v.string(),
+    // E.164. Present ONLY while `consent` is live (AC-22).
+    phone: v.optional(v.string()),
+    // The account's profile phone, for join suggestions only. Never used to
+    // contact anyone, never shown.
+    accountPhone: v.optional(v.string()),
+    sex: v.optional(vSex),
+    ageBracket: v.optional(vAgeBracket),
+    invitedByText: v.optional(v.string()),
+    invitedByUserId: v.optional(v.id("users")),
+    notes: v.optional(v.string()),
+    consent: v.optional(vVisitorConsent),
+    // Stored derived values, recomputed by every visit writer in the same
+    // mutation so they always equal what the visit rows say.
+    visitCount: v.number(),
+    firstVisitDate: v.optional(v.string()), // YYYY-MM-DD
+    lastVisitDate: v.optional(v.string()), // YYYY-MM-DD
+    lastRegularMonth: v.optional(v.string()), // YYYY-MM
+    listStatus: vVisitorListStatus,
+    mergedIntoId: v.optional(v.id("visitors")),
+    createdBy: v.optional(v.id("users")), // absent for app rows
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_phone", ["phone"])
+    .index("by_accountPhone", ["accountPhone"])
+    .index("by_listStatus_lastVisitDate", ["listStatus", "lastVisitDate"])
+    .index("by_listStatus_firstVisitDate", ["listStatus", "firstVisitDate"])
+    .index("by_kind_listStatus", ["kind", "listStatus"])
+    // AC-30. The "Not yet a member" view: rows of one status, oldest
+    // `createdAt` first, app rows and joined walk ins alike.
+    .index("by_listStatus_createdAt", ["listStatus", "createdAt"])
+    .searchIndex("search_name", {
+      searchField: "searchName",
+      filterFields: ["listStatus", "kind"],
+    }),
+
+  // One row per visitor per Kampala calendar date.
+  visitorVisits: defineTable({
+    visitorId: v.id("visitors"),
+    visitDate: v.string(), // YYYY-MM-DD
+    recordedBy: v.id("users"),
+    recordedAt: v.number(),
+  })
+    .index("by_visitorId_visitDate", ["visitorId", "visitDate"])
+    .index("by_visitDate", ["visitDate"]),
+
+  // A first timer's follow up (H2-01 to H2-04). At most one open per visitor.
+  followUps: defineTable({
+    visitorId: v.id("visitors"),
+    firstVisitDate: v.string(), // YYYY-MM-DD
+    status: vFollowUpStatus,
+    outcome: v.optional(vFollowUpOutcome),
+    attemptCount: v.number(),
+    assignedTo: v.optional(v.id("users")),
+    assignedBy: v.optional(v.id("users")),
+    assignedAt: v.optional(v.number()),
+    openedAt: v.number(),
+    closedAt: v.optional(v.number()),
+    closedBy: v.optional(v.id("users")),
+    closeNote: v.optional(v.string()),
+  })
+    .index("by_visitorId", ["visitorId"])
+    .index("by_status_firstVisitDate", ["status", "firstVisitDate"])
+    .index("by_assignedTo_status_firstVisitDate", [
+      "assignedTo",
+      "status",
+      "firstVisitDate",
+    ])
+    .index("by_openedAt", ["openedAt"])
+    .index("by_status_closedAt", ["status", "closedAt"]),
+
+  // Every contact attempt, logged by an operator (or written by N41).
+  visitorContacts: defineTable({
+    visitorId: v.id("visitors"),
+    followUpId: v.optional(v.id("followUps")),
+    channel: vContactChannel,
+    outcome: v.optional(vContactOutcome), // absent for `in_app`
+    note: v.optional(v.string()),
+    byUserId: v.id("users"),
+    at: v.number(),
+  })
+    .index("by_visitorId_at", ["visitorId", "at"])
+    .index("by_followUpId", ["followUpId"])
+    .index("by_at", ["at"]),
 });

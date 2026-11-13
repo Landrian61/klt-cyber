@@ -17,6 +17,10 @@ import {
 } from "./lib/authz";
 import { resolveMediaUrl } from "./lib/media";
 import { resolvePhotoUrl, syncIdentityToUser } from "./lib/identity";
+import {
+  markVisitorMember,
+  syncVisitorFromAccount,
+} from "./lib/visitorAccount";
 import { scheduleReplacedMediaCleanupMany } from "./lib/mediaCleanup";
 import {
   assertNotStale,
@@ -514,6 +518,9 @@ export const submitProfile = mutation({
       firstName: profileFields.firstName,
       lastName: profileFields.lastName,
     });
+    // Hospitality's copy of the names and the profile phone (spec 0024,
+    // AC-8, AC-31), after the user row has the new names.
+    await syncVisitorFromAccount(ctx, user._id);
 
     await logActivity(ctx, {
       actorUserId: user._id,
@@ -700,6 +707,9 @@ export const verifyProfile = mutation({
       role: "member",
       profileCompleted: true,
     });
+    // The same moment takes them off Hospitality's Visitors list (spec 0024,
+    // AC-31), and carries any reviewer name correction onto their row.
+    await markVisitorMember(ctx, profile.userId);
 
     await logActivity(ctx, {
       actorUserId: actor._id,
@@ -919,6 +929,7 @@ export const resubmitProfile = mutation({
       firstName: profileFields.firstName,
       lastName: profileFields.lastName,
     });
+    await syncVisitorFromAccount(ctx, user._id);
 
     await reconcileChildren(ctx, user._id, children, now);
     await reconcileLeadership(ctx, user._id, leadershipEntries, now);

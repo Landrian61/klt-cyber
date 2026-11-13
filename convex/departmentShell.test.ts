@@ -135,7 +135,12 @@ describe("departmentCapabilities", () => {
   // capability added there and not here fails the three assertions below,
   // which is the point: it forces whoever adds one to say out loud that it is
   // scoped rather than letting it quietly look like a shell capability.
-  const DEPARTMENT_SCOPED = ["manageLibrary", "manageRealEstate", "manageRadio"];
+  const DEPARTMENT_SCOPED = [
+    "manageLibrary",
+    "manageRealEstate",
+    "manageRadio",
+    "manageHospitality",
+  ];
   const SHELL_CAPABILITIES = DEPARTMENT_CAPABILITIES.filter(
     (c) => !DEPARTMENT_SCOPED.includes(c)
   );
@@ -196,10 +201,11 @@ describe("departmentCapabilities", () => {
   });
 
   it("gives a roster member of another department nothing at all", () => {
-    // Hospitality: a roster portal department that grants no scoped
-    // capability yet. (Media stopped being the example here once spec 0019
-    // gave its roster `manageRadio`.)
-    const can = departmentCapabilities("roster", "Hospitality");
+    // Finance: a department that grants no scoped capability. (Media stopped
+    // being the example here once spec 0019 gave its roster `manageRadio`,
+    // and Hospitality once spec 0024 gave its roster `manageHospitality`, so
+    // every roster portal department now grants one.)
+    const can = departmentCapabilities("roster", "Finance");
     for (const capability of DEPARTMENT_CAPABILITIES) {
       expect(can[capability]).toBe(false);
     }

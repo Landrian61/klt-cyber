@@ -1,6 +1,7 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
+  HOSPITALITY_DEPARTMENT_NAME,
   LIBRARY_DEPARTMENT_NAME,
   MEDIA_DEPARTMENT_NAME,
   PASTORAL_DEPARTMENT_NAME,
@@ -264,6 +265,12 @@ export const DEPARTMENT_CAPABILITIES = [
   // events keep `requireMediaAuthority`, so publishing church wide content
   // does not widen to the roster.
   "manageRadio",
+  // Spec 0024. The fourth scoped capability, on the shared `[slug]` shell like
+  // Library and Real Estate. Granted only inside `Hospitality`, and there to
+  // the HOD, a delegate, a System Admin and a VERIFIED roster member, which
+  // `resolveDepartmentShellRole` already enforces because Hospitality is in
+  // ROSTER_PORTAL_DEPARTMENTS.
+  "manageHospitality",
 ] as const;
 
 export type DepartmentCapability = (typeof DEPARTMENT_CAPABILITIES)[number];
@@ -318,6 +325,7 @@ const DEPARTMENT_SCOPED_CAPABILITIES = {
   manageLibrary: LIBRARY_DEPARTMENT_NAME,
   manageRealEstate: REAL_ESTATE_DEPARTMENT_NAME,
   manageRadio: MEDIA_DEPARTMENT_NAME,
+  manageHospitality: HOSPITALITY_DEPARTMENT_NAME,
 } as const satisfies Partial<Record<DepartmentCapability, string>>;
 
 /**
