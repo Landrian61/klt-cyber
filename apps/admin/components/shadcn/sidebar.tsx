@@ -382,6 +382,28 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
   );
 }
 
+// Upstream shadcn `SidebarMenuBadge` (new-york), added on its own rather than
+// through `shadcn add sidebar`, which would overwrite this file's theming.
+// Only the `top` offsets differ, matched to this file's taller menu buttons.
+function SidebarMenuBadge({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="sidebar-menu-badge"
+      data-sidebar="menu-badge"
+      className={cn(
+        "text-sidebar-foreground pointer-events-none absolute right-1 flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-medium tabular-nums select-none",
+        "peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[active=true]/menu-button:text-sidebar-accent-foreground",
+        "peer-data-[size=sm]/menu-button:top-1",
+        "peer-data-[size=default]/menu-button:top-2",
+        "peer-data-[size=lg]/menu-button:top-3.5",
+        "group-data-[collapsible=icon]:hidden",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 const sidebarMenuButtonVariants = cva(
   "peer/menu-button flex w-full items-center gap-3 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-5 [&>svg]:shrink-0",
   {
@@ -462,6 +484,7 @@ export {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
