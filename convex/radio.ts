@@ -2,7 +2,6 @@ import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import {
   internalAction,
-  internalQuery,
   internalMutation,
   mutation,
   query,
@@ -22,6 +21,8 @@ import {
   RADIO_RECORDING_URL_TTL_SECONDS,
   RADIO_TARGET_TYPES,
   deriveRadioStatus,
+  extractRadioListenerPass,
+  withRadioListenerPass,
   effectiveRadioFollow,
   isSuperTProgram,
   kampalaDateKeyAt,
@@ -48,12 +49,6 @@ import { vRadioOverrideState } from "./lib/radioValidators";
 import { materialiseProgram } from "./lib/radioSchedule";
 import { applyBeat, sweepStaleStretches } from "./lib/radioListening";
 import { deliverLivePush, sendDueLivePushes } from "./lib/radioLivePush";
-import {
-  extractListenerPass,
-  isListenerPass,
-  passRefreshDue,
-  playableStreamUrl,
-} from "./lib/radioPass";
 
 /**
  * Radio core: the stream probe, the status row and what readers are shown
@@ -189,33 +184,25 @@ export async function onAirBroadcast(
 // ── Reader queries ────────────────────────────────────────────────────────
 
 /**
- * The url players open and the probe checks: `RADIO_STREAM_URL` with the
- * listener pass the probe last read, while `RADIO_PASS_SOURCE_URL` is set
- * (convex/lib/radioPass.ts).
- */
-function streamUrlWithPass(pass: string | undefined): string | null {
-  return playableStreamUrl({
-    envUrl: process.env.RADIO_STREAM_URL?.trim() || undefined,
-    sourceUrl: process.env.RADIO_PASS_SOURCE_URL?.trim() || undefined,
-    pass,
-  });
-}
-
-/**
  * What the player needs to open the stream (Value sourcing). Read from Convex
- * env vars so the url changes without an app release, with the probe's
- * current listener pass. Reactive on the status row, so a new pass reaches an
- * open app at once. Null for a signed out caller, so a reactive subscription
- * survives sign out.
+ * env vars so the url changes without an app release. Null for a signed out
+ * caller, so a reactive subscription survives sign out.
  */
 export const getPlaybackConfig = query({
   args: {},
   handler: async (ctx) => {
     if (!(await getCurrentUser(ctx))) return null;
-    const streamUrl = streamUrlWithPass((await getStatusRow(ctx))?.listenerPass);
+    const streamUrl = process.env.RADIO_STREAM_URL?.trim() || null;
+    const passSourceUrl = process.env.RADIO_PASS_SOURCE_URL?.trim() || null;
     const origin = process.env.PORTAL_ORIGIN?.trim().replace(/\/+$/, "");
     return {
       streamUrl,
+      // Caster FM's player page. A listener pass works only from the address
+      // that fetched it, so the server never reads one for the players: each
+      // player reads its own from this page, on its own connection, just
+      // before it plays, and puts it in streamUrl (withRadioListenerPass in
+      // packages/shared).
+      passSourceUrl,
       ...(origin ? { cityLookupUrl: `${origin}/api/where` } : {}),
       // Where the lock screen fetches program artwork when a program has no
       // uploaded image (spec 0020): the portal serves copies of the bundled
@@ -639,7 +626,7 @@ interface StatsSource {
   title?: string;
 }
 
-type ProbeFinding = (
+type ProbeFinding =
   | {
       outcome: "live";
       streamListeners?: number;
@@ -647,20 +634,7 @@ type ProbeFinding = (
       fromFallback: boolean;
     }
   | { outcome: "off_air"; streamListeners?: number }
-  | { outcome: "unknown"; error: string }
-) & {
-  /** The stats' `server_start`, when the stats were read. */
-  serverStart?: string;
-};
-
-/** `icestats.server_start`, the stream server's last restart, if present. */
-function statsServerStart(body: unknown): string | undefined {
-  if (!body || typeof body !== "object") return undefined;
-  const stats = (body as Record<string, unknown>).icestats;
-  if (!stats || typeof stats !== "object") return undefined;
-  const value = (stats as Record<string, unknown>).server_start;
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
+  | { outcome: "unknown"; error: string };
 
 /** The `source` entries of a stats body, whichever shape it arrived in. */
 function statsSources(body: unknown): StatsSource[] | null {
@@ -746,11 +720,29 @@ async function probeStreamBytes(streamUrl: string): Promise<boolean> {
 }
 
 /**
- * Read `streamUrl` (the playable url, current pass included) and the stats.
- * Mount matching uses the path only, so the pass never affects it.
+ * A listener pass for the SERVER's own fallback check, read from Caster FM's
+ * page at `RADIO_PASS_SOURCE_URL`. Valid only from Convex's address, so it is
+ * never stored or handed to a player. Null when unset or unreadable.
  */
-async function readStream(streamUrl: string | undefined): Promise<ProbeFinding> {
+async function readServerPass(): Promise<string | null> {
+  const sourceUrl = process.env.RADIO_PASS_SOURCE_URL?.trim();
+  if (!sourceUrl) return null;
+  try {
+    const response = await fetchWithTimeout(
+      sourceUrl,
+      { headers: { Accept: "text/html" } },
+      RADIO_PROBE_FALLBACK_TIMEOUT_MS
+    );
+    if (!response.ok) return null;
+    return extractRadioListenerPass(await response.text());
+  } catch {
+    return null;
+  }
+}
+
+async function readStream(): Promise<ProbeFinding> {
   const statusUrl = process.env.RADIO_STATUS_URL?.trim();
+  const streamUrl = process.env.RADIO_STREAM_URL?.trim();
   if (!statusUrl && !streamUrl) {
     return { outcome: "unknown", error: "RADIO_STATUS_URL and RADIO_STREAM_URL are unset" };
   }
@@ -764,12 +756,10 @@ async function readStream(streamUrl: string | undefined): Promise<ProbeFinding> 
         RADIO_PROBE_FALLBACK_TIMEOUT_MS
       );
       if (!response.ok) throw new Error(`stats answered ${response.status}`);
-      const body: unknown = await response.json();
-      const sources = statsSources(body);
+      const sources = statsSources(await response.json());
       if (!sources) throw new Error("stats body is not a publicstats document");
-      const serverStart = statsServerStart(body);
       const mount = chooseMount(sources, streamUrl);
-      if (!mount) return { outcome: "off_air", serverStart };
+      if (!mount) return { outcome: "off_air" };
       const listeners =
         typeof mount.listeners === "number" && Number.isFinite(mount.listeners)
           ? mount.listeners
@@ -780,7 +770,6 @@ async function readStream(streamUrl: string | undefined): Promise<ProbeFinding> 
         streamListeners: listeners,
         streamTitle: title || undefined,
         fromFallback: false,
-        serverStart,
       };
     } catch (error) {
       statsError = error instanceof Error ? error.message : String(error);
@@ -789,7 +778,11 @@ async function readStream(streamUrl: string | undefined): Promise<ProbeFinding> 
 
   if (streamUrl) {
     try {
-      if (await probeStreamBytes(streamUrl)) {
+      // The stream wants a listener pass that works only from the address
+      // that fetched it, so this check reads the server's own, used here and
+      // nowhere else (players read theirs: see getPlaybackConfig).
+      const checkUrl = withRadioListenerPass(streamUrl, await readServerPass());
+      if (await probeStreamBytes(checkUrl)) {
         return { outcome: "live", fromFallback: true };
       }
       return { outcome: "unknown", error: `${statsError}; stream answered without audio` };
@@ -799,58 +792,6 @@ async function readStream(streamUrl: string | undefined): Promise<ProbeFinding> 
     }
   }
   return { outcome: "unknown", error: statsError };
-}
-
-/** The pass the probe has, and when it read it (convex/lib/radioPass.ts). */
-export const getPassState = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const row = await getStatusRow(ctx);
-    return {
-      pass: row?.listenerPass,
-      checkedAt: row?.listenerPassCheckedAt,
-      triedAt: row?.listenerPassTriedAt,
-      serverStart: row?.listenerPassServerStart,
-    };
-  },
-});
-
-/**
- * True only when the stream answers 401 or 403 to the playable url: our pass
- * is refused. Anything else, a timeout included, is not evidence against it.
- * The body is never read.
- */
-async function streamRefusesPass(streamUrl: string): Promise<boolean> {
-  try {
-    const response = await fetchWithTimeout(
-      streamUrl,
-      { method: "GET", headers: { Range: "bytes=0-1023" } },
-      RADIO_PROBE_FALLBACK_TIMEOUT_MS
-    );
-    await response.body?.cancel().catch(() => undefined);
-    return response.status === 401 || response.status === 403;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * The pass Caster FM's player page carries now, or null when the page could
- * not be read or carries none. Never throws: a failed read keeps the stored
- * pass and is tried again a minute later at the soonest.
- */
-async function readListenerPass(sourceUrl: string): Promise<string | null> {
-  try {
-    const response = await fetchWithTimeout(
-      sourceUrl,
-      { headers: { Accept: "text/html" } },
-      RADIO_PROBE_FALLBACK_TIMEOUT_MS
-    );
-    if (!response.ok) return null;
-    return extractListenerPass(await response.text());
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -865,68 +806,13 @@ async function readListenerPass(sourceUrl: string): Promise<string | null> {
 export const probeStream = internalAction({
   args: { scheduleBurst: v.optional(v.boolean()) },
   handler: async (ctx, { scheduleBurst }) => {
-    const passState = await ctx.runQuery(internal.radio.getPassState, {});
-    const streamUrl = streamUrlWithPass(passState.pass) ?? undefined;
-
     let finding: ProbeFinding;
     try {
-      finding = await readStream(streamUrl);
+      finding = await readStream();
     } catch (error) {
       finding = {
         outcome: "unknown",
         error: error instanceof Error ? error.message : String(error),
-      };
-    }
-
-    // Keep the listener pass current, so a pass Caster FM stopped accepting
-    // never strands the players (convex/lib/radioPass.ts).
-    const sourceUrl = process.env.RADIO_PASS_SOURCE_URL?.trim() || undefined;
-    const now = Date.now();
-    const due = {
-      sourceUrl,
-      pass: passState.pass,
-      checkedAt: passState.checkedAt,
-      triedAt: passState.triedAt,
-      storedServerStart: passState.serverStart,
-      serverStart: finding.serverStart,
-      now,
-    };
-    let refreshDue = passRefreshDue(due);
-    // A pass can be refused with no restart and before it is old. Once a
-    // minute, while the stats say Live, ask the stream whether it takes ours.
-    if (
-      !refreshDue &&
-      sourceUrl &&
-      scheduleBurst &&
-      streamUrl &&
-      finding.outcome === "live" &&
-      !finding.fromFallback &&
-      (await streamRefusesPass(streamUrl))
-    ) {
-      refreshDue = passRefreshDue({ ...due, refused: true });
-    }
-
-    let passUpdate:
-      | {
-          listenerPassTriedAt: number;
-          listenerPass?: string;
-          listenerPassCheckedAt?: number;
-          listenerPassServerStart?: string;
-        }
-      | undefined;
-    if (sourceUrl && refreshDue) {
-      const pass = await readListenerPass(sourceUrl);
-      passUpdate = {
-        listenerPassTriedAt: now,
-        ...(pass
-          ? {
-              listenerPass: pass,
-              listenerPassCheckedAt: now,
-              // Only a reading of the stats moves this on; a failed stats
-              // read keeps the one stored, so a restart is still noticed.
-              ...(finding.serverStart ? { listenerPassServerStart: finding.serverStart } : {}),
-            }
-          : {}),
       };
     }
 
@@ -936,7 +822,6 @@ export const probeStream = internalAction({
         finding.outcome === "unknown" ? undefined : finding.streamListeners,
       streamTitle: finding.outcome === "live" ? finding.streamTitle : undefined,
       error: finding.outcome === "unknown" ? finding.error : undefined,
-      ...(passUpdate ?? {}),
     });
 
     // Once per outage, not once per probe (AC-39): only the probe that turns
@@ -989,11 +874,6 @@ export const recordProbe = internalMutation({
     streamListeners: v.optional(v.number()),
     streamTitle: v.optional(v.string()),
     error: v.optional(v.string()),
-    // Only when this probe read the player page; otherwise all stay as stored.
-    listenerPassTriedAt: v.optional(v.number()),
-    listenerPass: v.optional(v.string()),
-    listenerPassCheckedAt: v.optional(v.number()),
-    listenerPassServerStart: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -1041,18 +921,13 @@ export const recordProbe = internalMutation({
             : row?.streamTitle,
       currentBroadcastId:
         derived === "off_air" ? undefined : (current?._id ?? row?.currentBroadcastId),
-      ...(args.listenerPassTriedAt !== undefined
-        ? { listenerPassTriedAt: args.listenerPassTriedAt }
-        : {}),
-      ...(args.listenerPass && isListenerPass(args.listenerPass)
-        ? {
-            listenerPass: args.listenerPass,
-            listenerPassCheckedAt: args.listenerPassCheckedAt ?? now,
-            ...(args.listenerPassServerStart !== undefined
-              ? { listenerPassServerStart: args.listenerPassServerStart }
-              : {}),
-          }
-        : {}),
+      // Clears the pass an earlier build read on the server (it works only
+      // from Convex's own address). Kept in the schema until every row is
+      // clear, then removed.
+      listenerPass: undefined,
+      listenerPassCheckedAt: undefined,
+      listenerPassTriedAt: undefined,
+      listenerPassServerStart: undefined,
     };
     if (row) await ctx.db.patch(row._id, patch);
     else await ctx.db.insert("radioStatus", patch);
