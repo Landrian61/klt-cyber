@@ -1,8 +1,9 @@
 "use client";
 
-import { use } from "react";
+import { Suspense, use } from "react";
 import { DepartmentShellGate } from "@/components/department/DepartmentShellProvider";
 import { DepartmentDashboard } from "@/components/department/DepartmentDashboard";
+import { HospitalityDashboard } from "@/components/hospitality/HospitalityDashboard";
 import { LibraryDashboard } from "@/components/library/LibraryDashboard";
 
 /**
@@ -12,14 +13,15 @@ import { LibraryDashboard } from "@/components/library/LibraryDashboard";
  * implementation lives twice.
  *
  * The Dashboard is the ONE page a department may replace with its own (spec
- * 0012 AC-2, as amended by spec 0017). Media does it from its own portal
- * directory; the Library does it from here, because it is still served by this
- * dynamic route. Every other department gets `DepartmentDashboard`, unchanged.
+ * 0012 AC-2, as amended by specs 0017 and 0025). Media does it from its own
+ * portal directory; the Library and Hospitality do it from here, because they
+ * are still served by this dynamic route. Every other department gets
+ * `DepartmentDashboard`, unchanged.
  *
  * The branch reads the capability rather than the slug: the slug is a URL the
- * seed decides and `manageLibrary` is the thing that actually means "this is
- * the Library", which is also what both dashboards' queries re-check on the
- * server.
+ * seed decides, and `manageLibrary` / `manageHospitality` are what actually
+ * mean "this is the Library" / "this is Hospitality", which is also what each
+ * dashboard's queries re-check on the server.
  */
 export default function DepartmentDashboardPage({
   params,
@@ -38,6 +40,14 @@ export default function DepartmentDashboardPage({
             basePath={basePath}
             canViewRoster={shell.can.viewRoster}
           />
+        ) : shell.can.manageHospitality ? (
+          // Suspense because the period comes from the search params.
+          <Suspense fallback={null}>
+            <HospitalityDashboard
+              departmentName={shell.department.name}
+              basePath={basePath}
+            />
+          </Suspense>
         ) : (
           <DepartmentDashboard
             departmentId={shell.department._id}
