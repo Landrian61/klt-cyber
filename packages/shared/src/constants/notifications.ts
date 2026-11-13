@@ -65,6 +65,9 @@ export const PORTAL_WORK_TYPES = [
   // Spec 0019. N34's hourly count of new prayer requests and testimonies,
   // read in the Radio inbox on the portal.
   'radio_inbox',
+  // Spec 0024. N36's notice: a visitor's follow up was given to you, and the
+  // calling and logging happen on the portal's Follow ups page.
+  'hospitality_follow_up',
 ] as const;
 
 export type PortalWorkType = (typeof PORTAL_WORK_TYPES)[number];
@@ -94,5 +97,9 @@ export const PORTAL_WORK_COPY: Record<PortalWorkType, { title: string; body: str
   radio_inbox: {
     title: 'New prayer requests and testimonies',
     body: 'They came in during a broadcast. Read them in the Radio inbox on the web portal.',
+  },
+  hospitality_follow_up: {
+    title: 'A visitor follow up is yours',
+    body: 'A teammate gave you a visitor to follow up. Open Follow ups on the web portal to call, message and record how it went.',
   },
 };
