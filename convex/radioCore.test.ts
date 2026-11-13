@@ -535,31 +535,46 @@ describe("radio.getPlaybackConfig artwork (spec 0020, AC-7)", () => {
     expect(await t.query(api.radio.getPlaybackConfig, {})).toBeNull();
   });
 
-  it("hands players the probe's current listener pass in place of the typed one", async () => {
+  it("hands players the stream url as typed and the page they read their own pass from", async () => {
     const t = testConvex();
     const member = await createUser(t, "Plain");
     as(member.authId);
-    vi.stubEnv("RADIO_STREAM_URL", "https://h.example:43348/listen.mp3?authn0000aaaa1111bbbb2222cccc3333dddd");
-    vi.stubEnv("RADIO_PASS_SOURCE_URL", "https://widgets.example/em_player.php");
-
-    // No pass read yet: the env url exactly as written.
-    expect((await t.query(api.radio.getPlaybackConfig, {}))?.streamUrl).toBe(
-      "https://h.example:43348/listen.mp3?authn0000aaaa1111bbbb2222cccc3333dddd"
-    );
-
-    await t.mutation(internal.radio.recordProbe, {
-      outcome: "live",
-      listenerPass: "authn9999eeee8888ffff7777aaaa6666bbbb",
-      listenerPassCheckedAt: Date.now(),
+    // Made up passes: a real one must never be committed.
+    const typed = "https://h.example:43348/listen.mp3?authn0000aaaa1111bbbb2222cccc3333dddd";
+    vi.stubEnv("RADIO_STREAM_URL", typed);
+    vi.stubEnv("RADIO_PASS_SOURCE_URL", "https://widgets.example/em_player.php?uid=1");
+    // A pass an earlier build stored on the server is never handed out.
+    await t.mutation(internal.radio.recordProbe, { outcome: "live" });
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("radioStatus").first();
+      await ctx.db.patch(row!._id, { listenerPass: "authn9999eeee8888ffff7777aaaa6666bbbb" });
     });
-    expect((await t.query(api.radio.getPlaybackConfig, {}))?.streamUrl).toBe(
-      "https://h.example:43348/listen.mp3?authn9999eeee8888ffff7777aaaa6666bbbb"
-    );
 
-    // Without a source page the env url wins as typed, stored pass or not.
+    const config = await t.query(api.radio.getPlaybackConfig, {});
+    expect(config?.streamUrl).toBe(typed);
+    expect(config?.passSourceUrl).toBe("https://widgets.example/em_player.php?uid=1");
+
     vi.stubEnv("RADIO_PASS_SOURCE_URL", "");
-    expect((await t.query(api.radio.getPlaybackConfig, {}))?.streamUrl).toBe(
-      "https://h.example:43348/listen.mp3?authn0000aaaa1111bbbb2222cccc3333dddd"
-    );
+    expect((await t.query(api.radio.getPlaybackConfig, {}))?.passSourceUrl).toBeNull();
+  });
+
+  it("clears a server read pass left by an earlier build on the next probe", async () => {
+    const t = testConvex();
+    await t.mutation(internal.radio.recordProbe, { outcome: "live" });
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("radioStatus").first();
+      await ctx.db.patch(row!._id, {
+        listenerPass: "authn9999eeee8888ffff7777aaaa6666bbbb",
+        listenerPassCheckedAt: 1,
+        listenerPassTriedAt: 1,
+        listenerPassServerStart: "A",
+      });
+    });
+    await t.mutation(internal.radio.recordProbe, { outcome: "live" });
+    const row = await t.run((ctx) => ctx.db.query("radioStatus").first());
+    expect(row).not.toHaveProperty("listenerPass");
+    expect(row).not.toHaveProperty("listenerPassCheckedAt");
+    expect(row).not.toHaveProperty("listenerPassTriedAt");
+    expect(row).not.toHaveProperty("listenerPassServerStart");
   });
 });

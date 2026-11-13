@@ -24,6 +24,7 @@ import { radioRemoteArtworkUrl } from '@/lib/radio-artwork';
 import { Sentry } from '@/lib/sentry';
 import { getDeviceId } from '@/lib/device-id';
 import { getRadioCity } from '@/lib/radio-city';
+import { resolveRadioStreamUrl } from '@/lib/radio-pass';
 
 function reportError(error: unknown, tags: { fn: string }) {
   Sentry.captureException(error, { tags });
@@ -130,6 +131,7 @@ const RECORDING_END_SLACK_S = 1.5;
 export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   const config = useQuery(api.radio.getPlaybackConfig, {});
   const streamUrl = config?.streamUrl ?? null;
+  const passSourceUrl = config?.passSourceUrl ?? null;
   const artworkBaseUrl = config?.artworkBaseUrl;
 
   // Created with no source: the stream is attached on each play, so a resume
@@ -144,6 +146,14 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   // Set by our own pause until the native status catches up, so the moment
   // where the status still says playing is not read as a resume.
   const pausingRef = useRef(false);
+  // Bumped by every play, recording and stop. The live play waits for this
+  // phone's listener pass, so a stop or a recording tapped meanwhile must win
+  // over the play that was still reading the pass.
+  const attemptRef = useRef(0);
+  // True while a live play is still reading the pass, before the stream is
+  // attached. Whatever the player reports meanwhile is the OLD source (a
+  // recording still sounding), never the live stream connecting.
+  const resolvingRef = useRef(false);
 
   // Half a minute is enough for the card to follow a program change.
   const { current } = useRadioNow(30_000);
@@ -196,6 +206,8 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   }, [player]);
 
   const stop = useCallback(() => {
+    attemptRef.current += 1;
+    resolvingRef.current = false;
     clearAttemptTimer();
     try {
       player.pause();
@@ -212,6 +224,10 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
       clearAttemptTimer();
       timeoutRef.current = setTimeout(() => {
         timeoutRef.current = null;
+        // Giving up ends the attempt: a pass read that lands later must not
+        // start the stream after "Nothing on air" is already showing.
+        attemptRef.current += 1;
+        resolvingRef.current = false;
         try {
           player.pause();
         } catch {
@@ -231,24 +247,43 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
       setState('nothing_on_air');
       return;
     }
+    const attempt = ++attemptRef.current;
+    resolvingRef.current = true;
     clearAttemptTimer();
+    // Silence whatever was sounding (a recording) at once, rather than after
+    // the pass arrives.
+    try {
+      player.pause();
+    } catch {
+      // A player with no source yet has nothing to pause.
+    }
     releaseLockScreen();
     setSource(LIVE);
     setState('connecting');
-    try {
-      player.replace({ uri: streamUrl });
-      player.play();
-    } catch (error) {
-      reportError(error, { fn: 'radio.play' });
-      setState('nothing_on_air');
-      return;
-    }
+    // The eight seconds (AC-4) start now and cover reading the pass too, so
+    // a slow page can never stretch the wait.
     armAttemptTimer(RADIO_PLAY_ATTEMPT_TIMEOUT_MS, 'nothing_on_air');
-  }, [armAttemptTimer, clearAttemptTimer, player, streamUrl, releaseLockScreen]);
+    // This phone's own listener pass, read on its own connection: a pass
+    // works only from the address that fetched it (lib/radio-pass.ts).
+    void resolveRadioStreamUrl(streamUrl, passSourceUrl).then((uri) => {
+      if (attempt !== attemptRef.current) return;
+      resolvingRef.current = false;
+      try {
+        player.replace({ uri });
+        player.play();
+      } catch (error) {
+        reportError(error, { fn: 'radio.play' });
+        clearAttemptTimer();
+        setState('nothing_on_air');
+      }
+    });
+  }, [armAttemptTimer, clearAttemptTimer, player, streamUrl, passSourceUrl, releaseLockScreen]);
 
   // A recording (AC-27): the same player, pointed at the signed url.
   const playRecording = useCallback(
     (recording: RecordingInput) => {
+      attemptRef.current += 1;
+      resolvingRef.current = false;
       clearAttemptTimer();
       releaseLockScreen();
       setSource({ kind: 'recording', ...recording });
@@ -306,6 +341,7 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!status.playing) pausingRef.current = false;
     if (state === 'paused' && pausingRef.current) return;
+    if (state === 'connecting' && resolvingRef.current) return;
     if ((state === 'connecting' || state === 'paused') && status.playing && !status.isBuffering) {
       clearAttemptTimer();
       setState('playing');

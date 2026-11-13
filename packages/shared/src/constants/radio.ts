@@ -979,3 +979,56 @@ export function radioErrorMessage(code: string): string {
     ? RADIO_ERROR_MESSAGES[code]
     : 'Something went wrong. Try again.';
 }
+
+// -- The listener pass -----------------------------------------------------
+//
+// Caster FM's free plan protects the stream with a listener pass in its query
+// (`listen.mp3?authn<hex>`), and a pass works ONLY from the internet address
+// that fetched it: Caster FM writes it into its player page for whoever asks.
+// Seen on 2026-11-13, read within six seconds: Convex dev, Convex staging and
+// a phone each got a different pass, and the staging pass was refused (401)
+// on the phone. So a pass can never be read once and shared: not typed into
+// an env var (it works for the person who copied it, until their address
+// changes) and not read by the server (it works for the server only). Each
+// player reads its own, from its own connection, just before it plays.
+
+/** How long a player waits for Caster FM's page before playing without a pass. */
+export const RADIO_PASS_FETCH_TIMEOUT_MS = 4 * 1000;
+
+// The pass's shape, written once: `authn` and a hex token.
+const RADIO_PASS_BODY = 'authn[0-9a-f]{16,64}';
+
+/** True for a string shaped like a pass, so nothing else lands in a url. */
+export function isRadioListenerPass(value: string): boolean {
+  return new RegExp(`^${RADIO_PASS_BODY}$`, 'i').test(value);
+}
+
+/**
+ * The pass on Caster FM's player page, or null when it carries none. Prefers
+ * the page's own `streamUrl`, then any pass on the page.
+ */
+export function extractRadioListenerPass(page: string): string | null {
+  const onStream = new RegExp(String.raw`listen\.mp3\?(${RADIO_PASS_BODY})\b`, 'i').exec(page);
+  if (onStream) return onStream[1];
+  const anywhere = new RegExp(String.raw`\b${RADIO_PASS_BODY}\b`, 'i').exec(page);
+  return anywhere ? anywhere[0] : null;
+}
+
+/**
+ * `streamUrl` with `pass` in place of any pass it was typed with, other query
+ * parameters kept. Unchanged when there is no pass, the pass is malformed, or
+ * the url does not parse. Built by hand rather than with `URL` so it behaves
+ * the same in React Native, whose `URL` is incomplete.
+ */
+export function withRadioListenerPass(streamUrl: string, pass: string | null | undefined): string {
+  if (!pass || !isRadioListenerPass(pass)) return streamUrl;
+  const match = /^(https?:\/\/[^?#\s]+)(\?[^#]*)?(#.*)?$/i.exec(streamUrl.trim());
+  if (!match) return streamUrl;
+  const [, base, query = '', hash = ''] = match;
+  const others = query
+    .replace(/^\?/, '')
+    .split('&')
+    // Drops any pass the url was typed with, well formed or not.
+    .filter((part) => part !== '' && !/^authn/i.test(part));
+  return `${base}?${[pass, ...others].join('&')}${hash}`;
+}

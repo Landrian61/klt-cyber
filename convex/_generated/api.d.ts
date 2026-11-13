@@ -64,7 +64,6 @@ import type * as lib_plannerRange from "../lib/plannerRange.js";
 import type * as lib_profileLifecycle from "../lib/profileLifecycle.js";
 import type * as lib_radioListening from "../lib/radioListening.js";
 import type * as lib_radioLivePush from "../lib/radioLivePush.js";
-import type * as lib_radioPass from "../lib/radioPass.js";
 import type * as lib_radioSchedule from "../lib/radioSchedule.js";
 import type * as lib_radioValidators from "../lib/radioValidators.js";
 import type * as lib_realEstateShared from "../lib/realEstateShared.js";
@@ -163,7 +162,6 @@ declare const fullApi: ApiFromModules<{
   "lib/profileLifecycle": typeof lib_profileLifecycle;
   "lib/radioListening": typeof lib_radioListening;
   "lib/radioLivePush": typeof lib_radioLivePush;
-  "lib/radioPass": typeof lib_radioPass;
   "lib/radioSchedule": typeof lib_radioSchedule;
   "lib/radioValidators": typeof lib_radioValidators;
   "lib/realEstateShared": typeof lib_realEstateShared;
