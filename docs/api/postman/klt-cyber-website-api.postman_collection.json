@@ -40,6 +40,7 @@
           "// \"<timestamp>.<raw body>\" under the signing secret. The body is resolved and",
           "// written back first, so the bytes signed are exactly the bytes sent.",
           "if (pm.request.method === \"POST\") {",
+          "    const CryptoJS = require(\"crypto-js\");",
           "    const secret = pm.environment.get(\"signingSecret\");",
           "    if (!secret) throw new Error(\"Set signingSecret in the selected environment.\");",
           "    const raw = pm.variables.replaceIn(pm.request.body ? pm.request.body.raw || \"\" : \"\");",
