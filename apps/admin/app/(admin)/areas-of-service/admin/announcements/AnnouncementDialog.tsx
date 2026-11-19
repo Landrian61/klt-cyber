@@ -137,6 +137,7 @@ function AnnouncementOverview({ a }: { a: Announcement }) {
           <div className="flex flex-wrap gap-1.5">
             <Badge variant={state.variant}>{state.label}</Badge>
             <PriorityBadge priority={a.priority} />
+            {a.source === "website" && <Badge variant="role">From the website</Badge>}
           </div>
         </DetailRow>
         <DetailRow label="Category">
@@ -207,6 +208,9 @@ export function AnnouncementDialog({
   // the field from the update payload rather than overwriting the stored
   // key with a signed URL that will 404 once it expires.
   const [coverImageTouched, setCoverImageTouched] = useState(false);
+  // The website owns these rows (spec 0026, AC-14): the server refuses every
+  // edit, so the dialog offers none and says where the change is made.
+  const fromWebsite = announcement?.source === "website";
 
   // The Dialog stays mounted between opens — re-seed the form (and land back
   // on Overview) each time it opens for a (possibly different) edit target.
@@ -486,7 +490,7 @@ export function AnnouncementDialog({
           >
             <TabsList className="w-fit shrink-0">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="edit">Edit</TabsTrigger>
+              {!fromWebsite && <TabsTrigger value="edit">Edit</TabsTrigger>}
             </TabsList>
             <TabsContent value="overview" className="subtle-scrollbar min-h-0 overflow-y-auto px-1">
               <AnnouncementOverview a={announcement} />
@@ -500,7 +504,16 @@ export function AnnouncementDialog({
         )}
 
         <DialogFooter>
-          {announcement && tab === "overview" ? (
+          {fromWebsite ? (
+            <>
+              <p className="mr-auto self-center font-body text-sm text-on-surface-variant">
+                Sent by the church website. Change or withdraw it in the website admin.
+              </p>
+              <Button size="sm" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </>
+          ) : announcement && tab === "overview" ? (
             <>
               {announcement.status === "draft" && (
                 <Button

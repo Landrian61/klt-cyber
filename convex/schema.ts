@@ -653,7 +653,9 @@ export default defineSchema({
       v.literal("published"),
       v.literal("archived")
     ),
-    createdBy: v.id("users"),
+    // The portal author. Absent only on a row the website sent (spec 0026),
+    // which has no KLT Cyber user behind it.
+    createdBy: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.number(),
     // When this announcement first became `published` (spec 0013, AC-11). Set
@@ -662,7 +664,19 @@ export default defineSchema({
     // rows written before this feature have none until
     // convex/notificationTargetingMigration.ts backfills them.
     firstPublishedAt: v.optional(v.number()),
-  }).index("by_status_startDate", ["status", "startDate"]),
+    // Spec 0026. Set together, only on rows `POST /api/v1/announcements`
+    // writes: the website owns such a row, so the portal refuses to edit it,
+    // and `externalId` (the website's own id) is what makes a resend update
+    // the same row instead of adding a second one. Absent = authored here.
+    source: v.optional(v.literal("website")),
+    externalId: v.optional(v.string()),
+    // The website's own edit time for the last request applied, when it sent
+    // one (AC-18). A request older than this is ignored, so a retried publish
+    // landing after a withdraw cannot bring the announcement back.
+    sourceUpdatedAt: v.optional(v.number()),
+  })
+    .index("by_status_startDate", ["status", "startDate"])
+    .index("by_source_externalId", ["source", "externalId"]),
 
   // Scoped administrative role grants. A user may hold any number of these.
   // `hod`/`department_admin` are department-scoped.
@@ -862,7 +876,9 @@ export default defineSchema({
       type: v.string(),
       id: v.string(),
     }),
-    createdBy: v.id("users"),
+    // Absent only for a notice the website caused (spec 0026): an announcement
+    // it sent has no KLT Cyber user behind it.
+    createdBy: v.optional(v.id("users")),
     // How many users the resolved audience contained, written by `dispatch` at
     // insert time from the recipient list it already computes (spec 0011).
     // Without it the analytics page can count notifications but not reach:
@@ -1516,4 +1532,30 @@ export default defineSchema({
     .index("by_visitorId_at", ["visitorId", "at"])
     .index("by_followUpId", ["followUpId"])
     .index("by_at", ["at"]),
+
+  // ── Spec 0026 — the website API ────────────────────────────────────────────
+
+  // The membership figures `GET /api/v1/figures` serves, counts only. One
+  // row, replaced every 15 minutes by a cron (and on the first request when
+  // absent), so the website's traffic never turns into scans of the member
+  // tables and every response carries one honest `as_of`. Read with `.first()`.
+  //
+  // Nothing here names or reaches a person: no user ids, no profile fields,
+  // only clan and department ids (already public through `/api/v1/departments`)
+  // beside a number.
+  websiteFigures: defineTable({
+    computedAt: v.number(),
+    verifiedMembers: v.number(),
+    clans: v.array(
+      v.object({ clanId: v.id("clans"), name: v.string(), verified: v.number() })
+    ),
+    departments: v.array(
+      v.object({
+        departmentId: v.id("departments"),
+        name: v.string(),
+        serving: v.number(),
+        paused: v.boolean(),
+      })
+    ),
+  }),
 });

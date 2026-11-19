@@ -67,7 +67,8 @@ function excerpt(text: string, maxLength: number): string {
 export async function pushOnFirstPublish(
   ctx: MutationCtx,
   announcementId: Id<"announcements">,
-  actorId: Id<"users">
+  // Absent when the website published it (spec 0026): no KLT Cyber user acted.
+  actorId: Id<"users"> | undefined
 ): Promise<boolean> {
   const announcement = await ctx.db.get(announcementId);
   if (!announcement || announcement.firstPublishedAt !== undefined) return false;
@@ -105,6 +106,20 @@ const linksValidator = v.array(
 );
 
 const PRIORITY_RANK: Record<string, number> = { high: 3, normal: 2, low: 1 };
+
+/**
+ * Refuses a portal write to a row the website owns (spec 0026, AC-14). The
+ * website is the source of truth for such a row and would overwrite a portal
+ * edit on its next send, so the edit is refused up front instead of quietly
+ * lost later.
+ */
+function assertPortalOwned(announcement: Doc<"announcements">): void {
+  if (announcement.source === "website") {
+    throw new Error(
+      "This announcement comes from the website. Change it in the website admin."
+    );
+  }
+}
 
 // ── Reads ────────────────────────────────────────────────────────────────────
 
@@ -232,6 +247,7 @@ export const updateAnnouncement = mutation({
     const actor = await canManageContent(ctx);
     const existing = await ctx.db.get(announcementId);
     if (!existing) throw new Error("Announcement not found");
+    assertPortalOwned(existing);
 
     const startDate = patch.startDate ?? existing.startDate;
     const endDate = patch.endDate ?? existing.endDate;
@@ -273,6 +289,7 @@ async function setStatus(
   const actor = await canManageContent(ctx);
   const existing = await ctx.db.get(announcementId);
   if (!existing) throw new Error("Announcement not found");
+  assertPortalOwned(existing);
   await ctx.db.patch(announcementId, { status, updatedAt: Date.now() });
   await logActivity(ctx, {
     actorUserId: actor._id,
