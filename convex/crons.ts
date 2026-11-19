@@ -90,4 +90,13 @@ crons.interval("radio listening sweep", { minutes: 1 }, internal.radio.sweepList
 // same write, so a repeated run sends nothing twice.
 crons.cron("radio inbox digest", "20 * * * *", internal.radioInbox.sendInboxDigest);
 
+// The website's membership figures (spec 0026, AC-8). Every 15 minutes, so
+// `GET /api/v1/figures` reads one row however often the website calls it,
+// and a newly verified member shows on the website within a quarter hour.
+crons.interval(
+  "website membership figures",
+  { minutes: 15 },
+  internal.websiteApi.refreshFigures
+);
+
 export default crons;

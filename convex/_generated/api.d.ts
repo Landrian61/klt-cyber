@@ -73,6 +73,7 @@ import type * as lib_reviewerNotices from "../lib/reviewerNotices.js";
 import type * as lib_roleNotices from "../lib/roleNotices.js";
 import type * as lib_sentry from "../lib/sentry.js";
 import type * as lib_visitorAccount from "../lib/visitorAccount.js";
+import type * as lib_websiteApi from "../lib/websiteApi.js";
 import type * as library from "../library.js";
 import type * as memberProfiles from "../memberProfiles.js";
 import type * as notificationTargetingMigration from "../notificationTargetingMigration.js";
@@ -96,6 +97,7 @@ import type * as upcoming from "../upcoming.js";
 import type * as uploads from "../uploads.js";
 import type * as userStatusMigration from "../userStatusMigration.js";
 import type * as users from "../users.js";
+import type * as websiteApi from "../websiteApi.js";
 import type * as weeklyPrograms from "../weeklyPrograms.js";
 import type * as weeklyProgramsMigration from "../weeklyProgramsMigration.js";
 
@@ -171,6 +173,7 @@ declare const fullApi: ApiFromModules<{
   "lib/roleNotices": typeof lib_roleNotices;
   "lib/sentry": typeof lib_sentry;
   "lib/visitorAccount": typeof lib_visitorAccount;
+  "lib/websiteApi": typeof lib_websiteApi;
   library: typeof library;
   memberProfiles: typeof memberProfiles;
   notificationTargetingMigration: typeof notificationTargetingMigration;
@@ -194,6 +197,7 @@ declare const fullApi: ApiFromModules<{
   uploads: typeof uploads;
   userStatusMigration: typeof userStatusMigration;
   users: typeof users;
+  websiteApi: typeof websiteApi;
   weeklyPrograms: typeof weeklyPrograms;
   weeklyProgramsMigration: typeof weeklyProgramsMigration;
 }>;

@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { authComponent, createAuth } from "./auth";
 import { resend } from "./emails";
+import * as websiteApi from "./websiteApi";
 
 const http = httpRouter();
 
@@ -28,5 +29,21 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, req) => resend.handleResendEventWebhook(ctx, req)),
 });
+
+/**
+ * The website API (spec 0026), for the church website's backend. Each
+ * deployment serves it at `https://<deployment>.convex.site/api/v1/...` with
+ * its own keys, so every environment is separate. Guide: docs/api/website-api.md.
+ *
+ * Exact paths win over the `/api/v1/` prefix, so the prefix routes only answer
+ * a path or method nothing else claims, with a JSON 404.
+ */
+http.route({ path: "/api/v1/ping", method: "GET", handler: websiteApi.ping });
+http.route({ path: "/api/v1/departments", method: "GET", handler: websiteApi.departments });
+http.route({ path: "/api/v1/figures", method: "GET", handler: websiteApi.figures });
+http.route({ path: "/api/v1/announcements", method: "POST", handler: websiteApi.announcements });
+for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"] as const) {
+  http.route({ pathPrefix: "/api/v1/", method, handler: websiteApi.notFound });
+}
 
 export default http;

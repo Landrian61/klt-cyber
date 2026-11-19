@@ -729,7 +729,7 @@ Roster members of Media, Hospitality and Library have additional portal access d
 | | Clans | New |
 | Programs & content | Weekly program | Single-occurrence cancel and restore |
 | | Events | Start and end times, audiences, cancel |
-| | Announcements | First-publish push only; category shown in the app; whole church only |
+| | Announcements | First-publish push only; category shown in the app; whole church only; website announcements read only |
 | Planning | Year planner | Delete planned activities; all department and clan activities read-only |
 | System Admin only | Accounts, Roles, Audit log, Platform analytics | Moved from `/system-admin`; analytics and cost register new |
 
@@ -787,7 +787,7 @@ Roster members of Media, Hospitality and Library have additional portal access d
 
 | ID | Story | Key rules | Status |
 |---|---|---|---|
-| A6-01 | As Administration, I draft, publish, disable and archive announcements with priority, category, links, cover and display window. | Whole church only. Administration is the only publisher; other departments ask Administration. | Built |
+| A6-01 | As Administration, I draft, publish, disable and archive announcements with priority, category, links, cover and display window. | Whole church only. Two publishers: Administration in the portal, and the church website, whose approved announcements arrive through the website API (spec 0026) and are read only in the portal. Other departments ask Administration. | Change |
 | A6-02 | As Administration, publishing notifies members only the first time. | | Change |
 | A6-03 | As Administration, the category shows in the app. | M3-02 | Change |
 
@@ -1329,6 +1329,7 @@ Channels: **P** push, **I** in-app centre, **B** web bell, **E** email, **S** SM
 | **Africa's Talking** | Hospitality SMS | Account, "KLT" sender ID registration, prepaid credit from Church Finance, delivery reports |
 | **Google Cloud** | Google sign-in | Credentials for Android, iPhone and web; consent screen with privacy policy |
 | **Caster FM** | Radio stream | Existing; status detection reads the stream |
+| **Church website** (Laravel) | Reads membership figures (counts only) and the department list; sends approved announcements for push. Website API, spec 0026, guide `docs/api/website-api.md` | API keys and a signing secret per environment, set as Convex env vars; exchanged with the website developer through a password manager |
 | **Sentry** | Error reporting | Free tier |
 | **YouTube** | Past events (links and thumbnails) | No account needed |
 | **MTN MoMo, Airtel Money, banks** | Giving outside the app | Codes, numbers and recipient names entered by Finance |
