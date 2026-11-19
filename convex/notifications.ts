@@ -425,12 +425,14 @@ export const markAllNotificationsRead = mutation({
  * Two deliberate deviations from the literal spec, both flagged in the task
  * report:
  *
- * 1. `createdBy` is a required arg here, even though it wasn't listed in the
- *    spec's arg list. `notifications.createdBy` is a required schema field,
- *    and `dispatch` runs as a scheduled internal mutation (`ctx.scheduler
+ * 1. `createdBy` is an arg here, even though it wasn't listed in the spec's
+ *    arg list. `dispatch` runs as a scheduled internal mutation (`ctx.scheduler
  *    .runAfter` from `publishAnnouncement`) — there is no caller identity on
  *    `ctx.auth` to resolve it from at that point, so it has to come from the
- *    caller that still has one (the mutation that scheduled this).
+ *    caller that still has one (the mutation that scheduled this). It is
+ *    optional, here and on `notifications.createdBy`, only for a notice the
+ *    website caused (spec 0026), which has no KLT Cyber user behind it: read
+ *    it as possibly absent.
  * 2. No `createdAt` is written. The spec's insert list includes it, but
  *    `notifications` was deliberately built without that field (Increment
  *    6 — `_creationTime` covers it, same as `activityLogs`); adding it back
@@ -453,7 +455,8 @@ export const dispatch = internalMutation({
     body: v.string(),
     audience: notificationAudienceValidator,
     deepLink: v.object({ type: v.string(), id: v.string() }),
-    createdBy: v.id("users"),
+    // Absent only for a notice the website caused (spec 0026).
+    createdBy: v.optional(v.id("users")),
     imageUrl: v.optional(v.string()),
     // The program occurrence this notification is about, when it is about one
     // (spec 0009). Optional and ignored by every other kind of notification.
@@ -503,7 +506,7 @@ export const dispatch = internalMutation({
       body,
       audience,
       deepLink,
-      createdBy,
+      ...(createdBy ? { createdBy } : {}),
       // How far this one actually reached (spec 0011, AC-7). Recorded here
       // because `resolveAudience` has just worked it out and nothing
       // downstream can reconstruct it: an audience is resolved at send time,

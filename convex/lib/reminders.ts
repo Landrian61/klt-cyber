@@ -15,7 +15,8 @@ import type { NotificationKind } from "@klt-cyber/shared";
 export function notificationCommon(params: {
   audience: NotificationAudience;
   deepLink: { type: string; id: string };
-  createdBy: Id<"users">;
+  /** Absent only for a notice the website caused (spec 0026). */
+  createdBy?: Id<"users">;
   imageUrl?: string;
   /**
    * Optional: the program occurrence this notification is about (spec 0009).
@@ -33,7 +34,7 @@ export function notificationCommon(params: {
   return {
     audience: params.audience,
     deepLink: params.deepLink,
-    createdBy: params.createdBy,
+    ...(params.createdBy ? { createdBy: params.createdBy } : {}),
     ...(params.imageUrl ? { imageUrl: params.imageUrl } : {}),
     ...(params.occurrence ? { occurrence: params.occurrence } : {}),
     ...(params.kind ? { kind: params.kind } : {}),
