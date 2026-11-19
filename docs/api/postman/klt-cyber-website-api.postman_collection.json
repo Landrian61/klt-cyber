@@ -1,0 +1,836 @@
+{
+  "info": {
+    "_postman_id": "25509c88-4adc-4295-8e9d-d67cdf73e606",
+    "name": "KLT Cyber website API v1",
+    "description": "What KLT Cyber serves to the church website (spec 0026). Guide: docs/api/website-api.md.\n\nPick an environment (Development or Staging) holding baseUrl, apiKey and signingSecret. POST requests are signed by the collection pre-request script.\n\nFolders 1 to 3 are safe: they never write or push. Folder 4 sends a real push to that environment's test phones; run it on development or staging only, after telling the app team.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-Api-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Runs before every request in this collection.",
+          "// 1. `nowIso` is the current time, for `updated_at` in request bodies.",
+          "pm.variables.set(\"nowIso\", new Date().toISOString());",
+          "",
+          "// 2. Signs POST requests (spec 0026, AC-4): X-Klt-Timestamp is the Unix time",
+          "// in seconds, X-Klt-Signature is sha256= + hex HMAC-SHA256 of",
+          "// \"<timestamp>.<raw body>\" under the signing secret. The body is resolved and",
+          "// written back first, so the bytes signed are exactly the bytes sent.",
+          "if (pm.request.method === \"POST\") {",
+          "    const secret = pm.environment.get(\"signingSecret\");",
+          "    if (!secret) throw new Error(\"Set signingSecret in the selected environment.\");",
+          "    const raw = pm.variables.replaceIn(pm.request.body ? pm.request.body.raw || \"\" : \"\");",
+          "    pm.request.body.update({ mode: \"raw\", raw: raw, options: { raw: { language: \"json\" } } });",
+          "    const ts = Math.floor(Date.now() / 1000).toString();",
+          "    const sig = CryptoJS.HmacSHA256(ts + \".\" + raw, secret).toString(CryptoJS.enc.Hex);",
+          "    pm.request.headers.upsert({ key: \"X-Klt-Timestamp\", value: ts });",
+          "    pm.request.headers.upsert({ key: \"X-Klt-Signature\", value: \"sha256=\" + sig });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Gate",
+      "description": "Keys and routing. Safe.",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ping"
+              ]
+            },
+            "description": "Start here: confirms the key works and which deployment answered."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ok and signing configured\", () => { const d = pm.response.json().data; pm.expect(d.ok).to.eql(true); pm.expect(d.signing_configured).to.eql(true); });",
+                  "pm.test(\"answered by the selected environment\", () => pm.expect(pm.response.json().data.deployment).to.eql(pm.environment.get(\"baseUrl\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ping with a wrong key",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ping"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-Api-Key",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "not-a-real-key",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"error code unauthorized\", () => pm.expect(pm.response.json().error.code).to.eql(\"unauthorized\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown path",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"error code not_found\", () => pm.expect(pm.response.json().error.code).to.eql(\"not_found\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported method",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"error code not_found\", () => pm.expect(pm.response.json().error.code).to.eql(\"not_found\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Read",
+      "description": "Departments and figures. Safe.",
+      "item": [
+        {
+          "name": "Departments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/departments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "departments"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"each department has id, name, slug, order, paused\", () => pm.response.json().data.forEach((d) => pm.expect(d).to.include.keys(\"id\", \"name\", \"slug\", \"description\", \"order\", \"paused\")));",
+                  "pm.collectionVariables.set(\"departmentIds\", JSON.stringify(pm.response.json().data.map((d) => d.id)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Figures",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/figures",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "figures"
+              ]
+            },
+            "description": "Run Departments first so the last test can cross-check ids."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"has as_of, members, clans, departments\", () => pm.expect(d).to.include.keys(\"as_of\", \"members\", \"clans\", \"departments\"));",
+                  "pm.test(\"counts only: no personal data\", () => pm.expect(pm.response.text()).not.to.match(/@|\\+256|firstName|lastName|phone|email/i));",
+                  "pm.test(\"clans add up to at most the total\", () => pm.expect(d.clans.reduce((n, c) => n + c.verified, 0)).to.be.at.most(d.members.verified));",
+                  "const known = JSON.parse(pm.collectionVariables.get(\"departmentIds\") || \"null\");",
+                  "if (known) pm.test(\"every department id is in the department list\", () => d.departments.forEach((x) => pm.expect(known).to.include(x.id)));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Announcements, no writes",
+      "description": "Dry runs and failure cases. Nothing is stored and nothing is pushed.",
+      "item": [
+        {
+          "name": "Dry run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"title\": \"Postman test\",\n  \"body\": \"Please ignore: testing the website link from Postman.\",\n  \"category\": \"general\",\n  \"updated_at\": \"{{nowIso}}\",\n  \"dry_run\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dry run echoed\", () => pm.expect(pm.response.json().data.dry_run).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing fields (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"title\": \"\",\n  \"dry_run\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"error code validation_failed\", () => pm.expect(pm.response.json().error.code).to.eql(\"validation_failed\"));",
+                  "pm.test(\"lists title and body\", () => pm.expect(pm.response.json().error.details.map((x) => x.field)).to.include.members([\"title\", \"body\"]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported audience (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"title\": \"Postman test\",\n  \"body\": \"Please ignore: testing the website link from Postman.\",\n  \"category\": \"general\",\n  \"updated_at\": \"{{nowIso}}\",\n  \"audience\": \"ministry\",\n  \"dry_run\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"error code unsupported_audience\", () => pm.expect(pm.response.json().error.code).to.eql(\"unsupported_audience\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Broken JSON (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"oops\", not json",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"error code invalid_json\", () => pm.expect(pm.response.json().error.code).to.eql(\"invalid_json\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bad signature (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"title\": \"Postman test\",\n  \"body\": \"Please ignore: testing the website link from Postman.\",\n  \"category\": \"general\",\n  \"updated_at\": \"{{nowIso}}\",\n  \"dry_run\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Replaces the signature the collection script just computed.",
+                  "pm.request.headers.upsert({ key: \"X-Klt-Signature\", value: \"sha256=\" + \"0\".repeat(64) });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"error code bad_signature\", () => pm.expect(pm.response.json().error.code).to.eql(\"bad_signature\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stale timestamp (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"title\": \"Postman test\",\n  \"body\": \"Please ignore: testing the website link from Postman.\",\n  \"category\": \"general\",\n  \"updated_at\": \"{{nowIso}}\",\n  \"dry_run\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Ten minutes ago: outside the five minute window.",
+                  "pm.request.headers.upsert({ key: \"X-Klt-Timestamp\", value: String(Math.floor(Date.now() / 1000) - 600) });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"error code stale_request\", () => pm.expect(pm.response.json().error.code).to.eql(\"stale_request\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Announcements, real send",
+      "description": "PUSHES to every phone on this environment. Development or staging only. Run in order. Change announcementId in the environment to start over with a fresh announcement.",
+      "item": [
+        {
+          "name": "Publish (pushes once)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"title\": \"Postman test\",\n  \"body\": \"Please ignore: testing the website link from Postman.\",\n  \"category\": \"general\",\n  \"updated_at\": \"{{nowIso}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"created, or updated on a rerun\", () => pm.expect([\"created\", \"updated\"]).to.include(pm.response.json().data.result));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit (no second push)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"title\": \"Postman test (edited)\",\n  \"body\": \"Please ignore: testing the website link from Postman.\",\n  \"category\": \"general\",\n  \"updated_at\": \"{{nowIso}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"result updated\", () => pm.expect(pm.response.json().data.result).to.eql(\"updated\"));",
+                  "pm.test(\"pushed false\", () => pm.expect(pm.response.json().data.pushed).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Late older request (ignored)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "A retried job carrying an older updated_at changes nothing.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"title\": \"Stale title\",\n  \"body\": \"Please ignore: testing the website link from Postman.\",\n  \"category\": \"general\",\n  \"updated_at\": \"2020-01-01T00:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"result superseded\", () => pm.expect(pm.response.json().data.result).to.eql(\"superseded\"));",
+                  "pm.test(\"pushed false\", () => pm.expect(pm.response.json().data.pushed).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{announcementId}}\",\n  \"status\": \"withdrawn\",\n  \"updated_at\": \"{{nowIso}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"result withdrawn\", () => pm.expect(pm.response.json().data.result).to.eql(\"withdrawn\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Withdraw an unknown id (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "announcements"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"never-sent-{{$timestamp}}\",\n  \"status\": \"withdrawn\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"answers JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"error code not_found\", () => pm.expect(pm.response.json().error.code).to.eql(\"not_found\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "departmentIds",
+      "value": ""
+    }
+  ]
+}

@@ -322,6 +322,13 @@ sign_and_post '{"id":"test-2","status":"withdrawn"}'
 
 **6. From Laravel**, repeat step 3 through the `kltCyberPost` helper above with `dry_run: true`. Then send one real announcement through the approval flow on staging and confirm with the app team that it arrived once.
 
+### With Postman
+
+Import `docs/api/postman/klt-cyber-website-api.postman_collection.json`, then create an environment with `baseUrl`, `apiKey`, `signingSecret` (mark the last two as secret) and `announcementId` (any test id, e.g. `postman-test-1`). The collection sends the key and signs every POST for you, and each request carries tests that check the answer.
+
+- Folders **1 Gate**, **2 Read** and **3 Announcements, no writes** never store or push anything. Run them as often as you like with the Collection Runner.
+- Folder **4 Announcements, real send** pushes to that environment's phones. Run it in order, on development or staging only, after telling the app team. Change `announcementId` to start over with a fresh announcement.
+
 Done when: every step answers as described on staging, a retried job produces no second push, and the website's figures cache refreshes no more often than every 15 minutes.
 
 ## Versioning
